@@ -1,5 +1,7 @@
 CREATE TABLE contract (
   id serial PRIMARY KEY,
+  name text NOT NULL DEFAULT '',
+  readme text NOT NULL DEFAULT '',
   code text,
   state jsonb NOT NULL DEFAULT '{}',
 
@@ -8,7 +10,7 @@ CREATE TABLE contract (
 
 CREATE TABLE call (
   hash text UNIQUE NOT NULL, -- invoice hash
-  label text UNIQUE NOT NULL, -- invoice label
+  label text UNIQUE NOT NULL, -- invoice label, unprefixed (xyz -> etlenum.xyz)
   time timestamp NOT NULL DEFAULT now(),
   contract_id int NOT NULL REFERENCES contract (id),
   method text NOT NULL,
@@ -18,28 +20,5 @@ CREATE TABLE call (
 
 table contract;
 table call;
-
-update contract set code = '
-price = 5
-
-function buytoken ()
-  local amount = payload["amount"]
-  local user = payload["user"]
-
-  if satoshis == amount * price then
-    current = state[user]
-    if current == nil then
-      current = 0
-    end
-    state[user] = current + amount
-  end
-
-  for k, v in pairs(state) do
-    print(k, v)
-  end
-end
-
-function withdrawfunds ()
-  ln.pay(payload["bolt11"])
-end
-' where id = 1;
+delete from call;
+delete from contract;

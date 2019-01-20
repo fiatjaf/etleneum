@@ -2,29 +2,40 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"os"
+	"permissionsfortrello/public"
 	"time"
 
+	"github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
+	"github.com/speps/go-hashids"
+	"gopkg.in/redis.v5"
 )
 
 type Settings struct {
-	ServiceId   string `envconfig:"SERVICE_ID" default:"lntxbot"`
+	ServiceId   string `envconfig:"SERVICE_ID" default:"etleneum"`
 	ServiceURL  string `envconfig:"SERVICE_URL" required:"true"`
 	Port        string `envconfig:"PORT" required:"true"`
+	HashidSalt  string `envconfig:"HASHID_SALT" default:"etleneum"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
+	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
+
+	InitCostSatoshis int `envconfig:"INIT_COST_SATOSHIS" default:"100"`
 }
 
 var err error
 var s Settings
+var h *hashids.HashID
 var pg *sqlx.DB
 var ln *lightning.Client
+var rds *redis.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 func main() {
@@ -36,10 +47,32 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
 
+	// hashid
+	h, err = hashids.NewWithData(&hashids.HashIDData{
+		Alphabet:  "qpzry9x8gf2tvdw0s3jn54khce6mua7l",
+		MinLength: 23,
+		Salt:      s.HashidSalt,
+	})
+	if err != nil {
+		log.Fatal().Err(err).Msg("couldn't init hashid codec")
+	}
+
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't connect to postgres")
+	}
+
+	// redis connection
+	rurl, _ := url.Parse(s.RedisURL)
+	pw, _ := rurl.User.Password()
+	rds = redis.NewClient(&redis.Options{
+		Addr:     rurl.Host,
+		Password: pw,
+	})
+	if err := rds.Ping().Err(); err != nil {
+		log.Fatal().Err(err).Str("url", s.RedisURL).
+			Msg("failed to connect to redis")
 	}
 
 	// lightningd connection
@@ -51,15 +84,36 @@ func main() {
 	// pause here until lightningd works
 	probeLightningd()
 
-	res, err := runLua(1, "buytoken", "etleneum.389d4wbei7", map[string]interface{}{"amount": 2.0, "user": "fiatjaf"})
-	log.Print(res, err)
-	os.Exit(0)
+	// public http assets
+	httpPublic := &assetfs.AssetFS{Asset: public.Asset, AssetDir: public.AssetDir, Prefix: "public"}
 
 	// http server
-	r := mux.NewRouter()
+	router := mux.NewRouter()
+	router.PathPrefix("/public/").Methods("GET").Handler(http.FileServer(httpPublic))
+	router.Path("/").Methods("GET").HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			landingf, _ := httpPublic.Open("landing.html")
+			fstat, _ := landingf.Stat()
+			http.ServeContent(w, r, "landing.html", fstat.ModTime(), landingf)
+			return
+		})
+	router.Path("/favicon.ico").Methods("GET").HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "image/png")
+			iconf, _ := httpPublic.Open("icon.png")
+			fstat, _ := iconf.Stat()
+			http.ServeContent(w, r, "icon.png", fstat.ModTime(), iconf)
+			return
+		})
+	router.Path("/contract").Methods("POST").HandlerFunc(makeContract)
+	router.Path("/contract/{hashid}").Methods("GET").HandlerFunc(getContract)
+	router.Path("/contract/{hashid}").Methods("POST").HandlerFunc(initContract)
+	router.Path("/contract/{hashid}/{call}").Methods("GET").HandlerFunc(getCall)
+	router.Path("/contract/{hashid}/{call}").Methods("POST").HandlerFunc(makeCall)
 
 	srv := &http.Server{
-		Handler:      r,
+		Handler:      router,
 		Addr:         "0.0.0.0:" + s.Port,
 		WriteTimeout: 25 * time.Second,
 		ReadTimeout:  25 * time.Second,
