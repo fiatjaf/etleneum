@@ -186,10 +186,10 @@ WITH contract AS (
   VALUES ($1, $2, $3, $4, $5)
   RETURNING id
 )
-INSERT INTO call (hash, label, contract_id, method, payload, satoshis)
-VALUES ($6, $7, (SELECT id FROM contract), '__init__', $8, $9)
+INSERT INTO call (hash, label, contract_id, method, payload, cost, satoshis)
+VALUES ($6, $7, (SELECT id FROM contract), '__init__', $8, $9, $10)
     `, ct.Id, ct.Name, ct.Readme, ct.Code, payload,
-		invhash, invlabel, payload, invpaid)
+		invhash, invlabel, payload, costsatoshis, invpaid-costsatoshis)
 	if err != nil {
 		log.Warn().Err(err).Str("hashid", hashid).
 			Msg("failed to save contract on database")

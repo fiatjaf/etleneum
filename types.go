@@ -15,6 +15,7 @@ type Contract struct {
 	Name   string         `db:"name" json:"name"`
 	Readme string         `db:"readme" json:"readme"`
 	State  types.JSONText `db:"state" json:"state"`
+	Funds  int            `db:"funds" json:"funds"`
 	Bolt11 string         `db:"-" json:"invoice,omitempty"`
 }
 
@@ -93,4 +94,5 @@ type Call struct {
 	Method     string         `db:"method" json:"method"`
 	Payload    types.JSONText `db:"payload" json:"payload"`
 	Satoshis   int            `db:"satoshis" json:"satoshis"`
+	Cost       int            `db:"cost" json:"cost"`
 }
