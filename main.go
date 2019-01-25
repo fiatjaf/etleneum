@@ -14,7 +14,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
-	"github.com/speps/go-hashids"
 	"gopkg.in/redis.v5"
 )
 
@@ -32,7 +31,6 @@ type Settings struct {
 
 var err error
 var s Settings
-var h *hashids.HashID
 var pg *sqlx.DB
 var ln *lightning.Client
 var rds *redis.Client
@@ -46,16 +44,6 @@ func main() {
 
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
-
-	// hashid
-	h, err = hashids.NewWithData(&hashids.HashIDData{
-		Alphabet:  "qpzry9x8gf2tvdw0s3jn54khce6mua7l",
-		MinLength: 23,
-		Salt:      s.HashidSalt,
-	})
-	if err != nil {
-		log.Fatal().Err(err).Msg("couldn't init hashid codec")
-	}
 
 	// postgres connection
 	pg, err = sqlx.Connect("postgres", s.PostgresURL)
@@ -106,11 +94,13 @@ func main() {
 			http.ServeContent(w, r, "icon.png", fstat.ModTime(), iconf)
 			return
 		})
-	router.Path("/contract").Methods("POST").HandlerFunc(makeContract)
-	router.Path("/contract/{hashid}").Methods("GET").HandlerFunc(getContract)
-	router.Path("/contract/{hashid}").Methods("POST").HandlerFunc(initContract)
-	router.Path("/contract/{hashid}/{call}").Methods("GET").HandlerFunc(getCall)
-	router.Path("/contract/{hashid}/{call}").Methods("POST").HandlerFunc(makeCall)
+	router.Path("/contract").Methods("POST").HandlerFunc(prepareContract)
+	router.Path("/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
+	router.Path("/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
+	router.Path("/contract/{ctid}/calls").Methods("POST").HandlerFunc(listCalls)
+	router.Path("/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
+	router.Path("/contract/call/{callid}").Methods("GET").HandlerFunc(getCall)
+	router.Path("/contract/call/{callid}").Methods("POST").HandlerFunc(makeCall)
 
 	srv := &http.Server{
 		Handler:      router,

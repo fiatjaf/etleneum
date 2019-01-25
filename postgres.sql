@@ -1,5 +1,5 @@
 CREATE TABLE contract (
-  id serial PRIMARY KEY, -- turned into a hashid and then into the init invoice label
+  id text PRIMARY KEY, -- prefix to turn into the init invoice label
   name text NOT NULL DEFAULT '',
   readme text NOT NULL DEFAULT '',
   code text NOT NULL,
@@ -11,8 +11,8 @@ CREATE TABLE contract (
 );
 
 CREATE TABLE call (
+  id text PRIMARY KEY, -- prefix to turn into invoice label
   hash text UNIQUE NOT NULL, -- invoice hash
-  label text UNIQUE NOT NULL, -- invoice label
   time timestamp NOT NULL DEFAULT now(),
   contract_id int NOT NULL REFERENCES contract (id),
   method text NOT NULL,

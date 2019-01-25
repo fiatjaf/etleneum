@@ -2,45 +2,29 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/cjoudrey/gluahttp"
+	"github.com/jmoiron/sqlx"
+	"github.com/tengattack/gluacrypto"
 	"github.com/yuin/gopher-lua"
 	gluajson "layeh.com/gopher-json"
 )
 
 func runLua(
-	contract int,
+	txn *sqlx.Tx,
+	ctid string,
 	method string,
-	invoicelabel string,
-	payload map[string]interface{},
-) (interface{}, error) {
+	satoshis int,
+	payload []byte,
+) (bstate []byte, ret interface{}, err error) {
 	// get contract data
 	var ct Contract
-	err := pg.Get(&ct, `
-SELECT id, code, state
-FROM contract
-WHERE id = $1
-    `, contract)
+	err = txn.Get(&ct, `SELECT * FROM contract WHERE id = $1`, ctid)
 	if err != nil {
-		return nil, err
+		return
 	}
-
-	// encode payload for later
-	bpayload, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	// get invoice data
-	inv, err := ln.Call("waitinvoice", invoicelabel)
-	if err != nil {
-		return nil, err
-	}
-	hash := inv.Get("payment_hash").String()
-	satoshis := int(inv.Get("msatoshi_received").Float() / 1000)
 
 	// init lua
 	L := lua.NewState()
@@ -54,22 +38,23 @@ WHERE id = $1
 	// modules
 	L.PreloadModule("http", gluahttp.NewHttpModule(&http.Client{}).Loader)
 	gluajson.Preload(L)
+	gluacrypto.Preload(L)
 
-	var state map[string]interface{}
-	err = ct.State.Unmarshal(&state)
+	var currentstate map[string]interface{}
+	err = ct.State.Unmarshal(&currentstate)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// globals
-	L.SetGlobal("state", gluajson.DecodeValue(L, state))
+	L.SetGlobal("state", gluajson.DecodeValue(L, currentstate))
 	L.SetGlobal("payload", gluajson.DecodeValue(L, payload))
 	L.SetGlobal("satoshis", lua.LNumber(satoshis))
 
 	// run the code
 	err = L.DoString(ct.Code)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// call function
@@ -80,37 +65,21 @@ WHERE id = $1
 	})
 	if err != nil {
 		log.Error().Err(err).Str("method", method).Msg("error calling method")
-		return nil, err
+		return
 	}
 
 	// get state after method is run
-	bstate, err := gluajson.Encode(L.GetGlobal("state"))
+	bstate, err = gluajson.Encode(L.GetGlobal("state"))
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	// save everything in the database
-	_, err = pg.Exec(`
-WITH contract AS (
-  UPDATE contract
-  SET state = $2
-  WHERE id = $1
-  RETURNING id
-)
-INSERT INTO call (label, hash, contract_id, method, payload, satoshis)
-VALUES ($3, $4, (SELECT id FROM contract), $5, $6, $7)
-    `, ct.Id, bstate,
-		invoicelabel, hash, method, bpayload, satoshis)
-	if err != nil {
-		return nil, err
-	}
-
-	// returned value (return this to the caller)
-	ret, err := gluajson.Encode(L.Get(-1))
+	// return
+	ret, err = gluajson.Encode(L.Get(-1))
 	L.Pop(1)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	return ret, nil
+	return bstate, ret, nil
 }
