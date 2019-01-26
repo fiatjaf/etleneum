@@ -2,30 +2,17 @@ package main
 
 import (
 	"context"
-	"net/http"
 	"time"
 
-	"github.com/cjoudrey/gluahttp"
-	"github.com/jmoiron/sqlx"
 	"github.com/tengattack/gluacrypto"
 	"github.com/yuin/gopher-lua"
 	gluajson "layeh.com/gopher-json"
 )
 
 func runLua(
-	txn *sqlx.Tx,
-	ctid string,
-	method string,
-	satoshis int,
-	payload []byte,
+	contract Contract,
+	call Call,
 ) (bstate []byte, ret interface{}, err error) {
-	// get contract data
-	var ct Contract
-	err = txn.Get(&ct, `SELECT * FROM contract WHERE id = $1`, ctid)
-	if err != nil {
-		return
-	}
-
 	// init lua
 	L := lua.NewState()
 	defer L.Close()
@@ -36,12 +23,17 @@ func runLua(
 	L.SetContext(ctx)
 
 	// modules
-	L.PreloadModule("http", gluahttp.NewHttpModule(&http.Client{}).Loader)
 	gluajson.Preload(L)
 	gluacrypto.Preload(L)
 
 	var currentstate map[string]interface{}
-	err = ct.State.Unmarshal(&currentstate)
+	err = contract.State.Unmarshal(&currentstate)
+	if err != nil {
+		return
+	}
+
+	var payload map[string]interface{}
+	err = call.Payload.Unmarshal(&payload)
 	if err != nil {
 		return
 	}
@@ -49,22 +41,28 @@ func runLua(
 	// globals
 	L.SetGlobal("state", gluajson.DecodeValue(L, currentstate))
 	L.SetGlobal("payload", gluajson.DecodeValue(L, payload))
-	L.SetGlobal("satoshis", lua.LNumber(satoshis))
+	L.SetGlobal("satoshis", lua.LNumber(call.Satoshis))
 
 	// run the code
-	err = L.DoString(ct.Code)
+	log.Debug().Int("satoshis", call.Satoshis).
+		Interface("payload", payload).
+		Interface("state", currentstate).
+		Msg("running code")
+	err = L.DoString(contract.Code)
 	if err != nil {
 		return
 	}
 
 	// call function
+	log.Print("calling function ", call.Method)
 	err = L.CallByParam(lua.P{
-		Fn:      L.GetGlobal(method),
+		Fn:      L.GetGlobal(call.Method),
 		NRet:    1,
 		Protect: true,
 	})
 	if err != nil {
-		log.Error().Err(err).Str("method", method).Msg("error calling method")
+		log.Error().Err(err).Str("method", call.Method).
+			Msg("error calling method")
 		return
 	}
 

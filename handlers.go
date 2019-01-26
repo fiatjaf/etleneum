@@ -54,7 +54,7 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 
 	ct := &Contract{}
-	err = pg.Get(ct, `SELECT * FROM contract WHERE id = $1`, ctid)
+	err = pg.Get(ct, `SELECT * FROM contracts WHERE id = $1`, ctid)
 	if err == sql.ErrNoRows {
 		// couldn't find on database, maybe it's a temporary contract?
 		jct, err := rds.Get("contract:" + ctid).Bytes()
@@ -131,11 +131,11 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 
 	_, err = pg.Exec(`
 WITH contract AS (
-  INSERT INTO contract (id, name, readme, code, state)
+  INSERT INTO contracts (id, name, readme, code, state)
   VALUES ($1, $2, $3, $4, $5)
   RETURNING id
 )
-INSERT INTO call (hash, id, contract_id, method, payload, cost, satoshis)
+INSERT INTO calls (hash, id, contract_id, method, payload, cost, satoshis)
 VALUES ($6, $7, (SELECT id FROM contract), '__init__', $8, $9, 0)
     `, ct.Id, ct.Name, ct.Readme, ct.Code, payload,
 		hash, cuid.Slug(), payload, costsatoshis)
@@ -160,7 +160,9 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 	err = pg.Select(&calls, `
 SELECT * FROM calls WHERE contract_id = $1
     `, ctid)
-	if err != nil {
+	if err == sql.ErrNoRows {
+		calls = make([]Call, 0)
+	} else if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).Msg("failed to fetch calls")
 		http.Error(w, "", 404)
 		return
@@ -212,9 +214,9 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 func getCall(w http.ResponseWriter, r *http.Request) {
 	callid := mux.Vars(r)["callid"]
 
-	var call Call
+	call := &Call{}
 	err = pg.Get(call, `
-SELECT * FROM calls WHERE callid = $1
+SELECT * FROM calls WHERE id = $1
     `, callid)
 	if err == sql.ErrNoRows {
 		bcall, err := rds.Get("call:" + callid).Bytes()
@@ -265,14 +267,14 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	label := s.ServiceId + "." + call.ContractId + "." + callid
-	_, err = checkPayment(label, call.Cost+call.Satoshis*1000)
+	call.Hash, err = checkPayment(label, call.Cost+call.Satoshis*1000)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("payment check failed")
 		http.Error(w, "", 500)
 		return
 	}
 
-	// run the call
+	// proceed to run the call
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
@@ -282,8 +284,14 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 	}
 	defer txn.Rollback()
 
-	newState, returnedValue, err := runLua(txn,
-		call.ContractId, call.Method, call.Satoshis, call.Payload)
+	// get contract data
+	var ct Contract
+	err = txn.Get(&ct, `SELECT * FROM contracts WHERE id = $1`, call.ContractId)
+	if err != nil {
+		return
+	}
+
+	newState, returnedValue, err := runLua(ct, *call)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("failed to run call")
 		http.Error(w, "", 500)
@@ -292,10 +300,11 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 
 	_, err = txn.Exec(`
 WITH contract AS (
-  UPDATE contract SET state = $2
+  UPDATE contracts SET state = $2
   WHERE id = $1
+  RETURNING id
 )
-INSERT INTO call (hash, id, contract_id, method, payload, cost, satoshis)
+INSERT INTO calls (hash, id, contract_id, method, payload, cost, satoshis)
 VALUES ($3, $4, (SELECT id FROM contract), $5, $6, $7, $8)
     `, call.ContractId, newState,
 		call.Hash, call.Id, call.Method, call.Payload, call.Cost, call.Satoshis,

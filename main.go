@@ -97,10 +97,10 @@ func main() {
 	router.Path("/contract").Methods("POST").HandlerFunc(prepareContract)
 	router.Path("/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
 	router.Path("/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
-	router.Path("/contract/{ctid}/calls").Methods("POST").HandlerFunc(listCalls)
+	router.Path("/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
 	router.Path("/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
-	router.Path("/contract/call/{callid}").Methods("GET").HandlerFunc(getCall)
-	router.Path("/contract/call/{callid}").Methods("POST").HandlerFunc(makeCall)
+	router.Path("/call/{callid}").Methods("GET").HandlerFunc(getCall)
+	router.Path("/call/{callid}").Methods("POST").HandlerFunc(makeCall)
 
 	srv := &http.Server{
 		Handler:      router,
