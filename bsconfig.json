@@ -1,0 +1,22 @@
+{
+  "name": "etleneum",
+  "bsc-flags": ["-bs-no-version-header", "-bs-super-errors"],
+  "reason": {"react-jsx" : 2},
+  "bs-dependencies": [
+    "bs-fetch",
+    "reason-react"
+  ],
+  "refmt": 3,
+  "sources": {
+    "dir" : "client",
+    "subdirs" : true
+  },
+  "warnings": {
+    "error" : "+101"
+  },
+  "namespace": true,
+  "package-specs": {
+    "module": "commonjs",
+    "in-source": true
+  }
+}

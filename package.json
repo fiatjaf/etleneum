@@ -1,0 +1,33 @@
+{
+  "browserify": {
+    "transform": [
+      [
+        "babelify",
+        {
+          "sourceMaps": true,
+          "sourceMapsAbsolute": true
+        }
+      ],
+      "envify"
+    ]
+  },
+  "devDependencies": {
+    "@babel/core": "7.0.0-rc.1",
+    "@babel/preset-env": "7.0.0-rc.1",
+    "@babel/preset-react": "7.0.0-rc.1",
+    "babelify": "^9.0.0",
+    "browserify": "^16.2.2",
+    "envify": "^4.1.0",
+    "prettier": "1.14.2",
+    "stylus": "^0.54.5",
+    "uglify-js": "^3.4.7",
+    "uglifyify": "^5.0.1"
+  },
+  "dependencies": {
+    "@glennsl/bs-json": "^3.0.0",
+    "bs-fetch": "^0.3.1",
+    "react": "^16.7.0",
+    "react-dom": "^16.7.0",
+    "reason-react": "^0.5.3"
+  }
+}

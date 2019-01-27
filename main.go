@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"permissionsfortrello/public"
 	"time"
 
 	"github.com/elazarl/go-bindata-assetfs"
@@ -72,26 +71,26 @@ func main() {
 	// pause here until lightningd works
 	probeLightningd()
 
-	// public http assets
-	httpPublic := &assetfs.AssetFS{Asset: public.Asset, AssetDir: public.AssetDir, Prefix: "public"}
+	// static http assets
+	httpPublic := &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""}
 
 	// http server
 	router := mux.NewRouter()
-	router.PathPrefix("/public/").Methods("GET").Handler(http.FileServer(httpPublic))
+	router.PathPrefix("/static/").Methods("GET").Handler(http.FileServer(httpPublic))
 	router.Path("/").Methods("GET").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "text/html")
-			landingf, _ := httpPublic.Open("landing.html")
+			landingf, _ := httpPublic.Open("static/index.html")
 			fstat, _ := landingf.Stat()
-			http.ServeContent(w, r, "landing.html", fstat.ModTime(), landingf)
+			http.ServeContent(w, r, "static/index.html", fstat.ModTime(), landingf)
 			return
 		})
 	router.Path("/favicon.ico").Methods("GET").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
-			iconf, _ := httpPublic.Open("icon.png")
+			iconf, _ := httpPublic.Open("static/icon.png")
 			fstat, _ := iconf.Stat()
-			http.ServeContent(w, r, "icon.png", fstat.ModTime(), iconf)
+			http.ServeContent(w, r, "static/icon.png", fstat.ModTime(), iconf)
 			return
 		})
 	router.Path("/contract").Methods("POST").HandlerFunc(prepareContract)

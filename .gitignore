@@ -2,3 +2,10 @@
 *.swp
 *.swo
 etleneum
+node_modules
+lib
+bindata.go
+.merlin
+static/*.js
+static/*.css
+client/*.js
