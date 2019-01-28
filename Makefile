@@ -8,19 +8,18 @@ prod: $(shell find . -name "*.go") static/bundle.min.js static/style.min.css
 	go build -o ./etleneum
 
 watch:
-	find . -name "*.re" | entr bash -c 'bsb -make-world'
 	find . -name "*.go" | entr -r bash -c 'make etleneum && ./etleneum'
 
 bindata.go: $(shell find static)
 	go-bindata -debug -o bindata.go static/
 
-static/bundle.js: $(shell find client -name "*.re")
+static/bundle.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world
-	./node_modules/.bin/browserify client/Main.js -dv --outfile static/bundle.js
+	./node_modules/.bin/browserify client/Main.bs.js -dv --outfile static/bundle.js
 
-static/bundle.min.js: $(shell find client -name "*.re")
+static/bundle.min.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world
-	./node_modules/.bin/browserify client/Main.js -g [ envify --NODE_ENV production ] -g uglifyify | ./node_modules/.bin/uglifyjs --compress --mangle > static/bundle.min.js
+	./node_modules/.bin/browserify client/Main.bs.js -g [ envify --NODE_ENV production ] -g uglifyify | ./node_modules/.bin/uglifyjs --compress --mangle > static/bundle.min.js
 
 static/style.css: client/style.styl
 	./node_modules/.bin/stylus < client/style.styl > static/style.css

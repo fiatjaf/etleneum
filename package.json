@@ -28,6 +28,7 @@
     "bs-fetch": "^0.3.1",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
+    "react-json-view": "^1.19.1",
     "reason-react": "^0.5.3"
   }
 }

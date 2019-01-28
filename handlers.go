@@ -12,6 +12,21 @@ import (
 	"github.com/lucsky/cuid"
 )
 
+func listContracts(w http.ResponseWriter, r *http.Request) {
+	var contracts []Contract
+	err = pg.Select(&contracts, `SELECT * FROM contracts`)
+	if err == sql.ErrNoRows {
+		contracts = make([]Contract, 0)
+	} else if err != nil {
+		log.Warn().Err(err).Msg("failed to fetch contracts")
+		http.Error(w, "", 404)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(contracts)
+}
+
 func prepareContract(w http.ResponseWriter, r *http.Request) {
 	// making a contract only saves it temporarily.
 	// the contract can be inspected only by its creator.
@@ -157,9 +172,7 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 
 	var calls []Call
-	err = pg.Select(&calls, `
-SELECT * FROM calls WHERE contract_id = $1
-    `, ctid)
+	err = pg.Select(&calls, `SELECT * FROM calls WHERE contract_id = $1`, ctid)
 	if err == sql.ErrNoRows {
 		calls = make([]Call, 0)
 	} else if err != nil {

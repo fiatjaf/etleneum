@@ -34,6 +34,7 @@ var pg *sqlx.DB
 var ln *lightning.Client
 var rds *redis.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var httpPublic = &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""}
 
 func main() {
 	err = envconfig.Process("", &s)
@@ -71,20 +72,12 @@ func main() {
 	// pause here until lightningd works
 	probeLightningd()
 
-	// static http assets
-	httpPublic := &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""}
-
 	// http server
 	router := mux.NewRouter()
 	router.PathPrefix("/static/").Methods("GET").Handler(http.FileServer(httpPublic))
-	router.Path("/").Methods("GET").HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html")
-			landingf, _ := httpPublic.Open("static/index.html")
-			fstat, _ := landingf.Stat()
-			http.ServeContent(w, r, "static/index.html", fstat.ModTime(), landingf)
-			return
-		})
+	router.Path("/").Methods("GET").HandlerFunc(serveClient)
+	router.Path("/{ctid}").Methods("GET").HandlerFunc(serveClient)
+	router.Path("/{ctid}/").Methods("GET").HandlerFunc(serveClient)
 	router.Path("/favicon.ico").Methods("GET").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
@@ -93,13 +86,14 @@ func main() {
 			http.ServeContent(w, r, "static/icon.png", fstat.ModTime(), iconf)
 			return
 		})
-	router.Path("/contract").Methods("POST").HandlerFunc(prepareContract)
-	router.Path("/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
-	router.Path("/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
-	router.Path("/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
-	router.Path("/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
-	router.Path("/call/{callid}").Methods("GET").HandlerFunc(getCall)
-	router.Path("/call/{callid}").Methods("POST").HandlerFunc(makeCall)
+	router.Path("/~/contracts").Methods("GET").HandlerFunc(listContracts)
+	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
+	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
+	router.Path("/~/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
+	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
+	router.Path("/~/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
+	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
+	router.Path("/~/call/{callid}").Methods("POST").HandlerFunc(makeCall)
 
 	srv := &http.Server{
 		Handler:      router,
@@ -126,4 +120,12 @@ func probeLightningd() {
 		Int64("blockheight", nodeinfo.Get("blockheight").Int()).
 		Str("version", nodeinfo.Get("version").String()).
 		Msg("lightning node connected")
+}
+
+func serveClient(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
+	indexf, _ := httpPublic.Open("static/index.html")
+	fstat, _ := indexf.Stat()
+	http.ServeContent(w, r, "static/index.html", fstat.ModTime(), indexf)
+	return
 }

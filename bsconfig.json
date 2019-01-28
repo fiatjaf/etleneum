@@ -1,18 +1,16 @@
 {
   "name": "etleneum",
   "bsc-flags": ["-bs-no-version-header", "-bs-super-errors"],
-  "reason": {"react-jsx" : 2},
-  "bs-dependencies": [
-    "bs-fetch",
-    "reason-react"
-  ],
+  "reason": {"react-jsx": 2},
+  "suffix": ".bs.js",
+  "bs-dependencies": ["bs-fetch", "@glennsl/bs-json", "reason-react"],
   "refmt": 3,
   "sources": {
-    "dir" : "client",
-    "subdirs" : true
+    "dir": "client",
+    "subdirs": true
   },
   "warnings": {
-    "error" : "+101"
+    "error": "+101"
   },
   "namespace": true,
   "package-specs": {

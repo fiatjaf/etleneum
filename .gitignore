@@ -8,4 +8,4 @@ bindata.go
 .merlin
 static/*.js
 static/*.css
-client/*.js
+client/*.bs.js
