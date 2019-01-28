@@ -75,9 +75,6 @@ func main() {
 	// http server
 	router := mux.NewRouter()
 	router.PathPrefix("/static/").Methods("GET").Handler(http.FileServer(httpPublic))
-	router.Path("/").Methods("GET").HandlerFunc(serveClient)
-	router.Path("/{ctid}").Methods("GET").HandlerFunc(serveClient)
-	router.Path("/{ctid}/").Methods("GET").HandlerFunc(serveClient)
 	router.Path("/favicon.ico").Methods("GET").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
@@ -89,11 +86,13 @@ func main() {
 	router.Path("/~/contracts").Methods("GET").HandlerFunc(listContracts)
 	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
 	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
+	router.Path("/~/contract/{ctid}").Methods("PUT").HandlerFunc(updateContract)
 	router.Path("/~/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
 	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
 	router.Path("/~/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
 	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
 	router.Path("/~/call/{callid}").Methods("POST").HandlerFunc(makeCall)
+	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{
 		Handler:      router,

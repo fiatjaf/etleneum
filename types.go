@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/jmoiron/sqlx/types"
@@ -16,6 +17,23 @@ type Contract struct {
 	Bolt11 string         `db:"-" json:"invoice,omitempty"`
 }
 
+func contractFromRedis(ctid string) (ct *Contract, err error) {
+	var jct []byte
+	ct = &Contract{}
+
+	jct, err = rds.Get("contract:" + ctid).Bytes()
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(jct, ct)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func (c *Contract) getInvoice() error {
 	label := s.ServiceId + "." + c.Id
 	desc := "etleneum contract __init__ [" + c.Id + "]"
@@ -23,6 +41,20 @@ func (c *Contract) getInvoice() error {
 	bolt11, err := getInvoice(label, desc, msats)
 	c.Bolt11 = bolt11
 	return err
+}
+
+func (ct Contract) saveOnRedis() (jct []byte, err error) {
+	jct, err = json.Marshal(ct)
+	if err != nil {
+		return
+	}
+
+	err = rds.Set("contract:"+ct.Id, jct, time.Hour*30).Err()
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 type Call struct {

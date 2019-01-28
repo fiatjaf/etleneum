@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/imdario/mergo"
 	"github.com/lucsky/cuid"
 )
 
@@ -47,18 +48,10 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jct, err := json.Marshal(ct)
-	if err != nil {
-		log.Warn().Err(err).Interface("ct", ct).Msg("failed to marshal contract")
-		http.Error(w, "", 500)
-		return
-	}
-
-	err = rds.Set("contract:"+ct.Id, jct, time.Hour*30).Err()
+	jct, err := ct.saveOnRedis()
 	if err != nil {
 		log.Warn().Err(err).Interface("ct", ct).Msg("failed to save to redis")
 		http.Error(w, "", 500)
-		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -72,18 +65,11 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 	err = pg.Get(ct, `SELECT * FROM contracts WHERE id = $1`, ctid)
 	if err == sql.ErrNoRows {
 		// couldn't find on database, maybe it's a temporary contract?
-		jct, err := rds.Get("contract:" + ctid).Bytes()
+		ct, err = contractFromRedis(ctid)
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
-				Msg("failed to fetch contract")
+				Msg("failed to fetch fetch contract from redis")
 			http.Error(w, "", 404)
-			return
-		}
-		err = json.Unmarshal(jct, ct)
-		if err != nil {
-			log.Warn().Err(err).Str("ctid", ctid).Str("b", string(jct)).
-				Msg("failed to fetch unmarshal contract from redis")
-			http.Error(w, "", 500)
 			return
 		}
 		err = ct.getInvoice()
@@ -104,26 +90,62 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ct)
 }
 
+func updateContract(w http.ResponseWriter, r *http.Request) {
+	// updates a contract before it is initiated
+	ctid := mux.Vars(r)["ctid"]
+
+	var upd = Contract{}
+	var curr = &Contract{}
+
+	// parse update
+	err := json.NewDecoder(r.Body).Decode(&upd)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to parse contract update json.")
+		http.Error(w, "", 400)
+		return
+	}
+
+	// get current
+	curr, err = contractFromRedis(ctid)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to get contract from redis.")
+		http.Error(w, "", 404)
+		return
+	}
+
+	// update current
+	mergo.Merge(&curr, upd)
+
+	// update invoice
+	err = curr.getInvoice()
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to make invoice.")
+		http.Error(w, "", 500)
+		return
+	}
+
+	// save on redis
+	jcurr, err := curr.saveOnRedis()
+	if err != nil {
+		log.Warn().Err(err).Interface("ct", curr).Msg("failed to save to redis")
+		http.Error(w, "", 500)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jcurr)
+}
+
 func makeContract(w http.ResponseWriter, r *http.Request) {
 	// init is a special call that enables a contract.
 	// it has a fixed cost and its payload is the initial state of the contract.
 	ctid := mux.Vars(r)["ctid"]
 	costsatoshis := s.InitCostSatoshis
 
-	jct, err := rds.Get("contract:" + ctid).Bytes()
+	ct, err := contractFromRedis(ctid)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
-			Msg("failed to fetch temporary contract for init")
+			Msg("failed to fetch contract from redis")
 		http.Error(w, "", 404)
-		return
-	}
-
-	ct := &Contract{}
-	err = json.Unmarshal(jct, ct)
-	if err != nil {
-		log.Warn().Err(err).Str("contract", string(jct)).
-			Msg("failed to unmarshal temporary contract")
-		http.Error(w, "", 500)
 		return
 	}
 

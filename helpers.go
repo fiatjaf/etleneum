@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 func getInvoice(label, desc string, msats int) (string, error) {
@@ -23,14 +24,14 @@ func getInvoice(label, desc string, msats int) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		res, err := ln.Call("invoice", strconv.Itoa(msats), label, desc)
+		res, err := ln.CallWithCustomTimeout("invoice", 7*time.Second, strconv.Itoa(msats), label, desc)
 		if err != nil {
 			return "", err
 		}
 		bolt11 := res.Get("bolt11").String()
 		return bolt11, nil
 	case "":
-		res, err := ln.Call("invoice", strconv.Itoa(msats), label, desc)
+		res, err := ln.CallWithCustomTimeout("invoice", 7*time.Second, strconv.Itoa(msats), label, desc)
 		if err != nil {
 			return "", err
 		}
