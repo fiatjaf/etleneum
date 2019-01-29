@@ -10,12 +10,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/imdario/mergo"
+	"github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"
 )
 
 func listContracts(w http.ResponseWriter, r *http.Request) {
 	var contracts []Contract
-	err = pg.Select(&contracts, `SELECT * FROM contracts`)
+	err = pg.Select(&contracts, `SELECT id, name, readme FROM contracts`)
 	if err == sql.ErrNoRows {
 		contracts = make([]Contract, 0)
 	} else if err != nil {
@@ -62,7 +63,12 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 
 	ct := &Contract{}
-	err = pg.Get(ct, `SELECT * FROM contracts WHERE id = $1`, ctid)
+	err = pg.Get(ct, `
+SELECT *,
+  (SELECT sum(satoshis - paid) FROM calls WHERE contract_id = $1) AS funds
+FROM contracts
+WHERE id = $1`,
+		ctid)
 	if err == sql.ErrNoRows {
 		// couldn't find on database, maybe it's a temporary contract?
 		ct, err = contractFromRedis(ctid)
@@ -149,7 +155,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hash, err := checkPayment(s.ServiceId+"."+ctid, costsatoshis)
+	err = checkPayment(s.ServiceId+"."+ctid, costsatoshis)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).Msg("payment check failed")
 		http.Error(w, "", 500)
@@ -172,10 +178,10 @@ WITH contract AS (
   VALUES ($1, $2, $3, $4, $5)
   RETURNING id
 )
-INSERT INTO calls (hash, id, contract_id, method, payload, cost, satoshis)
-VALUES ($6, $7, (SELECT id FROM contract), '__init__', $8, $9, 0)
+INSERT INTO calls (id, contract_id, method, payload, cost, satoshis)
+VALUES ($6, (SELECT id FROM contract), '__init__',  $7, $8, 0)
     `, ct.Id, ct.Name, ct.Readme, ct.Code, payload,
-		hash, cuid.Slug(), payload, costsatoshis)
+		cuid.Slug(), payload, costsatoshis)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
 			Msg("failed to save contract on database")
@@ -301,8 +307,10 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Info().Interface("call", call).Msg("call being made")
+
 	label := s.ServiceId + "." + call.ContractId + "." + callid
-	call.Hash, err = checkPayment(label, call.Cost+call.Satoshis*1000)
+	err = checkPayment(label, call.Cost+call.Satoshis*1000)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("payment check failed")
 		http.Error(w, "", 500)
@@ -321,36 +329,69 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 
 	// get contract data
 	var ct Contract
-	err = txn.Get(&ct, `SELECT * FROM contracts WHERE id = $1`, call.ContractId)
+	err = txn.Get(&ct, `
+SELECT *,
+  (SELECT sum(satoshis - paid) FROM calls WHERE contract_id = $1) AS funds
+FROM contracts
+WHERE id = $1`, call.ContractId)
 	if err != nil {
+		log.Warn().Err(err).Str("ctid", call.ContractId).Str("callid", callid).
+			Msg("failed to get contract data")
+		http.Error(w, "", 500)
 		return
 	}
 
-	newState, returnedValue, err := runLua(ct, *call)
+	// actually run the call
+	newState, totalPaid, paymentsPending, returnedValue, err := runLua(ct, *call)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("failed to run call")
 		http.Error(w, "", 500)
 		return
 	}
 
+	// save new state
 	_, err = txn.Exec(`
-WITH contract AS (
-  UPDATE contracts SET state = $2
-  WHERE id = $1
-  RETURNING id
-)
-INSERT INTO calls (hash, id, contract_id, method, payload, cost, satoshis)
-VALUES ($3, $4, (SELECT id FROM contract), $5, $6, $7, $8)
-    `, call.ContractId, newState,
-		call.Hash, call.Id, call.Method, call.Payload, call.Cost, call.Satoshis,
-	)
+UPDATE contracts SET state = $2
+WHERE id = $1
+    `, call.ContractId, newState)
 	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).
-			Msg("failed to save call on database")
+		log.Warn().Err(err).Str("callid", callid).Msg("database error")
 		http.Error(w, "", 500)
 		return
 	}
 
+	// save call (including all the transactions, even though they weren't paid yet)
+	_, err = txn.Exec(`
+INSERT INTO calls (id, contract_id, method, payload, cost, satoshis, paid)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, call.Id, call.ContractId,
+		call.Method, call.Payload, call.Cost, call.Satoshis, totalPaid)
+	if err != nil {
+		log.Warn().Err(err).Str("callid", callid).Msg("database error")
+		http.Error(w, "", 500)
+		return
+	}
+
+	// get contract balance (if balance is negative after the call all will fail)
+	var contractFunds int
+	err = txn.Get(&contractFunds, `
+SELECT sum(satoshis - paid)
+FROM calls
+WHERE contract_id = $1`,
+		call.ContractId)
+	if err != nil {
+		log.Warn().Err(err).Str("callid", callid).Msg("database error")
+		http.Error(w, "", 500)
+		return
+	}
+
+	if contractFunds < 0 {
+		log.Warn().Err(err).Str("callid", callid).Msg("contract out of funds")
+		http.Error(w, "", 500)
+		return
+	}
+
+	// ok, all is good, commit and proceed.
 	err = txn.Commit()
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("failed to commit call")
@@ -358,8 +399,64 @@ VALUES ($3, $4, (SELECT id FROM contract), $5, $6, $7, $8)
 		return
 	}
 
-	// saved. delete from redis.
+	// delete from redis to prevent double-calls
 	rds.Del("call:" + callid)
+
+	log.Info().Str("callid", callid).Interface("payments", paymentsPending).
+		Msg("call done")
+
+	// everything is saved and well alright.
+	// do the payments in a separate goroutine:
+	go func(callId string, previousState types.JSONText, paymentsPending []string) {
+		dirty := false
+		stillpending := make([]string, 0, len(paymentsPending))
+
+		for _, bolt11 := range paymentsPending {
+			res, err := ln.CallWithCustomTimeout("pay", time.Second*10, bolt11)
+			log.Debug().Err(err).Str("res", res.String()).
+				Str("callid", callid).
+				Msg("payment from contract")
+
+			if err == nil {
+				// at least one payment went through, this whole thing is now dirty
+				dirty = true
+			} else {
+				if dirty == false {
+					// if no payment has been made yet, revert this call
+					_, err := pg.Exec(`
+WITH deleted_call AS (
+  DELETE FROM calls WHERE id = $1 
+  RETURNING contract_id
+)
+UPDATE contracts SET state = $2
+WHERE id (SELECT contract_id FROM deleted_call)
+        `, callId, previousState)
+					if err == nil {
+						log.Info().Str("callid", callId).
+							Str("state", string(previousState)).
+							Msg("reverted call")
+						return
+					} else {
+						log.Error().Err(err).Str("callid", callId).
+							Str("state", string(previousState)).
+							Msg("couldn't revert call after payment failure.")
+
+						// mark all as pending
+						stillpending = paymentsPending
+						return
+					}
+				}
+
+				// otherwise the call can't be reverted
+				// we'll try to pay again later
+				stillpending = append(stillpending, bolt11)
+			}
+		}
+
+		for _, bolt11 := range stillpending {
+			rds.SAdd("call:"+callId+":pending", bolt11)
+		}
+	}(call.Id, ct.State, paymentsPending)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

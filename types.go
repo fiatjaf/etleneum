@@ -8,13 +8,15 @@ import (
 )
 
 type Contract struct {
-	Id     string         `db:"id" json:"id"`
-	Code   string         `db:"code" json:"code"`
-	Name   string         `db:"name" json:"name"`
-	Readme string         `db:"readme" json:"readme"`
-	State  types.JSONText `db:"state" json:"state"`
-	Funds  int            `db:"funds" json:"funds"`
-	Bolt11 string         `db:"-" json:"invoice,omitempty"`
+	Id        string         `db:"id" json:"id"`
+	Code      string         `db:"code" json:"code"`
+	Name      string         `db:"name" json:"name"`
+	Readme    string         `db:"readme" json:"readme"`
+	State     types.JSONText `db:"state" json:"state"`
+	CreatedAt time.Time      `db:"created_at" json:"created_at"`
+
+	Funds  int    `db:"funds" json:"funds"`
+	Bolt11 string `db:"-" json:"invoice,omitempty"`
 }
 
 func contractFromRedis(ctid string) (ct *Contract, err error) {
@@ -59,7 +61,6 @@ func (ct Contract) saveOnRedis() (jct []byte, err error) {
 
 type Call struct {
 	Id         string         `db:"id" json:"id"`
-	Hash       string         `db:"hash" json:"hash"`
 	Time       time.Time      `db:"time" json:"time"`
 	ContractId string         `db:"contract_id" json:"contract_id"`
 	Method     string         `db:"method" json:"method"`
