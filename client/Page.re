@@ -10,7 +10,8 @@ and view =
   | Index
   | ViewContract(contract)
   | ViewNewContract
-  | ViewPreparedContract(contract);
+  | ViewPreparedContract(contract)
+  | ViewSimulator;
 
 type action =
   | UnhandledURL
@@ -20,7 +21,8 @@ type action =
   | FetchPreparedContract(string)
   | GotPreparedContract(contract)
   | LoadContract(string)
-  | CreateContract;
+  | CreateContract
+  | OpenSimulator;
 
 let component = ReasonReact.reducerComponent("Page");
 
@@ -33,6 +35,7 @@ let make = _children => {
       | [] => self.send(FetchContractsList)
       | ["new", ctid] => self.send(FetchPreparedContract(ctid))
       | ["new"] => self.send(CreateContract)
+      | ["simulator"] => self.send(OpenSimulator)
       | [ctid] => self.send(LoadContract(ctid))
       | _ => self.send(UnhandledURL)
       };
@@ -93,6 +96,7 @@ let make = _children => {
     | GotPreparedContract(contract) =>
       ReasonReact.Update({...state, view: ViewPreparedContract(contract)})
     | CreateContract => ReasonReact.Update({...state, view: ViewNewContract})
+    | OpenSimulator => ReasonReact.Update({...state, view: ViewSimulator})
     },
   render: self =>
     <div>
@@ -115,6 +119,16 @@ let make = _children => {
                 )
               }>
               {ReasonReact.string("Create a smart contract")}
+            </a>
+          </div>
+          <div>
+            <a
+              onClick={
+                self.handle((_event, _self) =>
+                  ReasonReact.Router.push("/simulator")
+                )
+              }>
+              {ReasonReact.string("Simulator")}
             </a>
           </div>
         </nav>
@@ -156,6 +170,7 @@ let make = _children => {
             | ViewNewContract => <NewContract contract=None />
             | ViewPreparedContract(contract) =>
               <NewContract contract={Some(contract)} />
+            | ViewSimulator => <Simulator />
             }
           }
         </div>

@@ -26,10 +26,20 @@ let emptyContract = {
   code: "",
   name: "",
   readme: "",
-  state: Json.Encode.null,
+  state: Json.Encode.object_([]),
   funds: 0,
   created_at: "1970-01-01",
   bolt11: None,
+};
+let emptyCall = {
+  id: "",
+  time: "",
+  contract_id: "",
+  method: "",
+  payload: Json.Encode.object_([]),
+  cost: 0,
+  satoshis: 0,
+  paid: 0,
 };
 
 module Decode = {

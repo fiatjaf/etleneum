@@ -20,6 +20,15 @@ a
   &:hover
     text-decoration underline
 
+.button
+  display flex
+  justify-content center
+  margin 12px
+
+  button
+    width auto
+    font-size 105%
+
 textarea
   background transparent
   min-height 400px
@@ -108,9 +117,26 @@ nav
     margin-bottom 20px
     width 100%
 
-  .button
+.simulator
+  .elements
     display flex
-    justify-content center
 
-    button
-      font-size 110%
+    & > *
+      margin 9px 14px
+
+    .code
+      width 400px
+      textarea
+        width 100%
+
+    .nextcall
+      & > div
+        display flex
+        align-items center
+
+        & > *:first-child
+          width 160px
+
+      textarea
+        min-height 100px
+        min-width 280px

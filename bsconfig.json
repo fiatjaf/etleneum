@@ -3,7 +3,11 @@
   "bsc-flags": ["-bs-no-version-header", "-bs-super-errors"],
   "reason": {"react-jsx": 2},
   "suffix": ".bs.js",
-  "bs-dependencies": ["bs-fetch", "@glennsl/bs-json", "reason-react"],
+  "bs-dependencies": [
+    "bs-fetch",
+    "@glennsl/bs-json",
+    "reason-react"
+  ],
   "refmt": 3,
   "sources": {
     "dir": "client",
