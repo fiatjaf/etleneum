@@ -3,6 +3,12 @@ type state = {
   temp_contract_state: option(string),
   nextcall: API.call,
   temp_call_payload: option(string),
+  result: option(luaresult),
+}
+and luaresult = {
+  state: Js.Json.t,
+  ret: Js.Json.t,
+  payments_done: list(string),
 };
 
 type action =
@@ -17,6 +23,17 @@ type action =
   | SetState(state)
   | SimulateCall;
 
+[@bs.module "./glua-simulate-environment.js"]
+external runlua: (string, Js.Json.t, string, Js.Json.t, int) => Js.Json.t =
+  "runlua";
+
+let getluaresult = (json: Js.Json.t): luaresult =>
+  Json.Decode.{
+    state: json |> field("stateAfter", x => x),
+    ret: json |> field("returnedValue", x => x),
+    payments_done: json |> field("paymentsDone", list(string)),
+  };
+
 let component = ReasonReact.reducerComponent("Simulator");
 
 let make = _children => {
@@ -26,6 +43,7 @@ let make = _children => {
     nextcall: API.emptyCall,
     temp_call_payload: None,
     temp_contract_state: None,
+    result: None,
   },
   reducer: (action: action, state: state) => {
     let contract = state.contract;
@@ -117,7 +135,20 @@ let make = _children => {
         },
       })
     | SetState(state) => ReasonReact.Update(state)
-    | SimulateCall => ReasonReact.SideEffects((_self => ()))
+    | SimulateCall =>
+      ReasonReact.Update({
+        ...state,
+        result:
+          runlua(
+            state.contract.code,
+            state.contract.state,
+            state.nextcall.method,
+            state.nextcall.payload,
+            state.nextcall.satoshis,
+          )
+          ->getluaresult
+          ->Some,
+      })
     };
   },
   render: self =>
@@ -233,7 +264,49 @@ let make = _children => {
         </div>
         <div>
           <div> <h3> {ReasonReact.string("Result:")} </h3> </div>
-          <div className="result" />
+          {
+            switch (self.state.result) {
+            | None => <div />
+            | Some(result) =>
+              <div className="result">
+                <div>
+                  {ReasonReact.string("State: ")}
+                  <div>
+                    {
+                      ReasonReact.string(
+                        result.state->Js.Json.stringifyWithSpace(2),
+                      )
+                    }
+                  </div>
+                </div>
+                <div>
+                  {ReasonReact.string("Returned value: ")}
+                  <div>
+                    {
+                      ReasonReact.string(
+                        result.ret->Js.Json.stringifyWithSpace(2),
+                      )
+                    }
+                  </div>
+                </div>
+                <div>
+                  {ReasonReact.string("Payments made: ")}
+                  <div>
+                    {
+                      ReasonReact.array(
+                        Array.of_list(
+                          result.payments_done
+                          |> List.map(bolt11 =>
+                               <div> {ReasonReact.string(bolt11)} </div>
+                             ),
+                        ),
+                      )
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          }
         </div>
       </div>
     </div>,
