@@ -77,7 +77,7 @@ let make = (~contract: option(API.contract), _children) => {
     | GotUpdate(contract) =>
       ReasonReact.UpdateWithSideEffects(
         {prepared: true, contract},
-        (self => ReasonReact.Router.push("/new/" ++ contract.id)),
+        (_self => ReasonReact.Router.push("/new/" ++ contract.id)),
       )
     };
   },

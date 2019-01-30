@@ -67,6 +67,7 @@ type Call struct {
 	Payload    types.JSONText `db:"payload" json:"payload"`
 	Satoshis   int            `db:"satoshis" json:"satoshis"`
 	Cost       int            `db:"cost" json:"cost"`
+	Paid       int            `db:"paid" json:"paid"`
 	Bolt11     string         `db:"-" json:"invoice,omitempty"`
 }
 

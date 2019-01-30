@@ -16,7 +16,14 @@ import (
 
 func listContracts(w http.ResponseWriter, r *http.Request) {
 	var contracts []Contract
-	err = pg.Select(&contracts, `SELECT id, name, readme FROM contracts`)
+	err = pg.Select(&contracts, `
+SELECT id, name, readme FROM (
+  SELECT id, name, readme, created_at,
+    (SELECT max(time) FROM calls WHERE contract_id = c.id) AS lastcalltime
+  FROM contracts AS c
+) AS x
+ORDER BY lastcalltime DESC, created_at DESC
+`)
 	if err == sql.ErrNoRows {
 		contracts = make([]Contract, 0)
 	} else if err != nil {
@@ -200,7 +207,12 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 
 	var calls []Call
-	err = pg.Select(&calls, `SELECT * FROM calls WHERE contract_id = $1`, ctid)
+	err = pg.Select(&calls, `
+SELECT *
+FROM calls
+WHERE contract_id = $1
+ORDER BY time DESC
+        `, ctid)
 	if err == sql.ErrNoRows {
 		calls = make([]Call, 0)
 	} else if err != nil {
@@ -454,7 +466,7 @@ WHERE id (SELECT contract_id FROM deleted_call)
 		}
 
 		for _, bolt11 := range stillpending {
-			rds.SAdd("call:"+callId+":pending", bolt11)
+			rds.SAdd("pending:"+callId, bolt11)
 		}
 	}(call.Id, ct.State, paymentsPending)
 

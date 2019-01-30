@@ -8,17 +8,18 @@ and view =
   | Loading
   | NotFound
   | Index
-  | Contract(contract)
-  | NewContractPage
-  | PreparedContractPage(contract);
+  | ViewContract(contract)
+  | ViewNewContract
+  | ViewPreparedContract(contract);
 
 type action =
   | UnhandledURL
   | FetchContractsList
   | GotContractsList(list(contract))
+  | GotContract(contract)
   | FetchPreparedContract(string)
   | GotPreparedContract(contract)
-  | OpenContract(string)
+  | LoadContract(string)
   | CreateContract;
 
 let component = ReasonReact.reducerComponent("Page");
@@ -32,7 +33,7 @@ let make = _children => {
       | [] => self.send(FetchContractsList)
       | ["new", ctid] => self.send(FetchPreparedContract(ctid))
       | ["new"] => self.send(CreateContract)
-      | [ctid] => self.send(OpenContract(ctid))
+      | [ctid] => self.send(LoadContract(ctid))
       | _ => self.send(UnhandledURL)
       };
     let _ = handleURL(initialURL);
@@ -59,11 +60,22 @@ let make = _children => {
       )
     | GotContractsList(contracts) =>
       ReasonReact.Update({...state, contracts, view: Index})
-    | OpenContract(ctid) =>
-      switch (state.contracts |> List.find((ct: contract) => ct.id == ctid)) {
-      | contract => ReasonReact.Update({...state, view: Contract(contract)})
-      | exception Not_found => ReasonReact.Update({...state, view: NotFound})
-      }
+    | LoadContract(ctid) =>
+      ReasonReact.UpdateWithSideEffects(
+        {...state, view: Loading},
+        (
+          self => {
+            let _ =
+              API.fetchContract(ctid)
+              |> Js.Promise.then_(v =>
+                   self.send(GotContract(v)) |> Js.Promise.resolve
+                 );
+            ();
+          }
+        ),
+      )
+    | GotContract(contract) =>
+      ReasonReact.Update({...state, view: ViewContract(contract)})
     | FetchPreparedContract(ctid) =>
       ReasonReact.UpdateWithSideEffects(
         {...state, view: Loading},
@@ -79,8 +91,8 @@ let make = _children => {
         ),
       )
     | GotPreparedContract(contract) =>
-      ReasonReact.Update({...state, view: PreparedContractPage(contract)})
-    | CreateContract => ReasonReact.Update({...state, view: NewContractPage})
+      ReasonReact.Update({...state, view: ViewPreparedContract(contract)})
+    | CreateContract => ReasonReact.Update({...state, view: ViewNewContract})
     },
   render: self =>
     <div>
@@ -140,25 +152,9 @@ let make = _children => {
                   }
                 </div>
               </div>
-            | Contract(c) =>
-              <div className="contract">
-                <h1> {ReasonReact.string(c.name)} </h1>
-                <div>
-                  <ReactJSONView
-                    src={c.state}
-                    name="state"
-                    theme="summerfruit-inverted"
-                    iconStyle="triangle"
-                    indentWidth=2
-                    collapsed=2
-                    enableClipboard=false
-                    displayDataTypes=false
-                    sortKeys=true
-                  />
-                </div>
-              </div>
-            | NewContractPage => <NewContract contract=None />
-            | PreparedContractPage(contract) =>
+            | ViewContract(c) => <ContractPage contract=c />
+            | ViewNewContract => <NewContract contract=None />
+            | ViewPreparedContract(contract) =>
               <NewContract contract={Some(contract)} />
             }
           }

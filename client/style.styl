@@ -20,6 +20,22 @@ a
   &:hover
     text-decoration underline
 
+textarea
+  background transparent
+  min-height 400px
+  min-width 400px
+
+input, textarea
+  padding 9px
+  border 1px solid
+
+.react-json-view .string-value
+  white-space pre-wrap
+  word-wrap break-word
+  word-break break-all
+  max-width 400px
+  display block
+
 nav
   text-transform uppercase
   display flex
@@ -42,10 +58,48 @@ nav
   display flex
   flex-wrap wrap
 
-  .contract
+  .contract-item
     padding 10px
     border-radius 12px
     background-color #ededed
+
+.contract
+  & > div
+    display flex
+
+    & > *
+      margin 0 10px
+
+  .readme
+    width 450px
+
+    & > div
+      padding 20px
+
+  .current-state
+    min-width 320px
+
+  .call-item
+    display flex
+
+    & > *
+      margin 0 4px
+
+    &.open
+      flex-wrap wrap
+
+      .body
+        display flex
+        margin 12px
+        padding 4px
+        background #efefef
+        border-radius 4px
+
+        .desc
+          padding 9px
+          white-space pre-wrap
+          word-wrap break-word
+          max-width 600px
 
 .new-contract
   width 100%
@@ -53,10 +107,6 @@ nav
   input, textarea
     margin-bottom 20px
     width 100%
-
-  textarea
-    min-height 400px
-    padding 9px
 
   .button
     display flex
