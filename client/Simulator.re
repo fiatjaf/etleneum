@@ -59,13 +59,15 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
       | Some(precon) => precon
       },
     nextcall:
-      switch (preloadCall) {
-      | None =>
+      switch (preloadContract, preloadCall) {
+      | (None, None) =>
         switch (LS.getItem("simulating-call")) {
         | None => API.emptyCall
         | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
         }
-      | Some(precall) => precall
+      | (Some(_), None) => API.emptyCall
+      | (None, Some(precall))
+      | (Some(_), Some(precall)) => precall
       },
     temp_call_payload: None,
     temp_contract_state: None,

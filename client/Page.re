@@ -11,7 +11,8 @@ and view =
   | ViewContract(contract)
   | ViewNewContract
   | ViewPreparedContract(contract)
-  | ViewSimulator;
+  | ViewSimulator
+  | ViewSimulatorWithContract(contract);
 
 type action =
   | UnhandledURL
@@ -22,7 +23,9 @@ type action =
   | GotPreparedContract(contract)
   | LoadContract(string)
   | CreateContract
-  | OpenSimulator;
+  | OpenSimulator
+  | LoadContractForSimulator(string)
+  | OpenSimulatorWithContract(contract);
 
 let component = ReasonReact.reducerComponent("Page");
 
@@ -36,6 +39,7 @@ let make = _children => {
       | ["new", ctid] => self.send(FetchPreparedContract(ctid))
       | ["new"] => self.send(CreateContract)
       | ["simulator"] => self.send(OpenSimulator)
+      | ["simulator", ctid] => self.send(LoadContractForSimulator(ctid))
       | [ctid] => self.send(LoadContract(ctid))
       | _ => self.send(UnhandledURL)
       };
@@ -97,6 +101,25 @@ let make = _children => {
       ReasonReact.Update({...state, view: ViewPreparedContract(contract)})
     | CreateContract => ReasonReact.Update({...state, view: ViewNewContract})
     | OpenSimulator => ReasonReact.Update({...state, view: ViewSimulator})
+    | LoadContractForSimulator(ctid) =>
+      ReasonReact.SideEffects(
+        (
+          self => {
+            let _ =
+              API.fetchContract(ctid)
+              |> Js.Promise.then_(v =>
+                   self.send(OpenSimulatorWithContract(v))
+                   |> Js.Promise.resolve
+                 );
+            ();
+          }
+        ),
+      )
+    | OpenSimulatorWithContract(contract) =>
+      ReasonReact.Update({
+        ...state,
+        view: ViewSimulatorWithContract(contract),
+      })
     },
   render: self =>
     <div>
@@ -171,6 +194,8 @@ let make = _children => {
             | ViewPreparedContract(contract) =>
               <NewContract contract={Some(contract)} />
             | ViewSimulator => <Simulator />
+            | ViewSimulatorWithContract(contract) =>
+              <Simulator preloadContract=contract />
             }
           }
         </div>

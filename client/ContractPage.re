@@ -42,15 +42,27 @@ let make = (~contract: API.contract, _children) => {
     },
   render: self =>
     <div className="contract">
-      <header>
-        <h1> {ReasonReact.string(contract.name)} </h1>
-        <aside>
-          {ReasonReact.string("since ")}
-          <time dateTime={contract.created_at}>
-            {ReasonReact.string(contract.created_at |> betterdate)}
-          </time>
-        </aside>
-      </header>
+      <div>
+        <header>
+          <h1> {ReasonReact.string(contract.name)} </h1>
+          <aside>
+            {ReasonReact.string("since ")}
+            <time dateTime={contract.created_at}>
+              {ReasonReact.string(contract.created_at |> betterdate)}
+            </time>
+          </aside>
+        </header>
+        <div className="simulate">
+          <a
+            onClick={
+              self.handle((_event, _self) =>
+                ReasonReact.Router.push("/simulator/" ++ contract.id)
+              )
+            }>
+            {ReasonReact.string("Try on simulator")}
+          </a>
+        </div>
+      </div>
       <div>
         <div className="readme">
           <h3> {ReasonReact.string("Readme")} </h3>
