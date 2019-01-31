@@ -333,7 +333,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
               if (result.error == "") {
                 <div className="result">
                   <div>
-                    {ReasonReact.string("State: ")}
+                    <label> {ReasonReact.string("State: ")} </label>
                     <ReactJSONView
                       src={result.state}
                       name="state"
@@ -345,9 +345,28 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                       displayDataTypes=false
                       sortKeys=true
                     />
+                    <button
+                      onClick={
+                                let state = self.state;
+                                let contract = self.state.contract;
+                                self.handle((_event, self) =>
+                                  self.send(
+                                    SetState({
+                                      ...state,
+                                      contract: {
+                                        ...contract,
+                                        state: result.state,
+                                      },
+                                      temp_contract_state: None,
+                                    }),
+                                  )
+                                );
+                              }>
+                      {ReasonReact.string("Apply this")}
+                    </button>
                   </div>
                   <div>
-                    {ReasonReact.string("Returned value: ")}
+                    <label> {ReasonReact.string("Returned value: ")} </label>
                     <ReactJSONView
                       src={result.ret}
                       name="ret"
@@ -363,16 +382,20 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                   <div>
                     {
                       if (result.payments_done |> List.length == 0) {
-                        ReasonReact.string("No payments made.");
+                        <label>
+                          {ReasonReact.string("No payments made.")}
+                        </label>;
                       } else {
                         <div>
-                          {
-                            ReasonReact.string(
-                              "Payments made ("
-                              ++ string_of_int(result.total_paid)
-                              ++ " satoshis): ",
-                            )
-                          }
+                          <label>
+                            {
+                              ReasonReact.string(
+                                "Payments made ("
+                                ++ string_of_int(result.total_paid)
+                                ++ " satoshis): ",
+                              )
+                            }
+                          </label>
                           <div>
                             {
                               ReasonReact.array(

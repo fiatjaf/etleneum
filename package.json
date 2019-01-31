@@ -8,7 +8,8 @@
           "sourceMapsAbsolute": true
         }
       ],
-      "envify"
+      "envify",
+      "brfs"
     ]
   },
   "devDependencies": {
@@ -16,6 +17,7 @@
     "@babel/preset-env": "7.0.0-rc.1",
     "@babel/preset-react": "7.0.0-rc.1",
     "babelify": "^9.0.0",
+    "brfs": "^2.0.1",
     "browserify": "^16.2.2",
     "envify": "^4.1.0",
     "prettier": "1.14.2",

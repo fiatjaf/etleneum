@@ -2,6 +2,9 @@
 
 const glua = window.glua
 const invoice = require('lightnode-invoice')
+const fs = require('fs')
+
+const sandbox = fs.readFileSync('static/sandbox.lua', 'utf-8')
 
 module.exports.runlua = function runlua(
   code,
@@ -49,11 +52,25 @@ module.exports.runlua = function runlua(
         satoshis: satoshis,
         payload: payload
       },
-      'local ln = {pay=lnpay}\n\n' +
-        code +
-        '\n\ngetreturnedvalue(' +
-        method +
-        '())\n\ngetstateafter(state)'
+      `
+${sandbox}
+${code}
+
+local ln = {pay=lnpay}
+
+local ret = sandbox.run(${method}, {
+  quota=50, env={
+    print=print,
+    ln=ln,
+    payload=payload,
+    state=state,
+    satoshis=satoshis
+  }
+})
+
+getstateafter(state)
+getreturnedvalue(ret)
+    `
     )
   } catch (e) {
     error = e.message
