@@ -5,7 +5,17 @@ var React = require('react')
 var ReactJson = require('react-json-view').default
 
 var App = function(props) {
-  return React.createElement(ReactJson, props, null)
+  var actualProps = {}
+  if (typeof props.src !== 'object') {
+    actualProps = {
+      ...props,
+      src: {value: props.src}
+    }
+  } else {
+    actualProps = props
+  }
+
+  return React.createElement(ReactJson, actualProps, null)
 }
 App.displayName = 'ReactJSONView'
 

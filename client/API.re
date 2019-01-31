@@ -19,6 +19,7 @@ and call = {
   cost: int,
   satoshis: int,
   paid: int,
+  bolt11: option(string),
 };
 
 let emptyContract = {
@@ -40,33 +41,41 @@ let emptyCall = {
   cost: 0,
   satoshis: 0,
   paid: 0,
+  bolt11: None,
 };
 
 module Decode = {
   open Json.Decode;
 
   let contract = json => {
-    id: json |> field("id", string),
-    name: json |> field("name", string),
-    readme: json |> field("readme", string),
-    code: json |> field("code", string),
-    state: json |> field("state", x => x),
-    created_at: json |> field("created_at", string),
-    funds: json |> field("funds", int),
+    id: json |> withDefault(emptyContract.id, field("id", string)),
+    name: json |> withDefault(emptyContract.name, field("name", string)),
+    readme:
+      json |> withDefault(emptyContract.readme, field("readme", string)),
+    code: json |> withDefault(emptyContract.code, field("code", string)),
+    state: json |> withDefault(emptyContract.state, field("state", x => x)),
+    created_at:
+      json
+      |> withDefault(emptyContract.created_at, field("created_at", string)),
+    funds: json |> withDefault(emptyContract.funds, field("funds", int)),
     bolt11: json |> optional(field("bolt11", string)),
   };
 
   let contractList = list(contract);
 
   let call = json => {
-    id: json |> field("id", string),
-    time: json |> field("time", string),
-    contract_id: json |> field("contract_id", string),
-    method: json |> field("method", string),
-    payload: json |> field("payload", x => x),
-    cost: json |> field("cost", int),
-    satoshis: json |> field("satoshis", int),
-    paid: json |> field("paid", int),
+    id: json |> withDefault(emptyCall.id, field("id", string)),
+    time: json |> withDefault(emptyCall.time, field("time", string)),
+    contract_id:
+      json
+      |> withDefault(emptyCall.contract_id, field("contract_id", string)),
+    method: json |> withDefault(emptyCall.method, field("method", string)),
+    payload: json |> withDefault(emptyCall.payload, field("payload", x => x)),
+    cost: json |> withDefault(emptyCall.cost, field("cost", int)),
+    satoshis:
+      json |> withDefault(emptyCall.satoshis, field("satoshis", int)),
+    paid: json |> withDefault(emptyCall.paid, field("paid", int)),
+    bolt11: json |> optional(field("bolt11", string)),
   };
 
   let callList = list(call);
@@ -83,6 +92,8 @@ module Encode = {
       ("code", string(ct.code)),
       ("name", string(ct.name)),
       ("readme", string(ct.readme)),
+      ("state", ct.state),
+      ("funds", int(ct.funds)),
     ])
     |> Js.Json.stringify;
 

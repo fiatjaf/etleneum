@@ -9,6 +9,8 @@ and luaresult = {
   state: Js.Json.t,
   ret: Js.Json.t,
   payments_done: list(string),
+  total_paid: int,
+  error: string,
 };
 
 type action =
@@ -32,15 +34,39 @@ let getluaresult = (json: Js.Json.t): luaresult =>
     state: json |> field("stateAfter", x => x),
     ret: json |> field("returnedValue", x => x),
     payments_done: json |> field("paymentsDone", list(string)),
+    total_paid: json |> field("totalPaid", int),
+    error: json |> field("error", string),
   };
+
+module LS = {
+  let getItem = k => Dom.Storage.localStorage |> Dom.Storage.getItem(k);
+  let setItem = (k, v) =>
+    Dom.Storage.localStorage |> Dom.Storage.setItem(k, v);
+};
 
 let component = ReasonReact.reducerComponent("Simulator");
 
-let make = _children => {
+let make = (~preloadContract=?, ~preloadCall=?, _children) => {
   ...component,
   initialState: () => {
-    contract: API.emptyContract,
-    nextcall: API.emptyCall,
+    contract:
+      switch (preloadContract) {
+      | None =>
+        switch (LS.getItem("simulating-contract")) {
+        | None => API.emptyContract
+        | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.contract
+        }
+      | Some(precon) => precon
+      },
+    nextcall:
+      switch (preloadCall) {
+      | None =>
+        switch (LS.getItem("simulating-call")) {
+        | None => API.emptyCall
+        | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
+        }
+      | Some(precall) => precall
+      },
     temp_call_payload: None,
     temp_contract_state: None,
     result: None,
@@ -51,13 +77,18 @@ let make = _children => {
 
     switch (action) {
     | EditContractCode(code) =>
-      ReasonReact.Update({
-        ...state,
-        contract: {
-          ...contract,
-          code,
-        },
-      })
+      ReasonReact.SideEffects(
+        (
+          self =>
+            self.send(SetState({
+                        ...state,
+                        contract: {
+                          ...contract,
+                          code,
+                        },
+                      }))
+        ),
+      )
     | EditContractState(statestr) =>
       ReasonReact.Update({...state, temp_contract_state: Some(statestr)})
     | ParseContractStateJSON =>
@@ -85,21 +116,31 @@ let make = _children => {
         ),
       )
     | EditContractFunds(funds) =>
-      ReasonReact.Update({
-        ...state,
-        contract: {
-          ...contract,
-          funds,
-        },
-      })
+      ReasonReact.SideEffects(
+        (
+          self =>
+            self.send(SetState({
+                        ...state,
+                        contract: {
+                          ...contract,
+                          funds,
+                        },
+                      }))
+        ),
+      )
     | EditCallMethod(method) =>
-      ReasonReact.Update({
-        ...state,
-        nextcall: {
-          ...nextcall,
-          method,
-        },
-      })
+      ReasonReact.SideEffects(
+        (
+          self =>
+            self.send(SetState({
+                        ...state,
+                        nextcall: {
+                          ...nextcall,
+                          method,
+                        },
+                      }))
+        ),
+      )
     | EditCallPayload(payload) =>
       ReasonReact.Update({...state, temp_call_payload: Some(payload)})
     | ParseCallPayloadJSON =>
@@ -127,14 +168,33 @@ let make = _children => {
         ),
       )
     | EditCallSatoshis(satoshis) =>
-      ReasonReact.Update({
-        ...state,
-        nextcall: {
-          ...nextcall,
-          satoshis,
-        },
-      })
-    | SetState(state) => ReasonReact.Update(state)
+      ReasonReact.SideEffects(
+        (
+          self =>
+            self.send(
+              SetState({
+                ...state,
+                nextcall: {
+                  ...nextcall,
+                  satoshis,
+                },
+              }),
+            )
+        ),
+      )
+    | SetState(state) =>
+      ReasonReact.UpdateWithSideEffects(
+        state,
+        (
+          _self => {
+            LS.setItem(
+              "simulating-contract",
+              API.Encode.contract(state.contract),
+            );
+            LS.setItem("simulating-call", API.Encode.call(state.nextcall));
+          }
+        ),
+      )
     | SimulateCall =>
       ReasonReact.Update({
         ...state,
@@ -268,43 +328,71 @@ let make = _children => {
             switch (self.state.result) {
             | None => <div />
             | Some(result) =>
-              <div className="result">
-                <div>
-                  {ReasonReact.string("State: ")}
+              if (result.error == "") {
+                <div className="result">
+                  <div>
+                    {ReasonReact.string("State: ")}
+                    <ReactJSONView
+                      src={result.state}
+                      name="state"
+                      theme="summerfruit-inverted"
+                      iconStyle="triangle"
+                      indentWidth=2
+                      collapsed=2
+                      enableClipboard=false
+                      displayDataTypes=false
+                      sortKeys=true
+                    />
+                  </div>
+                  <div>
+                    {ReasonReact.string("Returned value: ")}
+                    <ReactJSONView
+                      src={result.ret}
+                      name="ret"
+                      theme="summerfruit-inverted"
+                      iconStyle="triangle"
+                      indentWidth=2
+                      collapsed=2
+                      enableClipboard=false
+                      displayDataTypes=false
+                      sortKeys=true
+                    />
+                  </div>
                   <div>
                     {
-                      ReasonReact.string(
-                        result.state->Js.Json.stringifyWithSpace(2),
-                      )
+                      if (result.payments_done |> List.length == 0) {
+                        ReasonReact.string("No payments made.");
+                      } else {
+                        <div>
+                          {
+                            ReasonReact.string(
+                              "Payments made ("
+                              ++ string_of_int(result.total_paid)
+                              ++ " satoshis): ",
+                            )
+                          }
+                          <div>
+                            {
+                              ReasonReact.array(
+                                Array.of_list(
+                                  result.payments_done
+                                  |> List.map(bolt11 =>
+                                       <div>
+                                         {ReasonReact.string(bolt11)}
+                                       </div>
+                                     ),
+                                ),
+                              )
+                            }
+                          </div>
+                        </div>;
+                      }
                     }
                   </div>
-                </div>
-                <div>
-                  {ReasonReact.string("Returned value: ")}
-                  <div>
-                    {
-                      ReasonReact.string(
-                        result.ret->Js.Json.stringifyWithSpace(2),
-                      )
-                    }
-                  </div>
-                </div>
-                <div>
-                  {ReasonReact.string("Payments made: ")}
-                  <div>
-                    {
-                      ReasonReact.array(
-                        Array.of_list(
-                          result.payments_done
-                          |> List.map(bolt11 =>
-                               <div> {ReasonReact.string(bolt11)} </div>
-                             ),
-                        ),
-                      )
-                    }
-                  </div>
-                </div>
-              </div>
+                </div>;
+              } else {
+                <pre> {ReasonReact.string(result.error)} </pre>;
+              }
             }
           }
         </div>
