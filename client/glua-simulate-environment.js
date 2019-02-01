@@ -48,6 +48,9 @@ module.exports.runlua = function runlua(
 
           return satoshis
         },
+        print: function(arg) {
+          console.log('printed from contract: ', arg)
+        },
         state: stateBefore,
         satoshis: satoshis,
         payload: payload

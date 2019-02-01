@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -111,4 +113,12 @@ func luaErrorType(apierr *lua.ApiError) string {
 	default:
 		return "unknown"
 	}
+}
+
+func jsonError(w http.ResponseWriter, message string, code int) {
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(Result{
+		Ok:    false,
+		Error: message,
+	})
 }

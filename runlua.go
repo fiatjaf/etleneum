@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"sync"
 	"time"
 
-	"github.com/tengattack/gluacrypto"
 	"github.com/yuin/gopher-lua"
 	gluajson "layeh.com/gopher-json"
 )
@@ -26,10 +26,6 @@ func runLua(
 	defer cancel()
 	L.SetContext(ctx)
 
-	// modules
-	gluajson.Preload(L)
-	gluacrypto.Preload(L)
-
 	initialFunds := contract.Funds + call.Satoshis
 	totalPaid = 0
 
@@ -41,7 +37,6 @@ func runLua(
 	mutex := &sync.Mutex{}
 	done := make(chan bool)
 	go func() {
-		log.Print("channel listening goroutine")
 		for payment := range payments_done {
 			log.Debug().Str("ct", contract.Id).
 				Float64("satoshis", payment.sats).
@@ -53,9 +48,10 @@ func runLua(
 			paymentsPending = append(paymentsPending, payment.bolt11)
 			mutex.Unlock()
 		}
-		log.Print("channel listening goroutine ended")
 		done <- true
 	}()
+
+	lua_print, _ := make_lua_print(L)
 
 	var currentstate map[string]interface{}
 	err = contract.State.Unmarshal(&currentstate)
@@ -80,6 +76,7 @@ func runLua(
 	L.SetGlobal("payload", gluajson.DecodeValue(L, payload))
 	L.SetGlobal("satoshis", lua.LNumber(call.Satoshis))
 	L.SetGlobal("lnpay", lua_ln_pay)
+	L.SetGlobal("print", lua_print)
 
 	bsandboxCode, _ := Asset("static/sandbox.lua")
 	sandboxCode := string(bsandboxCode)
@@ -99,7 +96,6 @@ return ret
     `, sandboxCode, contract.Code, call.Method)
 
 	// call function
-	log.Print("calling function ", call.Method)
 	err = L.DoString(code)
 	if err != nil {
 		if apierr, ok := err.(*lua.ApiError); ok {
@@ -115,10 +111,8 @@ return ret
 	}
 
 	// finish
-	log.Print("code run")
 	close(payments_done)
 	<-done
-	log.Print("done")
 
 	// get state after method is run
 	bstate, err = gluajson.Encode(L.GetGlobal("state"))
@@ -127,7 +121,11 @@ return ret
 	}
 
 	// returned value
-	ret, err = gluajson.Encode(L.Get(-1))
+	bret, err := gluajson.Encode(L.Get(-1))
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(bret, &ret)
 	if err != nil {
 		return
 	}
@@ -228,6 +226,23 @@ func make_lua_ln_pay(
 
 		L.Push(lua.LNumber(invsats))
 		return 1
+	})
+
+	return
+}
+
+func make_lua_print(L *lua.LState) (lua_print lua.LValue, printed []string) {
+	printed = make([]string, 0)
+
+	lua_print = L.NewFunction(func(L *lua.LState) int {
+		arg := L.CheckAny(1)
+		log.Debug().Str("arg", arg.String()).Msg("printing from contract")
+
+		if v, err := gluajson.Encode(arg); err == nil {
+			printed = append(printed, string(v))
+		}
+
+		return 0
 	})
 
 	return

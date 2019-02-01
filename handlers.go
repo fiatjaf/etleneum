@@ -28,7 +28,7 @@ ORDER BY lastcalltime DESC, created_at DESC
 		contracts = make([]Contract, 0)
 	} else if err != nil {
 		log.Warn().Err(err).Msg("failed to fetch contracts")
-		http.Error(w, "", 404)
+		jsonError(w, "", 404)
 		return
 	}
 
@@ -44,7 +44,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(ct)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to parse contract json.")
-		http.Error(w, "", 400)
+		jsonError(w, "", 400)
 		return
 	}
 	ct.Id = cuid.Slug()
@@ -52,14 +52,14 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	err = ct.getInvoice()
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
 	jct, err := ct.saveOnRedis()
 	if err != nil {
 		log.Warn().Err(err).Interface("ct", ct).Msg("failed to save to redis")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -82,20 +82,20 @@ WHERE id = $1`,
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to fetch fetch contract from redis")
-			http.Error(w, "", 404)
+			jsonError(w, "", 404)
 			return
 		}
 		err = ct.getInvoice()
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to get/make invoice")
-			http.Error(w, "", 500)
+			jsonError(w, "", 500)
 			return
 		}
 	} else if err != nil {
 		// it's a database error
 		log.Warn().Err(err).Str("ctid", ctid).Msg("database error fetching contract")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -114,7 +114,7 @@ func updateContract(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&upd)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to parse contract update json.")
-		http.Error(w, "", 400)
+		jsonError(w, "", 400)
 		return
 	}
 
@@ -122,7 +122,7 @@ func updateContract(w http.ResponseWriter, r *http.Request) {
 	curr, err = contractFromRedis(ctid)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to get contract from redis.")
-		http.Error(w, "", 404)
+		jsonError(w, "", 404)
 		return
 	}
 
@@ -133,7 +133,7 @@ func updateContract(w http.ResponseWriter, r *http.Request) {
 	err = curr.getInvoice()
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -141,7 +141,7 @@ func updateContract(w http.ResponseWriter, r *http.Request) {
 	jcurr, err := curr.saveOnRedis()
 	if err != nil {
 		log.Warn().Err(err).Interface("ct", curr).Msg("failed to save to redis")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -158,14 +158,14 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
 			Msg("failed to fetch contract from redis")
-		http.Error(w, "", 404)
+		jsonError(w, "", 404)
 		return
 	}
 
 	err = checkPayment(s.ServiceId+"."+ctid, costsatoshis)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).Msg("payment check failed")
-		http.Error(w, "", 500)
+		jsonError(w, "", 402)
 		return
 	}
 
@@ -174,7 +174,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
 			Msg("failed to read init payload")
-		http.Error(w, "", 400)
+		jsonError(w, "", 400)
 		return
 	}
 	payload := string(bpayload)
@@ -192,7 +192,7 @@ VALUES ($6, (SELECT id FROM contract), '__init__',  $7, $8, 0)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
 			Msg("failed to save contract on database")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -218,7 +218,7 @@ LIMIT 20
 		calls = make([]Call, 0)
 	} else if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).Msg("failed to fetch calls")
-		http.Error(w, "", 404)
+		jsonError(w, "", 404)
 		return
 	}
 
@@ -233,7 +233,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(call)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to parse call json.")
-		http.Error(w, "", 400)
+		jsonError(w, "", 400)
 		return
 	}
 	call.ContractId = ctid
@@ -243,21 +243,21 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	err = call.getInvoice()
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
 	jcall, err := json.Marshal(call)
 	if err != nil {
 		log.Warn().Err(err).Interface("call", call).Msg("failed to marshal call")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
 	err = rds.Set("call:"+call.Id, jcall, time.Hour*30).Err()
 	if err != nil {
 		log.Warn().Err(err).Interface("call", call).Msg("failed to save to redis")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -277,7 +277,7 @@ SELECT * FROM calls WHERE id = $1
 		if err != nil || len(bcall) == 0 {
 			log.Warn().Err(err).Str("callid", callid).
 				Msg("failed to fetch call from redis")
-			http.Error(w, "", 404)
+			jsonError(w, "", 404)
 			return
 		}
 
@@ -286,13 +286,13 @@ SELECT * FROM calls WHERE id = $1
 		if err != nil {
 			log.Warn().Err(err).Str("callid", callid).Str("c", string(bcall)).
 				Msg("failed to decode from redis")
-			http.Error(w, "", 500)
+			jsonError(w, "", 500)
 			return
 		}
 	} else if err != nil {
 		// it's a database error
 		log.Warn().Err(err).Str("callid", callid).Msg("database error fetching call")
-		http.Error(w, "", 404)
+		jsonError(w, "", 404)
 		return
 	}
 
@@ -307,7 +307,7 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).
 			Msg("failed to fetch temporary call for making it")
-		http.Error(w, "", 404)
+		jsonError(w, "", 404)
 		return
 	}
 
@@ -316,7 +316,7 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Warn().Err(err).Str("call", string(jcall)).
 			Msg("failed to unmarshal temporary call")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -326,7 +326,7 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 	err = checkPayment(label, call.Cost+call.Satoshis*1000)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("payment check failed")
-		http.Error(w, "", 500)
+		jsonError(w, "", 402)
 		return
 	}
 
@@ -335,7 +335,7 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("transaction start failed")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 	defer txn.Rollback()
@@ -350,7 +350,7 @@ WHERE id = $1`, call.ContractId)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", call.ContractId).Str("callid", callid).
 			Msg("failed to get contract data")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -358,7 +358,7 @@ WHERE id = $1`, call.ContractId)
 	newState, totalPaid, paymentsPending, returnedValue, err := runLua(ct, *call)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("failed to run call")
-		http.Error(w, "", 500)
+		jsonError(w, "Error running method.", 400)
 		return
 	}
 
@@ -369,7 +369,7 @@ WHERE id = $1
     `, call.ContractId, newState)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("database error")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -381,7 +381,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 		call.Method, call.Payload, call.Cost, call.Satoshis, totalPaid)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("database error")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -394,13 +394,13 @@ WHERE contract_id = $1`,
 		call.ContractId)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("database error")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
 	if contractFunds < 0 {
 		log.Warn().Err(err).Str("callid", callid).Msg("contract out of funds")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 
@@ -408,7 +408,7 @@ WHERE contract_id = $1`,
 	err = txn.Commit()
 	if err != nil {
 		log.Warn().Err(err).Str("callid", callid).Msg("failed to commit call")
-		http.Error(w, "", 500)
+		jsonError(w, "", 500)
 		return
 	}
 

@@ -20,6 +20,11 @@ and call = {
   satoshis: int,
   paid: int,
   bolt11: option(string),
+}
+and result = {
+  ok: bool,
+  value: Js.Json.t,
+  error: string,
 };
 
 let emptyContract = {
@@ -80,7 +85,12 @@ module Decode = {
 
   let callList = list(call);
 
-  let ok = json => json |> field("ok", bool);
+  let result = json => {
+    ok: json |> field("ok", bool),
+    value: json |> withDefault(Json.Encode.null, field("value", x => x)),
+    error:
+      json |> withDefault("Unidentified error.", field("error", string)),
+  };
 };
 
 module Encode = {
@@ -149,7 +159,7 @@ module Contract = {
       Fetch.RequestInit.make(~method_=Fetch.Post, ()),
     )
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.ok |> resolve);
+    |> then_(json => json |> Decode.result |> resolve);
 };
 
 module Call = {
@@ -182,7 +192,7 @@ module Call = {
       Fetch.RequestInit.make(~method_=Fetch.Post, ()),
     )
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.ok |> resolve);
+    |> then_(json => json |> Decode.result |> resolve);
 };
 
 module LS = {

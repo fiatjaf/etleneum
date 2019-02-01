@@ -84,3 +84,9 @@ func (c *Call) getInvoice() error {
 	c.Bolt11 = bolt11
 	return err
 }
+
+type Result struct {
+	Ok    bool        `json:"ok"`
+	Value interface{} `json:"value"`
+	Error string      `json:"error"`
+}

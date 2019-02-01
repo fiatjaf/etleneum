@@ -11,7 +11,7 @@ and view =
   | ViewContract(contract)
   | ViewNewContract
   | ViewPreparedContract(contract)
-  | ViewCall(call)
+  | ViewCall(call, option(result))
   | ViewSimulator
   | ViewSimulatorWithContract(contract);
 
@@ -25,6 +25,8 @@ type action =
   | LoadContract(string)
   | LoadCall(string)
   | GotCall(call)
+  | GotCallResult(result)
+  | DispatchCall(string)
   | CreateContract
   | OpenSimulator
   | LoadContractForSimulator(string)
@@ -101,7 +103,31 @@ let make = _children => {
       )
     | GotContract(contract) =>
       ReasonReact.Update({...state, view: ViewContract(contract)})
-    | GotCall(call) => ReasonReact.Update({...state, view: ViewCall(call)})
+    | GotCall(call) =>
+      ReasonReact.Update({...state, view: ViewCall(call, None)})
+    | GotCallResult(result) =>
+      ReasonReact.Update(
+        switch (state.view) {
+        | ViewCall(call, _) => {
+            ...state,
+            view: ViewCall(call, Some(result)),
+          }
+        | _ => state
+        },
+      )
+    | DispatchCall(callid) =>
+      ReasonReact.SideEffects(
+        (
+          self => {
+            let _ =
+              API.Call.make(callid)
+              |> Js.Promise.then_(v =>
+                   self.send(GotCallResult(v)) |> Js.Promise.resolve
+                 );
+            ();
+          }
+        ),
+      )
     | FetchPreparedContract(ctid) =>
       ReasonReact.UpdateWithSideEffects(
         {...state, view: Loading},
@@ -214,7 +240,12 @@ let make = _children => {
             | ViewNewContract => <NewContract contract=None />
             | ViewPreparedContract(contract) =>
               <NewContract contract={Some(contract)} />
-            | ViewCall(call) => <CallPage call />
+            | ViewCall(call, result) =>
+              <CallPage
+                call
+                result
+                dispatch=(() => self.send(DispatchCall(call.id)))
+              />
             | ViewSimulator => <Simulator />
             | ViewSimulatorWithContract(contract) =>
               <Simulator preloadContract=contract />
