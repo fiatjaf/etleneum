@@ -17,6 +17,9 @@ a
   color inherit
   text-decoration none
 
+  &.highlight
+    color #25aa7b
+
   &:hover
     text-decoration underline
 
@@ -35,6 +38,7 @@ textarea
   min-width 400px
   white-space pre-wrap
   word-wrap break-word
+  max-width 100%
 
 input, textarea
   padding 9px
@@ -124,6 +128,21 @@ nav
           word-wrap break-word
           max-width 600px
 
+  .nextcall
+    display flex
+    flex-wrap wrap
+
+    h3
+      width 100%
+
+    label
+      display block
+      margin 9px
+
+    textarea
+      min-height 100px
+      display block
+
 .new-contract
   width 100%
 
@@ -164,3 +183,14 @@ nav
 
         label
           margin-right 4px
+
+.call
+  text-align center
+  display flex
+  flex-direction column
+  align-items center
+
+  .bolt11
+    width 400px
+    white-space pre-wrap
+    word-wrap break-word

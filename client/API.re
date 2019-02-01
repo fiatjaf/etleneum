@@ -58,7 +58,7 @@ module Decode = {
       json
       |> withDefault(emptyContract.created_at, field("created_at", string)),
     funds: json |> withDefault(emptyContract.funds, field("funds", int)),
-    bolt11: json |> optional(field("bolt11", string)),
+    bolt11: json |> optional(field("invoice", string)),
   };
 
   let contractList = list(contract);
@@ -75,7 +75,7 @@ module Decode = {
     satoshis:
       json |> withDefault(emptyCall.satoshis, field("satoshis", int)),
     paid: json |> withDefault(emptyCall.paid, field("paid", int)),
-    bolt11: json |> optional(field("bolt11", string)),
+    bolt11: json |> optional(field("invoice", string)),
   };
 
   let callList = list(call);
@@ -106,56 +106,87 @@ module Encode = {
     |> Js.Json.stringify;
 };
 
-let fetchContractsList = () =>
-  Fetch.fetch("/~/contracts")
-  |> then_(Fetch.Response.json)
-  |> then_(json => json |> Decode.contractList |> resolve);
+module Contract = {
+  let list = () =>
+    Fetch.fetch("/~/contracts")
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.contractList |> resolve);
 
-let fetchContract = id =>
-  Fetch.fetch("/~/contract/" ++ id)
-  |> then_(Fetch.Response.json)
-  |> then_(json => json |> Decode.contract |> resolve);
+  let get = id =>
+    Fetch.fetch("/~/contract/" ++ id)
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.contract |> resolve);
 
-let fetchCalls = contract_id =>
-  Fetch.fetch("/~/contract/" ++ contract_id ++ "/calls")
-  |> then_(Fetch.Response.json)
-  |> then_(json => json |> Decode.callList |> resolve);
+  let prepare = contract =>
+    Fetch.fetchWithInit(
+      "/~/contract",
+      Fetch.RequestInit.make(
+        ~method_=Fetch.Post,
+        ~body=Fetch.BodyInit.make(contract |> Encode.contract),
+        ~headers=Fetch.HeadersInit.make({"Content-Type": "application/json"}),
+        (),
+      ),
+    )
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.contract |> resolve);
 
-let prepareContract = contract =>
-  Fetch.fetchWithInit(
-    "/~/contract",
-    Fetch.RequestInit.make(
-      ~method_=Fetch.Post,
-      ~body=Fetch.BodyInit.make(contract |> Encode.contract),
-      ~headers=Fetch.HeadersInit.make({"Content-Type": "application/json"}),
-      (),
-    ),
-  )
-  |> then_(Fetch.Response.json)
-  |> then_(json => json |> Decode.contract |> resolve);
+  let update = (id: string, contract: contract) =>
+    Fetch.fetchWithInit(
+      "/~/contract/" ++ id,
+      Fetch.RequestInit.make(
+        ~method_=Fetch.Put,
+        ~body=Fetch.BodyInit.make(contract |> Encode.contract),
+        ~headers=Fetch.HeadersInit.make({"Content-Type": "application/json"}),
+        (),
+      ),
+    )
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.contract |> resolve);
 
-let updateContract = (id: string, contract: contract) =>
-  Fetch.fetchWithInit(
-    "/~/contract/" ++ id,
-    Fetch.RequestInit.make(
-      ~method_=Fetch.Put,
-      ~body=Fetch.BodyInit.make(contract |> Encode.contract),
-      ~headers=Fetch.HeadersInit.make({"Content-Type": "application/json"}),
-      (),
-    ),
-  )
-  |> then_(Fetch.Response.json)
-  |> then_(json => json |> Decode.contract |> resolve);
+  let make = (id: string) =>
+    Fetch.fetchWithInit(
+      "/~/contract/" ++ id,
+      Fetch.RequestInit.make(~method_=Fetch.Post, ()),
+    )
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.ok |> resolve);
+};
 
-let initContract = (id: string, contract: contract) =>
-  Fetch.fetchWithInit(
-    "/~/contract/" ++ id,
-    Fetch.RequestInit.make(
-      ~method_=Fetch.Post,
-      ~body=Fetch.BodyInit.make(contract |> Encode.contract),
-      ~headers=Fetch.HeadersInit.make({"Content-Type": "application/json"}),
-      (),
-    ),
-  )
-  |> then_(Fetch.Response.json)
-  |> then_(json => json |> Decode.ok |> resolve);
+module Call = {
+  let list = contract_id =>
+    Fetch.fetch("/~/contract/" ++ contract_id ++ "/calls")
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.callList |> resolve);
+
+  let get = id =>
+    Fetch.fetch("/~/call/" ++ id)
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.call |> resolve);
+
+  let prepare = (contract_id: string, call: call) =>
+    Fetch.fetchWithInit(
+      "/~/contract/" ++ contract_id ++ "/call",
+      Fetch.RequestInit.make(
+        ~method_=Fetch.Post,
+        ~body=Fetch.BodyInit.make(call |> Encode.call),
+        ~headers=Fetch.HeadersInit.make({"Content-Type": "application/json"}),
+        (),
+      ),
+    )
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.call |> resolve);
+
+  let make = (id: string) =>
+    Fetch.fetchWithInit(
+      "/~/call/" ++ id,
+      Fetch.RequestInit.make(~method_=Fetch.Post, ()),
+    )
+    |> then_(Fetch.Response.json)
+    |> then_(json => json |> Decode.ok |> resolve);
+};
+
+module LS = {
+  let getItem = k => Dom.Storage.localStorage |> Dom.Storage.getItem(k);
+  let setItem = (k, v) =>
+    Dom.Storage.localStorage |> Dom.Storage.setItem(k, v);
+};

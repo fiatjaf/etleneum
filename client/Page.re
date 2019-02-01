@@ -11,6 +11,7 @@ and view =
   | ViewContract(contract)
   | ViewNewContract
   | ViewPreparedContract(contract)
+  | ViewCall(call)
   | ViewSimulator
   | ViewSimulatorWithContract(contract);
 
@@ -22,6 +23,8 @@ type action =
   | FetchPreparedContract(string)
   | GotPreparedContract(contract)
   | LoadContract(string)
+  | LoadCall(string)
+  | GotCall(call)
   | CreateContract
   | OpenSimulator
   | LoadContractForSimulator(string)
@@ -40,7 +43,8 @@ let make = _children => {
       | ["new"] => self.send(CreateContract)
       | ["simulator"] => self.send(OpenSimulator)
       | ["simulator", ctid] => self.send(LoadContractForSimulator(ctid))
-      | [ctid] => self.send(LoadContract(ctid))
+      | ["call", callid] => self.send(LoadCall(callid))
+      | ["contract", ctid] => self.send(LoadContract(ctid))
       | _ => self.send(UnhandledURL)
       };
     let _ = handleURL(initialURL);
@@ -57,7 +61,7 @@ let make = _children => {
         (
           self => {
             let _ =
-              API.fetchContractsList()
+              API.Contract.list()
               |> Js.Promise.then_(v =>
                    self.send(GotContractsList(v)) |> Js.Promise.resolve
                  );
@@ -73,7 +77,7 @@ let make = _children => {
         (
           self => {
             let _ =
-              API.fetchContract(ctid)
+              API.Contract.get(ctid)
               |> Js.Promise.then_(v =>
                    self.send(GotContract(v)) |> Js.Promise.resolve
                  );
@@ -81,15 +85,30 @@ let make = _children => {
           }
         ),
       )
+    | LoadCall(callid) =>
+      ReasonReact.UpdateWithSideEffects(
+        {...state, view: Loading},
+        (
+          self => {
+            let _ =
+              API.Call.get(callid)
+              |> Js.Promise.then_(v =>
+                   self.send(GotCall(v)) |> Js.Promise.resolve
+                 );
+            ();
+          }
+        ),
+      )
     | GotContract(contract) =>
       ReasonReact.Update({...state, view: ViewContract(contract)})
+    | GotCall(call) => ReasonReact.Update({...state, view: ViewCall(call)})
     | FetchPreparedContract(ctid) =>
       ReasonReact.UpdateWithSideEffects(
         {...state, view: Loading},
         (
           self => {
             let _ =
-              API.fetchContract(ctid)
+              API.Contract.get(ctid)
               |> Js.Promise.then_(v =>
                    self.send(GotPreparedContract(v)) |> Js.Promise.resolve
                  );
@@ -106,7 +125,7 @@ let make = _children => {
         (
           self => {
             let _ =
-              API.fetchContract(ctid)
+              API.Contract.get(ctid)
               |> Js.Promise.then_(v =>
                    self.send(OpenSimulatorWithContract(v))
                    |> Js.Promise.resolve
@@ -177,7 +196,9 @@ let make = _children => {
                                <a
                                  onClick={
                                    self.handle((_event, _self) =>
-                                     ReasonReact.Router.push("/" ++ c.id)
+                                     ReasonReact.Router.push(
+                                       "/contract/" ++ c.id,
+                                     )
                                    )
                                  }>
                                  {ReasonReact.string(c.name)}
@@ -193,6 +214,7 @@ let make = _children => {
             | ViewNewContract => <NewContract contract=None />
             | ViewPreparedContract(contract) =>
               <NewContract contract={Some(contract)} />
+            | ViewCall(call) => <CallPage call />
             | ViewSimulator => <Simulator />
             | ViewSimulatorWithContract(contract) =>
               <Simulator preloadContract=contract />

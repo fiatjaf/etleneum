@@ -38,12 +38,6 @@ let getluaresult = (json: Js.Json.t): luaresult =>
     error: json |> field("error", string),
   };
 
-module LS = {
-  let getItem = k => Dom.Storage.localStorage |> Dom.Storage.getItem(k);
-  let setItem = (k, v) =>
-    Dom.Storage.localStorage |> Dom.Storage.setItem(k, v);
-};
-
 let component = ReasonReact.reducerComponent("Simulator");
 
 let make = (~preloadContract=?, ~preloadCall=?, _children) => {
@@ -52,7 +46,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
     contract:
       switch (preloadContract) {
       | None =>
-        switch (LS.getItem("simulating-contract")) {
+        switch (API.LS.getItem("simulating-contract")) {
         | None => API.emptyContract
         | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.contract
         }
@@ -61,7 +55,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
     nextcall:
       switch (preloadContract, preloadCall) {
       | (None, None) =>
-        switch (LS.getItem("simulating-call")) {
+        switch (API.LS.getItem("simulating-call")) {
         | None => API.emptyCall
         | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
         }
@@ -189,11 +183,14 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
         state,
         (
           _self => {
-            LS.setItem(
+            API.LS.setItem(
               "simulating-contract",
               API.Encode.contract(state.contract),
             );
-            LS.setItem("simulating-call", API.Encode.call(state.nextcall));
+            API.LS.setItem(
+              "simulating-call",
+              API.Encode.call(state.nextcall),
+            );
           }
         ),
       )

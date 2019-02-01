@@ -53,7 +53,7 @@ let make = (~contract: option(API.contract), _children) => {
         (
           self => {
             let _ =
-              API.prepareContract(contract)
+              API.Contract.prepare(contract)
               |> Js.Promise.then_(v =>
                    self.send(GotUpdate(v)) |> Js.Promise.resolve
                  );
@@ -66,7 +66,7 @@ let make = (~contract: option(API.contract), _children) => {
         (
           self => {
             let _ =
-              API.updateContract(contract.id, contract)
+              API.Contract.update(contract.id, contract)
               |> Js.Promise.then_(v =>
                    self.send(GotUpdate(v)) |> Js.Promise.resolve
                  );

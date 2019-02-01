@@ -1,13 +1,22 @@
 type state = {
   calls: list(API.call),
-  callOpen: option(string),
+  callopen: option(string),
+  nextcall: API.call,
+  temp_call_payload: option(string),
 };
 
 type action =
   | LoadCalls
   | GotCalls(list(API.call))
   | OpenCall(string)
-  | CloseCall;
+  | CloseCall
+  | EditCallMethod(string)
+  | EditCallPayload(string)
+  | ParseCallPayloadJSON
+  | EditCallSatoshis(int)
+  | SetState(state)
+  | PrepareCall
+  | CallPrepared(API.call);
 
 let betterdate = datestr =>
   try (String.sub(datestr, 0, 10) ++ " at " ++ String.sub(datestr, 11, 8)) {
@@ -19,15 +28,26 @@ let component = ReasonReact.reducerComponent("ContractPage");
 let make = (~contract: API.contract, _children) => {
   ...component,
   didMount: self => self.send(LoadCalls),
-  initialState: () => {calls: [], callOpen: None},
-  reducer: (action: action, state: state) =>
+  initialState: () => {
+    calls: [],
+    callopen: None,
+    nextcall:
+      switch (API.LS.getItem("next-call:" ++ contract.id)) {
+      | None => API.emptyCall
+      | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
+      },
+    temp_call_payload: None,
+  },
+  reducer: (action: action, state: state) => {
+    let nextcall = state.nextcall;
+
     switch (action) {
     | LoadCalls =>
       ReasonReact.SideEffects(
         (
           self => {
             let _ =
-              API.fetchCalls(contract.id)
+              API.Call.list(contract.id)
               |> Js.Promise.then_(v =>
                    self.send(GotCalls(v)) |> Js.Promise.resolve
                  );
@@ -37,9 +57,80 @@ let make = (~contract: API.contract, _children) => {
       )
     | GotCalls(calls) => ReasonReact.Update({...state, calls})
     | OpenCall(callid) =>
-      ReasonReact.Update({...state, callOpen: Some(callid)})
-    | CloseCall => ReasonReact.Update({...state, callOpen: None})
-    },
+      ReasonReact.Update({...state, callopen: Some(callid)})
+    | CloseCall => ReasonReact.Update({...state, callopen: None})
+    | EditCallMethod(method) =>
+      ReasonReact.Update({
+        ...state,
+        nextcall: {
+          ...nextcall,
+          method,
+        },
+      })
+    | EditCallPayload(jstr) =>
+      ReasonReact.Update({...state, temp_call_payload: Some(jstr)})
+    | ParseCallPayloadJSON =>
+      ReasonReact.SideEffects(
+        (
+          self =>
+            switch (self.state.temp_call_payload) {
+            | None => ()
+            | Some(temp) =>
+              switch (Js.Json.parseExn(temp)) {
+              | json =>
+                {
+                  ...state,
+                  nextcall: {
+                    ...nextcall,
+                    payload: json,
+                  },
+                  temp_call_payload: None,
+                }
+                ->SetState
+                |> self.send
+              | exception (Js.Exn.Error(_)) => ()
+              }
+            }
+        ),
+      )
+    | EditCallSatoshis(satoshis) =>
+      ReasonReact.Update({
+        ...state,
+        nextcall: {
+          ...nextcall,
+          satoshis,
+        },
+      })
+    | SetState(state) =>
+      ReasonReact.UpdateWithSideEffects(
+        state,
+        (
+          _self =>
+            API.LS.setItem(
+              "next-call:" ++ contract.id,
+              API.Encode.call(state.nextcall),
+            )
+        ),
+      )
+    | PrepareCall =>
+      ReasonReact.SideEffects(
+        (
+          self => {
+            let _ =
+              API.Call.prepare(contract.id, self.state.nextcall)
+              |> Js.Promise.then_(v =>
+                   self.send(CallPrepared(v)) |> Js.Promise.resolve
+                 );
+            ();
+          }
+        ),
+      )
+    | CallPrepared(call) =>
+      ReasonReact.SideEffects(
+        (_self => ReasonReact.Router.push("/call/" ++ call.id)),
+      )
+    };
+  },
   render: self =>
     <div className="contract">
       <div>
@@ -73,10 +164,9 @@ let make = (~contract: API.contract, _children) => {
           <textarea readOnly=true value={contract.code} />
         </div>
       </div>
-      <div />
       <div>
         <div className="calls">
-          <h3> {ReasonReact.string("Last calls")} </h3>
+          <h3> {ReasonReact.string("Latest calls")} </h3>
           {
             if (self.state.calls |> List.length == 0) {
               <p>
@@ -96,7 +186,7 @@ let make = (~contract: API.contract, _children) => {
                          className={
                            "call-item"
                            ++ (
-                             if (self.state.callOpen == Some(call.id)) {
+                             if (self.state.callopen == Some(call.id)) {
                                " open";
                              } else {
                                "";
@@ -105,9 +195,10 @@ let make = (~contract: API.contract, _children) => {
                          }>
                          <div>
                            <a
+                             className="highlight"
                              onClick={
                                self.handle((_event, self) =>
-                                 if (self.state.callOpen == Some(call.id)) {
+                                 if (self.state.callopen == Some(call.id)) {
                                    self.send(CloseCall);
                                  } else {
                                    self.send(OpenCall(call.id));
@@ -123,7 +214,7 @@ let make = (~contract: API.contract, _children) => {
                          </div>
                          <div className="body">
                            {
-                             if (self.state.callOpen == Some(call.id)) {
+                             if (self.state.callopen == Some(call.id)) {
                                <div>
                                  <div>
                                    <ReactJSONView
@@ -177,6 +268,82 @@ let make = (~contract: API.contract, _children) => {
             displayDataTypes=false
             sortKeys=true
           />
+        </div>
+      </div>
+      <div>
+        <div className="nextcall">
+          <h3> {ReasonReact.string("Make a call")} </h3>
+          <div>
+            <div>
+              <label>
+                {ReasonReact.string("Method: ")}
+                <input
+                  value={self.state.nextcall.method}
+                  onChange={
+                    self.handle((event, _self) =>
+                      self.send(
+                        EditCallMethod(event->ReactEvent.Form.target##value),
+                      )
+                    )
+                  }
+                />
+              </label>
+            </div>
+            <div>
+              <label>
+                {ReasonReact.string("Satoshis: ")}
+                <input
+                  type_="number"
+                  step=1.0
+                  min=0
+                  value={string_of_int(self.state.nextcall.satoshis)}
+                  onChange={
+                    self.handle((event, _self) =>
+                      self.send(
+                        EditCallSatoshis(
+                          event->ReactEvent.Form.target##value |> int_of_string,
+                        ),
+                      )
+                    )
+                  }
+                />
+              </label>
+            </div>
+            <div className="button">
+              <button
+                onClick={
+                  self.handle((_event, _self) => self.send(PrepareCall))
+                }>
+                {ReasonReact.string("Prepare call")}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label>
+              {ReasonReact.string("Payload: ")}
+              <textarea
+                onChange={
+                  self.handle((event, _self) =>
+                    self.send(
+                      EditCallPayload(event->ReactEvent.Form.target##value),
+                    )
+                  )
+                }
+                onBlur={
+                  self.handle((_event, _self) =>
+                    self.send(ParseCallPayloadJSON)
+                  )
+                }
+                value={
+                  switch (self.state.temp_call_payload) {
+                  | None =>
+                    Js.Json.stringifyWithSpace(self.state.nextcall.payload, 2)
+                  | Some(str) => str
+                  }
+                }
+              />
+            </label>
+          </div>
         </div>
       </div>
     </div>,
