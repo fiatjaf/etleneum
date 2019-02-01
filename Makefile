@@ -15,11 +15,11 @@ bindata.go: $(shell find static)
 
 static/bundle.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world
-	./node_modules/.bin/browserify client/Main.bs.js -dv --outfile static/bundle.js
+	./node_modules/.bin/browserify client/App.bs.js -dv --outfile static/bundle.js
 
 static/bundle.min.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world
-	./node_modules/.bin/browserify client/Main.bs.js -g [ envify --NODE_ENV production ] -g uglifyify | ./node_modules/.bin/uglifyjs --compress --mangle > static/bundle.min.js
+	./node_modules/.bin/browserify client/App.bs.js -g [ envify --NODE_ENV production ] -g uglifyify | ./node_modules/.bin/uglifyjs --compress --mangle > static/bundle.min.js
 
 static/style.css: client/style.styl
 	./node_modules/.bin/stylus < client/style.styl > static/style.css
