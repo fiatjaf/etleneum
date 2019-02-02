@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yuin/gopher-lua"
+	lua "github.com/yuin/gopher-lua"
 	gluajson "layeh.com/gopher-json"
 )
 
@@ -77,6 +79,7 @@ func runLua(
 	L.SetGlobal("satoshis", lua.LNumber(call.Satoshis))
 	L.SetGlobal("lnpay", lua_ln_pay)
 	L.SetGlobal("print", lua_print)
+	L.SetGlobal("sha256", L.NewFunction(lua_sha256))
 
 	bsandboxCode, _ := Asset("static/sandbox.lua")
 	sandboxCode := string(bsandboxCode)
@@ -87,6 +90,7 @@ local ln = {pay=lnpay}
 
 local ret = sandbox.run(%s, {quota=50, env={
   print=print,
+  sha256=sha256,
   ln=ln,
   payload=payload,
   state=state,
@@ -114,12 +118,6 @@ return ret
 	close(payments_done)
 	<-done
 
-	// get state after method is run
-	bstate, err = gluajson.Encode(L.GetGlobal("state"))
-	if err != nil {
-		return
-	}
-
 	// returned value
 	bret, err := gluajson.Encode(L.Get(-1))
 	if err != nil {
@@ -128,6 +126,17 @@ return ret
 	err = json.Unmarshal(bret, &ret)
 	if err != nil {
 		return
+	}
+
+	// get state after method is run
+	if call.Method == "__init__" {
+		// on __init__ calls the returned value is the initial state
+		bstate = bret
+	} else {
+		bstate, err = gluajson.Encode(L.GetGlobal("state"))
+		if err != nil {
+			return
+		}
 	}
 
 	return bstate, totalPaid, paymentsPending, ret, nil
@@ -246,4 +255,25 @@ func make_lua_print(L *lua.LState) (lua_print lua.LValue, printed []string) {
 	})
 
 	return
+}
+
+func lua_sha256(L *lua.LState) int {
+	h := sha256.New()
+	s := lua.LVAsString(L.Get(1))
+	raw := lua.LVAsBool(L.Get(2))
+	_, err := h.Write([]byte(s))
+	if err != nil {
+		L.Push(lua.LNil)
+		L.Push(lua.LString(err.Error()))
+		return 2
+	}
+
+	var result string
+	if !raw {
+		result = hex.EncodeToString(h.Sum(nil))
+	} else {
+		result = string(h.Sum(nil))
+	}
+	L.Push(lua.LString(result))
+	return 1
 }

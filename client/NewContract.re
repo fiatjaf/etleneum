@@ -1,6 +1,6 @@
 type state = {
-  prepared: bool,
   contract: API.contract,
+  result: option(API.result),
 };
 
 type action =
@@ -8,143 +8,194 @@ type action =
   | EditCode(string)
   | EditReadme(string)
   | Prepare
-  | Update
-  | GotUpdate(API.contract);
+  | GotPrepared(API.contract)
+  | Initiate
+  | GotInitResult(option(API.result))
+  | GoBack;
 
-let component = ReasonReact.reducerComponent("NewContract");
+let initialState = {contract: API.emptyContract, result: None};
 
-let make = (~contract: option(API.contract), _children) => {
+let reduceState = (action: action, state: state) => {
+  let contract = state.contract;
+
+  switch (action) {
+  | EditName(name) => {
+      ...state,
+      contract: {
+        ...contract,
+        name,
+      },
+    }
+  | EditCode(code) => {
+      ...state,
+      contract: {
+        ...contract,
+        code,
+      },
+    }
+  | EditReadme(readme) => {
+      ...state,
+      contract: {
+        ...contract,
+        readme,
+      },
+    }
+  | GoBack => {...state, result: None}
+  | _ => state
+  };
+};
+
+let component = ReasonReact.statelessComponent("NewContract");
+
+let make = (~send, ~state, _children) => {
   ...component,
-  initialState: () =>
-    switch (contract) {
-    | None => {prepared: false, contract: API.emptyContract}
-    | Some(contract) => {prepared: true, contract}
-    },
-  reducer: (action: action, state: state) => {
-    let contract = state.contract;
-
-    switch (action) {
-    | EditName(name) =>
-      ReasonReact.Update({
-        ...state,
-        contract: {
-          ...contract,
-          name,
-        },
-      })
-    | EditCode(code) =>
-      ReasonReact.Update({
-        ...state,
-        contract: {
-          ...contract,
-          code,
-        },
-      })
-    | EditReadme(readme) =>
-      ReasonReact.Update({
-        ...state,
-        contract: {
-          ...contract,
-          readme,
-        },
-      })
-    | Prepare =>
-      ReasonReact.SideEffects(
-        (
-          self => {
-            let _ =
-              API.Contract.prepare(contract)
-              |> Js.Promise.then_(v =>
-                   self.send(GotUpdate(v)) |> Js.Promise.resolve
-                 );
-            ();
-          }
-        ),
-      )
-    | Update =>
-      ReasonReact.SideEffects(
-        (
-          self => {
-            let _ =
-              API.Contract.update(contract.id, contract)
-              |> Js.Promise.then_(v =>
-                   self.send(GotUpdate(v)) |> Js.Promise.resolve
-                 );
-            ();
-          }
-        ),
-      )
-    | GotUpdate(contract) =>
-      ReasonReact.UpdateWithSideEffects(
-        {prepared: true, contract},
-        (_self => ReasonReact.Router.push("/new/" ++ contract.id)),
-      )
-    };
-  },
   render: self =>
     <div className="new-contract">
       <h1>
         {
-          if (self.state.prepared) {
-            ReasonReact.string("Contract " ++ self.state.contract.id);
+          if (state.result != None) {
+            ReasonReact.string("Contract " ++ state.contract.id);
           } else {
             ReasonReact.string("Creating a new smart contract");
           }
         }
       </h1>
-      <div>
-        {ReasonReact.string("Name: ")}
-        <div>
-          <input
-            onChange={
-              self.handle((event, _self) =>
-                self.send(EditName(event->ReactEvent.Form.target##value))
-              )
+      {
+        switch (state.result) {
+        | Some({ok, error}) =>
+          <div>
+            {
+              ok ?
+                <div>
+                  {ReasonReact.string("Contract created successfully. ")}
+                  <a
+                    className="highlight"
+                    onClick={
+                      self.handle((_event, _self) =>
+                        ReasonReact.Router.push(
+                          "/contract/" ++ state.contract.id,
+                        )
+                      )
+                    }>
+                    {ReasonReact.string(state.contract.id)}
+                  </a>
+                </div> :
+                <>
+                  <div> {ReasonReact.string("Error!")} </div>
+                  <div className="error">
+                    {ReasonReact.string("\"" ++ error ++ "\"")}
+                  </div>
+                  <div>
+                    <a
+                      className="highlight"
+                      onClick={self.handle((_event, _self) => send(GoBack))}>
+                      {ReasonReact.string("back")}
+                    </a>
+                  </div>
+                </>
             }
-            value={self.state.contract.name}
-          />
-        </div>
-      </div>
-      <div>
-        {ReasonReact.string("Lua code: ")}
-        <div>
-          <textarea
-            onChange={
-              self.handle((event, _self) =>
-                self.send(EditCode(event->ReactEvent.Form.target##value))
-              )
-            }
-            value={self.state.contract.code}
-          />
-        </div>
-      </div>
-      <div>
-        {ReasonReact.string("README: ")}
-        <div>
-          <textarea
-            onChange={
-              self.handle((event, _self) =>
-                self.send(EditReadme(event->ReactEvent.Form.target##value))
-              )
-            }
-            value={self.state.contract.readme}
-          />
-        </div>
-      </div>
-      <div className="button">
-        {
-          if (self.state.prepared) {
-            <button
-              onClick={self.handle((_event, _self) => self.send(Update))}>
-              {ReasonReact.string("Update")}
-            </button>;
-          } else {
-            <button
-              onClick={self.handle((_event, _self) => self.send(Prepare))}>
-              {ReasonReact.string("Prepare")}
-            </button>;
+          </div>
+        | None =>
+          switch (state.contract.invoice_paid, state.contract.bolt11) {
+          | (false, None) =>
+            <>
+              <label>
+                <div> {ReasonReact.string("Name: ")} </div>
+                <div>
+                  <input
+                    onChange={
+                      self.handle((event, _self) =>
+                        send(EditName(event->ReactEvent.Form.target##value))
+                      )
+                    }
+                    value={state.contract.name}
+                  />
+                </div>
+              </label>
+              <div className="row">
+                <label>
+                  <div> {ReasonReact.string("Lua code: ")} </div>
+                  <div>
+                    <textarea
+                      onChange={
+                        self.handle((event, _self) =>
+                          send(
+                            EditCode(event->ReactEvent.Form.target##value),
+                          )
+                        )
+                      }
+                      value={state.contract.code}
+                    />
+                  </div>
+                </label>
+                <label>
+                  <div> {ReasonReact.string("README: ")} </div>
+                  <div>
+                    <textarea
+                      onChange={
+                        self.handle((event, _self) =>
+                          send(
+                            EditReadme(event->ReactEvent.Form.target##value),
+                          )
+                        )
+                      }
+                      value={state.contract.readme}
+                    />
+                  </div>
+                </label>
+              </div>
+              <div className="button">
+                <button
+                  onClick={self.handle((_event, _self) => send(Prepare))}>
+                  {ReasonReact.string("Prepare")}
+                </button>
+              </div>
+            </>
+          | (false, Some(bolt11)) =>
+            <>
+              <div className="bolt11">
+                <ReactQRCode
+                  fgColor="#333333"
+                  bgColor="#efefef"
+                  level="L"
+                  value=bolt11
+                />
+                <p> {ReasonReact.string(bolt11)} </p>
+              </div>
+              <div>
+                {
+                  ReasonReact.string(
+                    "Pay the invoice above, then click the button to initiate the contract.",
+                  )
+                }
+              </div>
+              <div className="button">
+                <button
+                  onClick={self.handle((_event, _self) => send(Initiate))}>
+                  {ReasonReact.string("Initiate!")}
+                </button>
+              </div>
+            </>
+          | (true, _) =>
+            <>
+              <div className="bolt11">
+                <p>
+                  {
+                    ReasonReact.string(
+                      "Invoice paid already. Click the button to initiate the contract.",
+                    )
+                  }
+                </p>
+              </div>
+              <div className="button">
+                <button
+                  onClick={self.handle((_event, _self) => send(Initiate))}>
+                  {ReasonReact.string("Initiate!")}
+                </button>
+              </div>
+            </>
           }
         }
-      </div>
+      }
     </div>,
 };

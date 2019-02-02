@@ -77,6 +77,11 @@ nav
     padding 10px
     border-radius 12px
     background-color #ededed
+    margin 9px 18px
+    max-width 263px
+    overflow hidden
+    text-overflow ellipsis
+    white-space pre
 
 .contract
   & > div
@@ -150,6 +155,13 @@ nav
     margin-bottom 20px
     width 100%
 
+  label
+    width 100%
+    margin 0 36px
+
+  .row
+    display flex
+
 .simulator
   textarea
     min-height 200px
@@ -184,7 +196,7 @@ nav
         label
           margin-right 4px
 
-.call
+.new-call, .new-contract
   text-align center
   display flex
   flex-direction column

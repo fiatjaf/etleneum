@@ -24,8 +24,6 @@ type Settings struct {
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
-
-	InitCostSatoshis int `envconfig:"INIT_COST_SATOSHIS" default:"100"`
 }
 
 var err error
@@ -86,7 +84,6 @@ func main() {
 	router.Path("/~/contracts").Methods("GET").HandlerFunc(listContracts)
 	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
 	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
-	router.Path("/~/contract/{ctid}").Methods("PUT").HandlerFunc(updateContract)
 	router.Path("/~/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
 	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
 	router.Path("/~/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)

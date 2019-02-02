@@ -9,6 +9,7 @@ type contract = {
   state: Js.Json.t,
   funds: int,
   bolt11: option(string),
+  invoice_paid: bool,
 }
 and call = {
   id: string,
@@ -20,6 +21,7 @@ and call = {
   satoshis: int,
   paid: int,
   bolt11: option(string),
+  invoice_paid: bool,
 }
 and result = {
   ok: bool,
@@ -36,6 +38,7 @@ let emptyContract = {
   funds: 0,
   created_at: "1970-01-01",
   bolt11: None,
+  invoice_paid: false,
 };
 let emptyCall = {
   id: "",
@@ -47,50 +50,64 @@ let emptyCall = {
   satoshis: 0,
   paid: 0,
   bolt11: None,
+  invoice_paid: false,
 };
 
 module Decode = {
   open Json.Decode;
 
-  let contract = json => {
-    id: json |> withDefault(emptyContract.id, field("id", string)),
-    name: json |> withDefault(emptyContract.name, field("name", string)),
-    readme:
-      json |> withDefault(emptyContract.readme, field("readme", string)),
-    code: json |> withDefault(emptyContract.code, field("code", string)),
-    state: json |> withDefault(emptyContract.state, field("state", x => x)),
-    created_at:
-      json
-      |> withDefault(emptyContract.created_at, field("created_at", string)),
-    funds: json |> withDefault(emptyContract.funds, field("funds", int)),
-    bolt11: json |> optional(field("invoice", string)),
-  };
-
-  let contractList = list(contract);
-
-  let call = json => {
-    id: json |> withDefault(emptyCall.id, field("id", string)),
-    time: json |> withDefault(emptyCall.time, field("time", string)),
-    contract_id:
-      json
-      |> withDefault(emptyCall.contract_id, field("contract_id", string)),
-    method: json |> withDefault(emptyCall.method, field("method", string)),
-    payload: json |> withDefault(emptyCall.payload, field("payload", x => x)),
-    cost: json |> withDefault(emptyCall.cost, field("cost", int)),
-    satoshis:
-      json |> withDefault(emptyCall.satoshis, field("satoshis", int)),
-    paid: json |> withDefault(emptyCall.paid, field("paid", int)),
-    bolt11: json |> optional(field("invoice", string)),
-  };
-
-  let callList = list(call);
-
   let result = json => {
     ok: json |> field("ok", bool),
-    value: json |> withDefault(Json.Encode.null, field("value", x => x)),
+    value: json |> field("value", x => x),
     error:
       json |> withDefault("Unidentified error.", field("error", string)),
   };
+
+  let contract = json => {
+    id: json |> (field("id", string) |> withDefault(emptyContract.id)),
+    name: json |> (field("name", string) |> withDefault(emptyContract.name)),
+    readme:
+      json |> (field("readme", string) |> withDefault(emptyContract.readme)),
+    code: json |> (field("code", string) |> withDefault(emptyContract.code)),
+    state:
+      json |> (field("state", x => x) |> withDefault(emptyContract.state)),
+    created_at:
+      json
+      |> (
+        field("created_at", string) |> withDefault(emptyContract.created_at)
+      ),
+    funds: json |> (field("funds", int) |> withDefault(emptyContract.funds)),
+    bolt11: json |> optional(field("invoice", string)),
+    invoice_paid:
+      json |> (field("invoice_paid", bool) |> withDefault(false)),
+  };
+
+  let contractResponse = json => json |> result |> (r => r.value |> contract);
+  let contractListResponse = json =>
+    json |> result |> (r => r.value |> list(contract));
+
+  let call = json => {
+    id: json |> (field("id", string) |> withDefault(emptyCall.id)),
+    time: json |> (field("time", string) |> withDefault(emptyCall.time)),
+    contract_id:
+      json
+      |> (field("contract_id", string) |> withDefault(emptyCall.contract_id)),
+    method:
+      json |> (field("method", string) |> withDefault(emptyCall.method)),
+    payload:
+      json |> (field("payload", x => x) |> withDefault(emptyCall.payload)),
+    cost: json |> (field("cost", int) |> withDefault(emptyCall.cost)),
+    satoshis:
+      json |> (field("satoshis", int) |> withDefault(emptyCall.satoshis)),
+    paid: json |> (field("paid", int) |> withDefault(emptyCall.paid)),
+    bolt11: json |> optional(field("invoice", string)),
+    invoice_paid:
+      json |> (field("invoice_paid", bool) |> withDefault(false)),
+  };
+
+  let callResponse = json => json |> result |> (r => r.value |> call);
+  let callListResponse = json =>
+    json |> result |> (r => r.value |> list(call));
 };
 
 module Encode = {
@@ -120,12 +137,12 @@ module Contract = {
   let list = () =>
     Fetch.fetch("/~/contracts")
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.contractList |> resolve);
+    |> then_(json => json |> Decode.contractListResponse |> resolve);
 
   let get = id =>
     Fetch.fetch("/~/contract/" ++ id)
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.contract |> resolve);
+    |> then_(json => json |> Decode.contractResponse |> resolve);
 
   let prepare = contract =>
     Fetch.fetchWithInit(
@@ -138,20 +155,7 @@ module Contract = {
       ),
     )
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.contract |> resolve);
-
-  let update = (id: string, contract: contract) =>
-    Fetch.fetchWithInit(
-      "/~/contract/" ++ id,
-      Fetch.RequestInit.make(
-        ~method_=Fetch.Put,
-        ~body=Fetch.BodyInit.make(contract |> Encode.contract),
-        ~headers=Fetch.HeadersInit.make({"Content-Type": "application/json"}),
-        (),
-      ),
-    )
-    |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.contract |> resolve);
+    |> then_(json => json |> Decode.contractResponse |> resolve);
 
   let make = (id: string) =>
     Fetch.fetchWithInit(
@@ -166,12 +170,12 @@ module Call = {
   let list = contract_id =>
     Fetch.fetch("/~/contract/" ++ contract_id ++ "/calls")
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.callList |> resolve);
+    |> then_(json => json |> Decode.callListResponse |> resolve);
 
   let get = id =>
     Fetch.fetch("/~/call/" ++ id)
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.call |> resolve);
+    |> then_(json => json |> Decode.callResponse |> resolve);
 
   let prepare = (contract_id: string, call: call) =>
     Fetch.fetchWithInit(
@@ -184,7 +188,7 @@ module Call = {
       ),
     )
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.call |> resolve);
+    |> then_(json => json |> Decode.callResponse |> resolve);
 
   let make = (id: string) =>
     Fetch.fetchWithInit(

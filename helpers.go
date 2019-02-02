@@ -13,44 +13,50 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-func getInvoice(label, desc string, msats int) (string, error) {
+func getInvoice(label, desc string, msats int) (string, bool, error) {
 	res, err := ln.Call("listinvoices", label)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	switch res.Get("invoices.0.status").String() {
 	case "paid":
-		return "", nil
+		return "", true, nil
 	case "unpaid":
 		bolt11 := res.Get("invoices.0.bolt11").String()
-		return bolt11, nil
+		return bolt11, false, nil
 	case "expired":
 		_, err := ln.Call("delinvoice", label, "expired")
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		res, err := ln.CallWithCustomTimeout("invoice", 7*time.Second, strconv.Itoa(msats), label, desc)
+		res, err := ln.CallWithCustomTimeout("invoice",
+			7*time.Second,
+			strconv.Itoa(msats), label, desc, "36000")
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 		bolt11 := res.Get("bolt11").String()
-		return bolt11, nil
+		return bolt11, false, nil
 	case "":
-		res, err := ln.CallWithCustomTimeout("invoice", 7*time.Second, strconv.Itoa(msats), label, desc)
+		res, err := ln.CallWithCustomTimeout("invoice", 7*time.Second, strconv.Itoa(msats), label, desc, "36000")
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 		bolt11 := res.Get("bolt11").String()
-		return bolt11, nil
+		return bolt11, false, nil
 	default:
 		log.Warn().Str("label", label).Str("r", res.String()).
 			Msg("what's up with this invoice?")
-		return "", errors.New("bad wrong invoice")
+		return "", false, errors.New("bad wrong invoice")
 	}
 }
 
 func checkPayment(label string, pricemsats int) (err error) {
+	if pricemsats == 0 {
+		return errors.New("tried to check a payment with price zero")
+	}
+
 	res, err := ln.Call("listinvoices", label)
 	if err != nil {
 		return

@@ -2,6 +2,7 @@
 
 const glua = window.glua
 const invoice = require('lightnode-invoice')
+const sha256 = require('js-sha256').sha256
 const fs = require('fs')
 
 const sandbox = fs.readFileSync('static/sandbox.lua', 'utf-8')
@@ -51,6 +52,9 @@ module.exports.runlua = function runlua(
         print: function(arg) {
           console.log('printed from contract: ', arg)
         },
+        sha256: function(preimage) {
+          return sha256(preimage)
+        },
         state: stateBefore,
         satoshis: satoshis,
         payload: payload
@@ -64,6 +68,7 @@ local ln = {pay=lnpay}
 local ret = sandbox.run(${method}, {
   quota=50, env={
     print=print,
+    sha256=sha256,
     ln=ln,
     payload=payload,
     state=state,
@@ -77,6 +82,10 @@ getreturnedvalue(ret)
     )
   } catch (e) {
     error = e.message
+  }
+
+  if (method === '__init__') {
+    stateAfter = returnedValue
   }
 
   return {

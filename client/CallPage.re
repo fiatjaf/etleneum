@@ -4,7 +4,7 @@ let make =
     (~call: API.call, ~result: option(API.result), ~dispatch, _children) => {
   ...component,
   render: self =>
-    <div className="call">
+    <div className="new-call">
       <h1> {ReasonReact.string("Call " ++ call.id)} </h1>
       <p>
         <a

@@ -2,6 +2,7 @@ open API;
 
 type state = {
   contracts: list(contract),
+  newcontractstate: NewContract.state,
   view,
 }
 and view =
@@ -10,7 +11,6 @@ and view =
   | Index
   | ViewContract(contract)
   | ViewNewContract
-  | ViewPreparedContract(contract)
   | ViewCall(call, option(result))
   | ViewSimulator
   | ViewSimulatorWithContract(contract);
@@ -21,7 +21,6 @@ type action =
   | GotContractsList(list(contract))
   | GotContract(contract)
   | FetchPreparedContract(string)
-  | GotPreparedContract(contract)
   | LoadContract(string)
   | LoadCall(string)
   | GotCall(call)
@@ -30,7 +29,8 @@ type action =
   | CreateContract
   | OpenSimulator
   | LoadContractForSimulator(string)
-  | OpenSimulatorWithContract(contract);
+  | OpenSimulatorWithContract(contract)
+  | NewContractAction(NewContract.action);
 
 let component = ReasonReact.reducerComponent("Main");
 
@@ -41,8 +41,8 @@ let make = _children => {
     let handleURL = (url: ReasonReact.Router.url) =>
       switch (url.path) {
       | [] => self.send(FetchContractsList)
-      | ["new", ctid] => self.send(FetchPreparedContract(ctid))
       | ["new"] => self.send(CreateContract)
+      | ["new", ctid] => self.send(FetchPreparedContract(ctid))
       | ["simulator"] => self.send(OpenSimulator)
       | ["simulator", ctid] => self.send(LoadContractForSimulator(ctid))
       | ["call", callid] => self.send(LoadCall(callid))
@@ -53,7 +53,11 @@ let make = _children => {
     let watcherId = ReasonReact.Router.watchUrl(handleURL);
     self.onUnmount(() => ReasonReact.Router.unwatchUrl(watcherId));
   },
-  initialState: _state => {contracts: [], view: Index},
+  initialState: _state => {
+    contracts: [],
+    newcontractstate: NewContract.initialState,
+    view: Index,
+  },
   reducer: (action: action, state: state) =>
     switch (action) {
     | UnhandledURL => ReasonReact.Update({...state, view: NotFound})
@@ -136,15 +140,19 @@ let make = _children => {
             let _ =
               API.Contract.get(ctid)
               |> Js.Promise.then_(v =>
-                   self.send(GotPreparedContract(v)) |> Js.Promise.resolve
+                   self.send(NewContractAction(GotPrepared(v)))
+                   |> Js.Promise.resolve
                  );
             ();
           }
         ),
       )
-    | GotPreparedContract(contract) =>
-      ReasonReact.Update({...state, view: ViewPreparedContract(contract)})
-    | CreateContract => ReasonReact.Update({...state, view: ViewNewContract})
+    | CreateContract =>
+      ReasonReact.Update({
+        ...state,
+        newcontractstate: NewContract.initialState,
+        view: ViewNewContract,
+      })
     | OpenSimulator => ReasonReact.Update({...state, view: ViewSimulator})
     | LoadContractForSimulator(ctid) =>
       ReasonReact.SideEffects(
@@ -165,6 +173,75 @@ let make = _children => {
         ...state,
         view: ViewSimulatorWithContract(contract),
       })
+    | NewContractAction(act) =>
+      let newcontractstate = state.newcontractstate;
+
+      switch (act) {
+      | Prepare =>
+        ReasonReact.UpdateWithSideEffects(
+          {...state, view: Loading},
+          (
+            self => {
+              let _ =
+                API.Contract.prepare(newcontractstate.contract)
+                |> Js.Promise.then_((v: contract) =>
+                     self.send(NewContractAction(GotPrepared(v)))
+                     |> Js.Promise.resolve
+                   );
+              ();
+            }
+          ),
+        )
+      | GotPrepared(contract) =>
+        ReasonReact.UpdateWithSideEffects(
+          {
+            ...state,
+            view: ViewNewContract,
+            newcontractstate: {
+              ...newcontractstate,
+              contract,
+            },
+          },
+          (
+            _self =>
+              if (ReasonReact.Router.dangerouslyGetInitialUrl().path
+                  == ["new", contract.id]) {
+                ();
+              } else {
+                ReasonReact.Router.push("/new/" ++ contract.id);
+              }
+          ),
+        )
+      | Initiate =>
+        ReasonReact.UpdateWithSideEffects(
+          {...state, view: Loading},
+          (
+            self => {
+              let _ =
+                API.Contract.make(newcontractstate.contract.id)
+                |> Js.Promise.then_((v: result) =>
+                     self.send(NewContractAction(GotInitResult(Some(v))))
+                     |> Js.Promise.resolve
+                   );
+              ();
+            }
+          ),
+        )
+      | GotInitResult(result) =>
+        ReasonReact.Update({
+          ...state,
+          newcontractstate: {
+            ...newcontractstate,
+            result,
+          },
+          view: ViewNewContract,
+        })
+      | _ =>
+        ReasonReact.Update({
+          ...state,
+          newcontractstate: NewContract.reduceState(act, newcontractstate),
+        })
+      };
     },
   render: self =>
     <div>
@@ -237,9 +314,11 @@ let make = _children => {
                 </div>
               </div>
             | ViewContract(c) => <ContractPage contract=c />
-            | ViewNewContract => <NewContract contract=None />
-            | ViewPreparedContract(contract) =>
-              <NewContract contract={Some(contract)} />
+            | ViewNewContract =>
+              <NewContract
+                state={self.state.newcontractstate}
+                send=(act => self.send(NewContractAction(act)))
+              />
             | ViewCall(call, result) =>
               <CallPage
                 call

@@ -4,13 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/imdario/mergo"
-	"github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"
 )
 
@@ -33,7 +29,7 @@ ORDER BY lastcalltime DESC, created_at DESC
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(contracts)
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: contracts})
 }
 
 func prepareContract(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +45,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	}
 	ct.Id = cuid.Slug()
 
+	ct.calcCosts()
 	err = ct.getInvoice()
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
@@ -56,14 +53,14 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jct, err := ct.saveOnRedis()
+	_, err = ct.saveOnRedis()
 	if err != nil {
 		log.Warn().Err(err).Interface("ct", ct).Msg("failed to save to redis")
 		jsonError(w, "", 500)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(jct)
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: ct})
 }
 
 func getContract(w http.ResponseWriter, r *http.Request) {
@@ -71,10 +68,12 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 
 	ct := &Contract{}
 	err = pg.Get(ct, `
-SELECT *,
-  (SELECT sum(satoshis - paid) FROM calls WHERE contract_id = $1) AS funds
-FROM contracts
-WHERE id = $1`,
+SELECT contract.*,
+  coalesce(sum(satoshis - paid), 0) AS funds
+FROM contracts AS contract
+LEFT OUTER JOIN calls AS call ON call.contract_id = contract.id
+WHERE contract.id = $1
+GROUP BY contract.id`,
 		ctid)
 	if err == sql.ErrNoRows {
 		// couldn't find on database, maybe it's a temporary contract?
@@ -100,95 +99,44 @@ WHERE id = $1`,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ct)
-}
-
-func updateContract(w http.ResponseWriter, r *http.Request) {
-	// updates a contract before it is initiated
-	ctid := mux.Vars(r)["ctid"]
-
-	var upd = Contract{}
-	var curr = &Contract{}
-
-	// parse update
-	err := json.NewDecoder(r.Body).Decode(&upd)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to parse contract update json.")
-		jsonError(w, "", 400)
-		return
-	}
-
-	// get current
-	curr, err = contractFromRedis(ctid)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to get contract from redis.")
-		jsonError(w, "", 404)
-		return
-	}
-
-	// update current
-	mergo.Merge(&curr, upd)
-
-	// update invoice
-	err = curr.getInvoice()
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to make invoice.")
-		jsonError(w, "", 500)
-		return
-	}
-
-	// save on redis
-	jcurr, err := curr.saveOnRedis()
-	if err != nil {
-		log.Warn().Err(err).Interface("ct", curr).Msg("failed to save to redis")
-		jsonError(w, "", 500)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jcurr)
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: ct})
 }
 
 func makeContract(w http.ResponseWriter, r *http.Request) {
 	// init is a special call that enables a contract.
 	// it has a fixed cost and its payload is the initial state of the contract.
 	ctid := mux.Vars(r)["ctid"]
-	costsatoshis := s.InitCostSatoshis
+	logger := log.With().Str("ctid", ctid).Logger()
 
 	ct, err := contractFromRedis(ctid)
 	if err != nil {
-		log.Warn().Err(err).Str("ctid", ctid).
-			Msg("failed to fetch contract from redis")
-		jsonError(w, "", 404)
+		logger.Warn().Err(err).Msg("failed to fetch contract from redis")
+		jsonError(w, "couldn't find contract "+ctid+", it may have expired", 404)
 		return
 	}
 
-	err = checkPayment(s.ServiceId+"."+ctid, costsatoshis)
+	err = checkPayment(s.ServiceId+"."+ctid, ct.Cost)
 	if err != nil {
-		log.Warn().Err(err).Str("ctid", ctid).Msg("payment check failed")
-		jsonError(w, "", 402)
+		logger.Warn().Err(err).Msg("payment check failed")
+		jsonError(w, "payment check failed", 402)
 		return
 	}
 
-	// request payload should be the initial state
-	bpayload, err := ioutil.ReadAll(r.Body)
+	// initiate transaction
+	txn, err := pg.BeginTxx(context.TODO(),
+		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		log.Warn().Err(err).Str("ctid", ctid).
-			Msg("failed to read init payload")
-		jsonError(w, "", 400)
+		logger.Warn().Err(err).Msg("transaction start failed")
+		jsonError(w, "", 500)
 		return
 	}
-	payload := string(bpayload)
+	defer txn.Rollback()
 
-	_, err = pg.Exec(`
-WITH contract AS (
-  INSERT INTO contracts (id, name, readme, code, state)
-  VALUES ($1, $2, $3, $4, $5)
-  RETURNING id
-)
-INSERT INTO calls (id, contract_id, method, payload, cost, satoshis)
-VALUES ($6, (SELECT id FROM contract), '__init__',  $7, $8, 0)
-    `, ct.Id, ct.Name, ct.Readme, ct.Code, payload,
-		cuid.Slug(), payload, costsatoshis)
+	// create initial contract
+	_, err = txn.Exec(`
+INSERT INTO contracts (id, name, readme, code, cost, state)
+VALUES ($1, $2, $3, $4, $5, '{}')
+    `, ct.Id, ct.Name, ct.Readme, ct.Code, ct.Cost)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
 			Msg("failed to save contract on database")
@@ -196,15 +144,32 @@ VALUES ($6, (SELECT id FROM contract), '__init__',  $7, $8, 0)
 		return
 	}
 
+	// instantiate call
+	call := Call{
+		ContractId: ct.Id,
+		Id:         ct.Id, // same
+		Method:     "__init__",
+		Payload:    []byte{},
+		Cost:       0,
+	}
+
+	_, err = call.runCall(txn)
+	if err != nil {
+		logger.Warn().Err(err).Msg("failed to run call")
+		jsonError(w, "failed to run call", 500)
+		return
+	}
+
 	// saved. delete from redis.
 	rds.Del("contract:" + ctid)
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"ok": true}`))
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: nil})
 }
 
 func listCalls(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
+	logger := log.With().Str("ctid", ctid).Logger()
 
 	var calls []Call
 	err = pg.Select(&calls, `
@@ -217,17 +182,18 @@ LIMIT 20
 	if err == sql.ErrNoRows {
 		calls = make([]Call, 0)
 	} else if err != nil {
-		log.Warn().Err(err).Str("ctid", ctid).Msg("failed to fetch calls")
+		logger.Warn().Err(err).Msg("failed to fetch calls")
 		jsonError(w, "", 404)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(calls)
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: calls})
 }
 
 func prepareCall(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
+	logger := log.With().Str("ctid", ctid).Logger()
 
 	call := &Call{}
 	err := json.NewDecoder(r.Body).Decode(call)
@@ -238,95 +204,78 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	}
 	call.ContractId = ctid
 	call.Id = cuid.Slug()
+	logger = logger.With().Str("callid", call.Id).Logger()
+
+	// verify call is valid as best as possible
+	if len(call.Method) == 0 || call.Method[0] == '_' {
+		logger.Warn().Err(err).Str("method", call.Method).Msg("invalid method")
+		jsonError(w, "invalid method", 400)
+		return
+	}
 
 	call.calcCosts()
 	err = call.getInvoice()
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to make invoice.")
-		jsonError(w, "", 500)
+		logger.Warn().Err(err).Msg("failed to make invoice.")
+		jsonError(w, "failed to make invoice, please try again", 500)
 		return
 	}
 
-	jcall, err := json.Marshal(call)
+	_, err = call.saveOnRedis()
 	if err != nil {
-		log.Warn().Err(err).Interface("call", call).Msg("failed to marshal call")
-		jsonError(w, "", 500)
-		return
-	}
-
-	err = rds.Set("call:"+call.Id, jcall, time.Hour*30).Err()
-	if err != nil {
-		log.Warn().Err(err).Interface("call", call).Msg("failed to save to redis")
+		logger.Warn().Err(err).Interface("call", call).
+			Msg("failed to save call on redis")
 		jsonError(w, "", 500)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(jcall)
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: call})
 }
 
 func getCall(w http.ResponseWriter, r *http.Request) {
 	callid := mux.Vars(r)["callid"]
+	logger := log.With().Str("callid", callid).Logger()
 
 	call := &Call{}
 	err = pg.Get(call, `
 SELECT * FROM calls WHERE id = $1
     `, callid)
 	if err == sql.ErrNoRows {
-		bcall, err := rds.Get("call:" + callid).Bytes()
-		if err != nil || len(bcall) == 0 {
-			log.Warn().Err(err).Str("callid", callid).
-				Msg("failed to fetch call from redis")
-			jsonError(w, "", 404)
-			return
-		}
-
-		// found on redis
-		err = json.Unmarshal(bcall, &call)
+		call, err = callFromRedis(callid)
 		if err != nil {
-			log.Warn().Err(err).Str("callid", callid).Str("c", string(bcall)).
-				Msg("failed to decode from redis")
-			jsonError(w, "", 500)
+			logger.Warn().Err(err).Msg("failed to fetch call from redis")
+			jsonError(w, "couldn't find call "+callid+", it may have expired", 404)
 			return
 		}
 	} else if err != nil {
 		// it's a database error
-		log.Warn().Err(err).Str("callid", callid).Msg("database error fetching call")
-		jsonError(w, "", 404)
+		logger.Warn().Err(err).Msg("database error fetching call")
+		jsonError(w, "failed to fetch call "+callid, 500)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(call)
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: call})
 }
 
 func makeCall(w http.ResponseWriter, r *http.Request) {
 	callid := mux.Vars(r)["callid"]
+	logger := log.With().Str("callid", callid).Logger()
 
-	jcall, err := rds.Get("call:" + callid).Bytes()
+	call, err := callFromRedis(callid)
 	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).
-			Msg("failed to fetch temporary call for making it")
-		jsonError(w, "", 404)
+		logger.Warn().Err(err).Msg("failed to fetch call from redis")
+		jsonError(w, "couldn't find call "+callid+", it may have expired.", 404)
 		return
 	}
 
-	call := &Call{}
-	err = json.Unmarshal(jcall, call)
-	if err != nil {
-		log.Warn().Err(err).Str("call", string(jcall)).
-			Msg("failed to unmarshal temporary call")
-		jsonError(w, "", 500)
-		return
-	}
-
-	log.Info().Interface("call", call).Msg("call being made")
-
+	logger.Info().Interface("call", call).Msg("call being made")
 	label := s.ServiceId + "." + call.ContractId + "." + callid
 	err = checkPayment(label, call.Cost+call.Satoshis*1000)
 	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).Msg("payment check failed")
-		jsonError(w, "", 402)
+		logger.Warn().Err(err).Msg("payment check failed")
+		jsonError(w, "payment check failed", 402)
 		return
 	}
 
@@ -334,146 +283,18 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).Msg("transaction start failed")
+		logger.Warn().Err(err).Msg("transaction start failed")
 		jsonError(w, "", 500)
 		return
 	}
 	defer txn.Rollback()
-
-	// get contract data
-	var ct Contract
-	err = txn.Get(&ct, `
-SELECT *,
-  (SELECT sum(satoshis - paid) FROM calls WHERE contract_id = $1) AS funds
-FROM contracts
-WHERE id = $1`, call.ContractId)
+	returnedValue, err := call.runCall(txn)
 	if err != nil {
-		log.Warn().Err(err).Str("ctid", call.ContractId).Str("callid", callid).
-			Msg("failed to get contract data")
-		jsonError(w, "", 500)
+		logger.Warn().Err(err).Str("ctid", call.ContractId).Msg("failed to run call")
+		jsonError(w, "failed to run call", 500)
 		return
 	}
-
-	// actually run the call
-	newState, totalPaid, paymentsPending, returnedValue, err := runLua(ct, *call)
-	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).Msg("failed to run call")
-		jsonError(w, "Error running method.", 400)
-		return
-	}
-
-	// save new state
-	_, err = txn.Exec(`
-UPDATE contracts SET state = $2
-WHERE id = $1
-    `, call.ContractId, newState)
-	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).Msg("database error")
-		jsonError(w, "", 500)
-		return
-	}
-
-	// save call (including all the transactions, even though they weren't paid yet)
-	_, err = txn.Exec(`
-INSERT INTO calls (id, contract_id, method, payload, cost, satoshis, paid)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, call.Id, call.ContractId,
-		call.Method, call.Payload, call.Cost, call.Satoshis, totalPaid)
-	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).Msg("database error")
-		jsonError(w, "", 500)
-		return
-	}
-
-	// get contract balance (if balance is negative after the call all will fail)
-	var contractFunds int
-	err = txn.Get(&contractFunds, `
-SELECT sum(satoshis - paid)
-FROM calls
-WHERE contract_id = $1`,
-		call.ContractId)
-	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).Msg("database error")
-		jsonError(w, "", 500)
-		return
-	}
-
-	if contractFunds < 0 {
-		log.Warn().Err(err).Str("callid", callid).Msg("contract out of funds")
-		jsonError(w, "", 500)
-		return
-	}
-
-	// ok, all is good, commit and proceed.
-	err = txn.Commit()
-	if err != nil {
-		log.Warn().Err(err).Str("callid", callid).Msg("failed to commit call")
-		jsonError(w, "", 500)
-		return
-	}
-
-	// delete from redis to prevent double-calls
-	rds.Del("call:" + callid)
-
-	log.Info().Str("callid", callid).Interface("payments", paymentsPending).
-		Msg("call done")
-
-	// everything is saved and well alright.
-	// do the payments in a separate goroutine:
-	go func(callId string, previousState types.JSONText, paymentsPending []string) {
-		dirty := false
-		stillpending := make([]string, 0, len(paymentsPending))
-
-		for _, bolt11 := range paymentsPending {
-			res, err := ln.CallWithCustomTimeout("pay", time.Second*10, bolt11)
-			log.Debug().Err(err).Str("res", res.String()).
-				Str("callid", callid).
-				Msg("payment from contract")
-
-			if err == nil {
-				// at least one payment went through, this whole thing is now dirty
-				dirty = true
-			} else {
-				if dirty == false {
-					// if no payment has been made yet, revert this call
-					_, err := pg.Exec(`
-WITH deleted_call AS (
-  DELETE FROM calls WHERE id = $1 
-  RETURNING contract_id
-)
-UPDATE contracts SET state = $2
-WHERE id (SELECT contract_id FROM deleted_call)
-        `, callId, previousState)
-					if err == nil {
-						log.Info().Str("callid", callId).
-							Str("state", string(previousState)).
-							Msg("reverted call")
-						return
-					} else {
-						log.Error().Err(err).Str("callid", callId).
-							Str("state", string(previousState)).
-							Msg("couldn't revert call after payment failure.")
-
-						// mark all as pending
-						stillpending = paymentsPending
-						return
-					}
-				}
-
-				// otherwise the call can't be reverted
-				// we'll try to pay again later
-				stillpending = append(stillpending, bolt11)
-			}
-		}
-
-		for _, bolt11 := range stillpending {
-			rds.SAdd("pending:"+callId, bolt11)
-		}
-	}(call.Id, ct.State, paymentsPending)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"ok":    true,
-		"value": returnedValue,
-	})
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: returnedValue})
 }

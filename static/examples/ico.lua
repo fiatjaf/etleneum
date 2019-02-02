@@ -1,4 +1,16 @@
+function __init__ ()
+  return {
+    name="my ico",
+    symbol="%",
+    totalSupply=0,
+    hashes={},
+    balances={}
+  }
+end
+
 function buytoken ()
+  local price = 5
+
   local amount = payload.amount
   local user = payload.user
   local initialhash = payload.initialhash
@@ -19,6 +31,7 @@ function buytoken ()
       current = 0
     end
     state.balances[user] = current + amount
+    state.totalSupply = state.totalSupply + amount
   else
     error("insufficient payment")
   end
@@ -28,7 +41,7 @@ function transfer()
   local from = payload.from
   local preimage = payload.preimage
   local nexthash = payload.nexthash
-  local tohash = payload.tohash
+  local to = payload.to
   local amount = payload.amount
 
   local userhash = state.hashes[from]
