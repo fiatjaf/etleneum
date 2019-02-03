@@ -30,16 +30,16 @@ func getInvoice(label, desc string, msats int) (string, bool, error) {
 		if err != nil {
 			return "", false, err
 		}
-		res, err := ln.CallWithCustomTimeout("invoice",
-			7*time.Second,
-			strconv.Itoa(msats), label, desc, "36000")
+		res, err := ln.CallWithCustomTimeout(7*time.Second,
+			"invoice", strconv.Itoa(msats), label, desc, "36000")
 		if err != nil {
 			return "", false, err
 		}
 		bolt11 := res.Get("bolt11").String()
 		return bolt11, false, nil
 	case "":
-		res, err := ln.CallWithCustomTimeout("invoice", 7*time.Second, strconv.Itoa(msats), label, desc, "36000")
+		res, err := ln.CallWithCustomTimeout(7*time.Second,
+			"invoice", strconv.Itoa(msats), label, desc, "36000")
 		if err != nil {
 			return "", false, err
 		}

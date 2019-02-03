@@ -149,7 +149,7 @@ WHERE contract_id = $1`,
 		stillpending := make([]string, 0, len(paymentsPending))
 
 		for _, bolt11 := range paymentsPending {
-			res, err := ln.CallWithCustomTimeout("pay", time.Second*10, bolt11)
+			res, err := ln.CallWithCustomTimeout(time.Second*10, "pay", bolt11)
 			log.Debug().Err(err).Str("res", res.String()).
 				Str("callid", callId).
 				Msg("payment from contract")
