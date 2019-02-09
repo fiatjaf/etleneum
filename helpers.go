@@ -52,9 +52,9 @@ func getInvoice(label, desc string, msats int) (string, bool, error) {
 	}
 }
 
-func checkPayment(label string, pricemsats int) (err error) {
+func checkPayment(label string, pricemsats int) (msats int, err error) {
 	if pricemsats == 0 {
-		return errors.New("tried to check a payment with price zero")
+		return 0, errors.New("tried to check a payment with price zero")
 	}
 
 	res, err := ln.Call("listinvoices", label)
@@ -73,7 +73,7 @@ func checkPayment(label string, pricemsats int) (err error) {
 		return
 	}
 
-	return nil
+	return int(res.Get("invoices.0.msatoshi_received").Int()), nil
 }
 
 var reNumber = regexp.MustCompile("\\d+")

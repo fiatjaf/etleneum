@@ -6,13 +6,14 @@ CREATE TABLE contracts (
   state jsonb NOT NULL DEFAULT '{}',
   created_at timestamp NOT NULL DEFAULT now(),
   storage_costs int NOT NULL DEFAULT 0,
+  refilled int NOT NULL DEFAULT 0,
 
   CONSTRAINT state_is_object CHECK (jsonb_typeof(state) = 'object'),
   CONSTRAINT code_exists CHECK (code != '')
 );
 
 CREATE FUNCTION funds(contracts) RETURNS bigint AS $$
-  SELECT 1 - $1.storage_costs + (
+  SELECT 1 + $1.refilled - $1.storage_costs + (
     SELECT coalesce(sum(1000*satoshis - paid), 0)
     FROM calls WHERE calls.contract_id = $1.id
   );

@@ -83,6 +83,8 @@ func main() {
 		})
 	router.Path("/~/contracts").Methods("GET").HandlerFunc(listContracts)
 	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
+	router.Path("/~/contract/{ctid}/refill/{sats}").Methods("GET").HandlerFunc(refillContract)
+	router.Path("/~/contract/{ctid}/refill/{rid}").Methods("POST").HandlerFunc(applyContractRefill)
 	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
 	router.Path("/~/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
 	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)

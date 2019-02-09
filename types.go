@@ -16,6 +16,7 @@ type Contract struct {
 	State        types.JSONText `db:"state" json:"state"`
 	CreatedAt    time.Time      `db:"created_at" json:"created_at"`
 	StorageCosts int            `db:"storage_costs" json:"storage_costs"` // sum of all daily storage costs, in msats
+	Refilled     int            `db:"refilled" json:"refilled"`           // msats refilled without use of a normal call
 
 	Funds       int    `db:"funds" json:"funds"` // contract balance in msats
 	Bolt11      string `db:"-" json:"invoice,omitempty"`
