@@ -50,6 +50,22 @@ module.exports.runlua = function runlua(
 
           return amountmsats
         },
+        gettext: function(url, headers) {
+          console.log(
+            `here we would do an http get to ${url} with headers ${JSON.stringify(
+              headers
+            )}.`
+          )
+          return ''
+        },
+        getjson: function(url, headers) {
+          console.log(
+            `here we would do an http get to ${url} with headers ${JSON.stringify(
+              headers
+            )}.`
+          )
+          return {}
+        },
         print: function(arg) {
           console.log('printed from contract: ', arg)
         },
@@ -65,12 +81,14 @@ ${sandbox}
 ${code}
 
 local ln = {pay=lnpay}
+local http = {gettext=gettext, getjson=getjson}
 
 local ret = sandbox.run(${method}, {
   quota=50, env={
     print=print,
     sha256=sha256,
     ln=ln,
+    http=http,
     payload=payload,
     state=state,
     satoshis=satoshis

@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -53,6 +56,7 @@ func runLua(
 	}()
 
 	lua_print, _ := make_lua_print(L)
+	lua_http_gettext, lua_http_getjson, _ := make_lua_http(L)
 
 	var currentstate map[string]interface{}
 	err = contract.State.Unmarshal(&currentstate)
@@ -77,6 +81,8 @@ func runLua(
 	L.SetGlobal("payload", gluajson.DecodeValue(L, payload))
 	L.SetGlobal("satoshis", lua.LNumber(call.Satoshis))
 	L.SetGlobal("lnpay", lua_ln_pay)
+	L.SetGlobal("httpgettext", lua_http_gettext)
+	L.SetGlobal("httpgetjson", lua_http_getjson)
 	L.SetGlobal("print", lua_print)
 	L.SetGlobal("sha256", L.NewFunction(lua_sha256))
 
@@ -86,11 +92,13 @@ func runLua(
 %s
 %s
 local ln = {pay=lnpay}
+local http = {gettext=gettext, getjson=getjson}
 
 local ret = sandbox.run(%s, {quota=50, env={
   print=print,
   sha256=sha256,
   ln=ln,
+  http=http,
   payload=payload,
   state=state,
   satoshis=satoshis
@@ -252,6 +260,80 @@ func make_lua_print(L *lua.LState) (lua_print lua.LValue, printed []string) {
 		}
 
 		return 0
+	})
+
+	return
+}
+
+func make_lua_http(L *lua.LState) (lua_http_gettext lua.LValue, lua_http_getjson lua.LValue, calls_p *int) {
+	calls := 0
+	calls_p = &calls
+
+	http_get := func(url string, lheaders lua.LValue) (b []byte, err error) {
+		log.Debug().Str("url", url).Msg("http call from contract")
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return
+		}
+
+		if lheaders != nil {
+			lheaders.(*lua.LTable).ForEach(func(k lua.LValue, v lua.LValue) {
+				req.Header.Set(lua.LVAsString(k), lua.LVAsString(v))
+			})
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return
+		}
+
+		if resp.StatusCode >= 400 {
+			err = errors.New("response status code: " + strconv.Itoa(resp.StatusCode))
+			return
+		}
+
+		b, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return
+		}
+
+		return b, nil
+	}
+
+	lua_http_gettext = L.NewFunction(func(L *lua.LState) int {
+		url := L.CheckString(1)
+		lheaders := L.CheckTable(2)
+		respbytes, err := http_get(url, lheaders)
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		L.Push(lua.LString(string(respbytes)))
+		return 1
+	})
+
+	lua_http_getjson = L.NewFunction(func(L *lua.LState) int {
+		url := L.CheckString(1)
+		lheaders := L.CheckTable(2)
+		respbytes, err := http_get(url, lheaders)
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		lv, err := gluajson.Decode(L, respbytes)
+		if err != nil {
+			L.Push(lua.LNil)
+			L.Push(lua.LString(err.Error()))
+			return 2
+		}
+
+		L.Push(lv)
+		return 1
 	})
 
 	return
