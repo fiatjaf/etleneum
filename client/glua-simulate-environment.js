@@ -32,12 +32,13 @@ module.exports.runlua = function runlua(
         lnpay: function(bolt11, filters) {
           filters = filters || {}
           let res = invoice.decode(bolt11)
-          let satoshis = res.amount * 100000000
+          let amountsats = res.amount * 100000000
+          let amountmsats = amountsats * 1000
 
-          if (filters.max && satoshis > filters.max) {
+          if (filters.max && amountsats > filters.max) {
             return 0
           }
-          if (filters.exact && satoshis != filters.exact) {
+          if (filters.exact && amountsats != filters.exact) {
             return 0
           }
           if (filters.hash && res.paymentHash != filters.hash) {
@@ -45,9 +46,9 @@ module.exports.runlua = function runlua(
           }
 
           paymentsDone.push(bolt11)
-          totalPaid += satoshis
+          totalPaid += amountmsats
 
-          return satoshis
+          return amountmsats
         },
         print: function(arg) {
           console.log('printed from contract: ', arg)

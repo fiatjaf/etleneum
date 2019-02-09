@@ -22,7 +22,7 @@
     "envify": "^4.1.0",
     "prettier": "1.14.2",
     "stylus": "^0.54.5",
-    "uglify-js": "^3.4.7",
+    "terser": "^3.16.1",
     "uglifyify": "^5.0.1"
   },
   "dependencies": {

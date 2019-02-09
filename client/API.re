@@ -6,6 +6,7 @@ type contract = {
   name: string,
   readme: string,
   created_at: string,
+  storage_costs: int,
   state: Js.Json.t,
   funds: int,
   bolt11: option(string),
@@ -37,6 +38,7 @@ let emptyContract = {
   state: Json.Encode.object_([]),
   funds: 0,
   created_at: "1970-01-01",
+  storage_costs: 0,
   bolt11: None,
   invoice_paid: false,
 };
@@ -75,6 +77,12 @@ module Decode = {
       json
       |> (
         field("created_at", string) |> withDefault(emptyContract.created_at)
+      ),
+    storage_costs:
+      json
+      |> (
+        field("storage_costs", int)
+        |> withDefault(emptyContract.storage_costs)
       ),
     funds: json |> (field("funds", int) |> withDefault(emptyContract.funds)),
     bolt11: json |> optional(field("invoice", string)),

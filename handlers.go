@@ -45,7 +45,6 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	}
 	ct.Id = cuid.Slug()
 
-	ct.calcCosts()
 	err = ct.getInvoice()
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
@@ -68,12 +67,9 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 
 	ct := &Contract{}
 	err = pg.Get(ct, `
-SELECT contract.*,
-  coalesce(sum(satoshis - paid), 0) AS funds
-FROM contracts AS contract
-LEFT OUTER JOIN calls AS call ON call.contract_id = contract.id
-WHERE contract.id = $1
-GROUP BY contract.id`,
+SELECT *, contracts.funds,
+FROM contracts
+WHERE id = $1`,
 		ctid)
 	if err == sql.ErrNoRows {
 		// couldn't find on database, maybe it's a temporary contract?
@@ -115,7 +111,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = checkPayment(s.ServiceId+"."+ctid, ct.Cost)
+	err = checkPayment(s.ServiceId+"."+ctid, ct.getCost())
 	if err != nil {
 		logger.Warn().Err(err).Msg("payment check failed")
 		jsonError(w, "payment check failed", 402)
@@ -134,9 +130,9 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 
 	// create initial contract
 	_, err = txn.Exec(`
-INSERT INTO contracts (id, name, readme, code, cost, state)
+INSERT INTO contracts (id, name, readme, code, state)
 VALUES ($1, $2, $3, $4, $5, '{}')
-    `, ct.Id, ct.Name, ct.Readme, ct.Code, ct.Cost)
+    `, ct.Id, ct.Name, ct.Readme, ct.Code)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
 			Msg("failed to save contract on database")

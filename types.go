@@ -9,15 +9,15 @@ import (
 )
 
 type Contract struct {
-	Id        string         `db:"id" json:"id"`
-	Code      string         `db:"code" json:"code"`
-	Name      string         `db:"name" json:"name"`
-	Readme    string         `db:"readme" json:"readme"`
-	State     types.JSONText `db:"state" json:"state"`
-	CreatedAt time.Time      `db:"created_at" json:"created_at"`
-	Cost      int            `db:"cost" json:"cost"`
+	Id           string         `db:"id" json:"id"` // used in the invoice label
+	Code         string         `db:"code" json:"code"`
+	Name         string         `db:"name" json:"name"`
+	Readme       string         `db:"readme" json:"readme"`
+	State        types.JSONText `db:"state" json:"state"`
+	CreatedAt    time.Time      `db:"created_at" json:"created_at"`
+	StorageCosts int            `db:"storage_costs" json:"storage_costs"` // sum of all daily storage costs, in msats
 
-	Funds       int    `db:"funds" json:"funds"`
+	Funds       int    `db:"funds" json:"funds"` // contract balance in msats
 	Bolt11      string `db:"-" json:"invoice,omitempty"`
 	InvoicePaid bool   `db:"-" json:"invoice_paid"`
 }
@@ -39,14 +39,14 @@ func contractFromRedis(ctid string) (ct *Contract, err error) {
 	return
 }
 
-func (c *Contract) calcCosts() {
-	c.Cost = len(c.Code) * 53
+func (c Contract) getCost() int {
+	return 53 * len(c.Code)
 }
 
 func (c *Contract) getInvoice() error {
 	label := s.ServiceId + "." + c.Id
 	desc := "etleneum __init__ [" + c.Id + "]"
-	bolt11, paid, err := getInvoice(label, desc, c.Cost)
+	bolt11, paid, err := getInvoice(label, desc, c.getCost())
 	c.Bolt11 = bolt11
 	c.InvoicePaid = paid
 	return err
@@ -70,12 +70,9 @@ func (call Call) runCall(txn *sqlx.Tx) (ret interface{}, err error) {
 	// get contract data
 	var ct Contract
 	err = txn.Get(&ct, `
-SELECT contract.*,
-  coalesce(sum(satoshis - paid), 0) AS funds
-FROM contracts AS contract
-LEFT OUTER JOIN calls AS call ON call.contract_id = contract.id
-WHERE contract.id = $1
-GROUP BY contract.id`,
+SELECT *, contracts.funds,
+FROM contracts
+WHERE id = $1`,
 		call.ContractId)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", call.ContractId).Str("callid", call.Id).
@@ -115,9 +112,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 	// get contract balance (if balance is negative after the call all will fail)
 	var contractFunds int
 	err = txn.Get(&contractFunds, `
-SELECT sum(satoshis - paid)
-FROM calls
-WHERE contract_id = $1`,
+SELECT contracts.funds
+FROM contracts WHERE id = $1`,
 		call.ContractId)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", call.Id).Msg("database error")
@@ -199,14 +195,14 @@ WHERE id (SELECT contract_id FROM deleted_call)
 }
 
 type Call struct {
-	Id         string         `db:"id" json:"id"`
+	Id         string         `db:"id" json:"id"` // used in the invoice label
 	Time       time.Time      `db:"time" json:"time"`
 	ContractId string         `db:"contract_id" json:"contract_id"`
 	Method     string         `db:"method" json:"method"`
 	Payload    types.JSONText `db:"payload" json:"payload"`
-	Satoshis   int            `db:"satoshis" json:"satoshis"`
-	Cost       int            `db:"cost" json:"cost"`
-	Paid       int            `db:"paid" json:"paid"`
+	Satoshis   int            `db:"satoshis" json:"satoshis"` // sats to be added to the contract
+	Cost       int            `db:"cost" json:"cost"`         // msats to be paid to the platform
+	Paid       int            `db:"paid" json:"paid"`         // msats sum of payments done by this contract
 
 	Bolt11      string `db:"-" json:"invoice,omitempty"`
 	InvoicePaid bool   `db:"-" json:"invoice_paid"`

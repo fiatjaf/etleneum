@@ -1,3 +1,5 @@
+all: etleneum
+
 etleneum: $(shell find . -name "*.go")
 	go build -o ./etleneum
 
@@ -19,7 +21,7 @@ static/bundle.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs
 
 static/bundle.min.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world
-	./node_modules/.bin/browserify client/App.bs.js -g [ envify --NODE_ENV production ] -g uglifyify | ./node_modules/.bin/uglifyjs --compress --mangle > static/bundle.min.js
+	./node_modules/.bin/browserify client/App.bs.js -g [ envify --NODE_ENV production ] -g uglifyify | ./node_modules/.bin/terser --compress --mangle > static/bundle.min.js
 
 static/style.css: client/style.styl
 	./node_modules/.bin/stylus < client/style.styl > static/style.css

@@ -234,8 +234,10 @@ let make = (~contract: API.contract, _children) => {
                                      ReasonReact.string(
                                        "Included "
                                        ++ string_of_int(call.satoshis)
-                                       ++ " satoshis and withdrew "
-                                       ++ string_of_int(call.paid)
+                                       ++ " satoshis and paid "
+                                       ++ string_of_float(
+                                            float_of_int(call.paid) /. 1000.0,
+                                          )
                                        ++ " at the total cost of "
                                        ++ string_of_int(call.cost)
                                        ++ " msats.",

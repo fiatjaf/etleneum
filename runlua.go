@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
@@ -28,12 +27,12 @@ func runLua(
 	defer cancel()
 	L.SetContext(ctx)
 
-	initialFunds := contract.Funds + call.Satoshis
+	initialFunds := contract.Funds + call.Satoshis*1000
 	totalPaid = 0
 
 	lua_ln_pay, payments_done := make_lua_ln_pay(
 		L,
-		func() int { return initialFunds - totalPaid },
+		func() (msats int) { return initialFunds - totalPaid },
 	)
 
 	mutex := &sync.Mutex{}
@@ -41,12 +40,12 @@ func runLua(
 	go func() {
 		for payment := range payments_done {
 			log.Debug().Str("ct", contract.Id).
-				Float64("satoshis", payment.sats).
+				Int("msats", payment.msats).
 				Str("bolt11", payment.bolt11).
 				Msg("contract trying to make payment")
 
 			mutex.Lock()
-			totalPaid += int(math.Ceil(payment.sats))
+			totalPaid += payment.msats
 			paymentsPending = append(paymentsPending, payment.bolt11)
 			mutex.Unlock()
 		}
@@ -143,13 +142,13 @@ return ret
 }
 
 type payment struct {
-	sats   float64
+	msats  int
 	bolt11 string
 }
 
 func make_lua_ln_pay(
 	L *lua.LState,
-	get_contract_funds func() int,
+	get_contract_funds func() int, // in msats
 ) (lua_ln_pay lua.LValue, payments_done chan payment) {
 	payments_done = make(chan payment)
 
@@ -169,7 +168,7 @@ func make_lua_ln_pay(
 			Str("bolt11", bolt11).Msg("ln.pay called")
 
 		var (
-			invsats     float64
+			invmsats    float64
 			invhash     string
 			invexpiries time.Time
 		)
@@ -191,7 +190,8 @@ func make_lua_ln_pay(
 			return 2
 		}
 
-		invsats = res.Get("msatoshi").Float() / 1000
+		invmsats = res.Get("msatoshi").Float()
+		invsats := invmsats / 1000
 		// check max satoshis filter
 		if l_maxsats != lua.LNil && float64(lua.LVAsNumber(l_maxsats)) < invsats {
 			msg := "invoice max satoshis doesn't correspond"
@@ -209,7 +209,7 @@ func make_lua_ln_pay(
 		}
 
 		// check contract funds
-		if float64(get_contract_funds()) < invsats {
+		if float64(get_contract_funds()) < invmsats {
 			msg := "contract doesn't have enough funds"
 			log.Print(msg)
 			L.Push(lua.LNumber(0))
@@ -217,23 +217,23 @@ func make_lua_ln_pay(
 			return 2
 		}
 
-		// check invoice expiration (should be at least 10 minutes in the future)
+		// check invoice expiration (should be at least 30 minutes in the future)
 		invexpiries = time.Unix(res.Get("created_at").Int(), 0).Add(
 			time.Second * time.Duration(res.Get("expiry").Int()),
 		)
-		if invexpiries.Before(time.Now().Add(time.Minute * 10)) {
+		if invexpiries.Before(time.Now().Add(time.Minute * 30)) {
 			msg := "invoice is expired or about to expire"
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2
 		}
 
-		payments_done <- payment{sats: invsats, bolt11: bolt11}
+		payments_done <- payment{msats: int(invmsats), bolt11: bolt11}
 		// actually the payments are only processed later,
 		// after the contract is finished and we're able to get
 		// its funds from the database.
 
-		L.Push(lua.LNumber(invsats))
+		L.Push(lua.LNumber(invmsats))
 		return 1
 	})
 
