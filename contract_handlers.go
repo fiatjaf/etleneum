@@ -67,7 +67,7 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 
 	ct := &Contract{}
 	err = pg.Get(ct, `
-SELECT *, contracts.funds,
+SELECT *, contracts.funds
 FROM contracts
 WHERE id = $1`,
 		ctid)

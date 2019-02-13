@@ -139,58 +139,20 @@ FROM contracts WHERE id = $1`,
 	log.Info().Str("callid", call.Id).Interface("payments", paymentsPending).
 		Msg("call done")
 
-	// everything is saved and well alright.
-	// do the payments in a separate goroutine:
-	go func(callId string, previousState types.JSONText, paymentsPending []string) {
-		dirty := false
-		stillpending := make([]string, 0, len(paymentsPending))
-
-		for _, bolt11 := range paymentsPending {
-			res, err := ln.CallWithCustomTimeout(time.Second*10, "pay", bolt11)
-			log.Debug().Err(err).Str("res", res.String()).
-				Str("callid", callId).
-				Msg("payment from contract")
-
-			if err == nil {
-				// at least one payment went through, this whole thing is now dirty
-				dirty = true
-			} else {
-				if dirty == false {
-					// if no payment has been made yet, revert this call
-					_, err := pg.Exec(`
-WITH deleted_call AS (
-  DELETE FROM calls WHERE id = $1 
-  RETURNING contract_id
-)
-UPDATE contracts SET state = $2
-WHERE id (SELECT contract_id FROM deleted_call)
-        `, callId, previousState)
-					if err == nil {
-						log.Info().Str("callid", callId).
-							Str("state", string(previousState)).
-							Msg("reverted call")
-						return
-					} else {
-						log.Error().Err(err).Str("callid", callId).
-							Str("state", string(previousState)).
-							Msg("couldn't revert call after payment failure.")
-
-						// mark all as pending
-						stillpending = paymentsPending
-						return
-					}
-				}
-
-				// otherwise the call can't be reverted
-				// we'll try to pay again later
-				stillpending = append(stillpending, bolt11)
-			}
+		// everything is saved and well alright.
+	// queue the payments (calls can't be reversed)
+	for _, bolt11 := range paymentsPending {
+		kind := "payment-from-call"
+		payload := map[string]interface{}{
+			"callid": call.Id,
+			"ctid":   call.ContractId,
+			"bolt11": bolt11,
 		}
-
-		for _, bolt11 := range stillpending {
-			rds.SAdd("pending:"+callId, bolt11)
+		if err := queueTask(kind, payload); err != nil {
+			log.Error().Err(err).Str("kind", kind).Interface("payload", payload).
+				Msg("failed to queue")
 		}
-	}(call.Id, ct.State, paymentsPending)
+	}
 
 	return
 }
