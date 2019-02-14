@@ -4,8 +4,10 @@
   "reason": {"react-jsx": 2},
   "suffix": ".bs.js",
   "bs-dependencies": [
+    "@glennsl/rebase",
     "bs-fetch",
     "@glennsl/bs-json",
+    "@glennsl/bs-revamp",
     "reason-react"
   ],
   "refmt": 3,

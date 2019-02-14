@@ -44,16 +44,14 @@ let make = (~contract: API.contract, _children) => {
     switch (action) {
     | LoadCalls =>
       ReasonReact.SideEffects(
-        (
-          self => {
-            let _ =
-              API.Call.list(contract.id)
-              |> Js.Promise.then_(v =>
-                   self.send(GotCalls(v)) |> Js.Promise.resolve
-                 );
-            ();
-          }
-        ),
+        self => {
+          let _ =
+            API.Call.list(contract.id)
+            |> Js.Promise.then_(v =>
+                 self.send(GotCalls(v)) |> Js.Promise.resolve
+               );
+          ();
+        },
       )
     | GotCalls(calls) => ReasonReact.Update({...state, calls})
     | OpenCall(callid) =>
@@ -71,27 +69,25 @@ let make = (~contract: API.contract, _children) => {
       ReasonReact.Update({...state, temp_call_payload: Some(jstr)})
     | ParseCallPayloadJSON =>
       ReasonReact.SideEffects(
-        (
-          self =>
-            switch (self.state.temp_call_payload) {
-            | None => ()
-            | Some(temp) =>
-              switch (Js.Json.parseExn(temp)) {
-              | json =>
-                {
-                  ...state,
-                  nextcall: {
-                    ...nextcall,
-                    payload: json,
-                  },
-                  temp_call_payload: None,
-                }
-                ->SetState
-                |> self.send
-              | exception (Js.Exn.Error(_)) => ()
+        self =>
+          switch (self.state.temp_call_payload) {
+          | None => ()
+          | Some(temp) =>
+            switch (Js.Json.parseExn(temp)) {
+            | json =>
+              {
+                ...state,
+                nextcall: {
+                  ...nextcall,
+                  payload: json,
+                },
+                temp_call_payload: None,
               }
+              ->SetState
+              |> self.send
+            | exception (Js.Exn.Error(_)) => ()
             }
-        ),
+          },
       )
     | EditCallSatoshis(satoshis) =>
       ReasonReact.Update({
@@ -104,30 +100,26 @@ let make = (~contract: API.contract, _children) => {
     | SetState(state) =>
       ReasonReact.UpdateWithSideEffects(
         state,
-        (
-          _self =>
-            API.LS.setItem(
-              "next-call:" ++ contract.id,
-              API.Encode.call(state.nextcall),
-            )
-        ),
+        _self =>
+          API.LS.setItem(
+            "next-call:" ++ contract.id,
+            API.Encode.call(state.nextcall),
+          ),
       )
     | PrepareCall =>
       ReasonReact.SideEffects(
-        (
-          self => {
-            let _ =
-              API.Call.prepare(contract.id, self.state.nextcall)
-              |> Js.Promise.then_(v =>
-                   self.send(CallPrepared(v)) |> Js.Promise.resolve
-                 );
-            ();
-          }
-        ),
+        self => {
+          let _ =
+            API.Call.prepare(contract.id, self.state.nextcall)
+            |> Js.Promise.then_(v =>
+                 self.send(CallPrepared(v)) |> Js.Promise.resolve
+               );
+          ();
+        },
       )
     | CallPrepared(call) =>
       ReasonReact.SideEffects(
-        (_self => ReasonReact.Router.push("/call/" ++ call.id)),
+        _self => ReasonReact.Router.push("/call/" ++ call.id),
       )
     };
   },
@@ -167,95 +159,85 @@ let make = (~contract: API.contract, _children) => {
       <div>
         <div className="calls">
           <h3> {ReasonReact.string("Latest calls")} </h3>
-          {
-            if (self.state.calls |> List.length == 0) {
-              <p>
-                {
-                  ReasonReact.string(
-                    "No calls were made to this contract yet.",
-                  )
-                }
-              </p>;
-            } else {
-              ReasonReact.array(
-                Array.of_list(
-                  self.state.calls
-                  |> List.map((call: API.call) =>
-                       <div
-                         key={call.id}
-                         className={
-                           "call-item"
-                           ++ (
-                             if (self.state.callopen == Some(call.id)) {
-                               " open";
-                             } else {
-                               "";
-                             }
-                           )
-                         }>
-                         <div>
-                           <a
-                             className="highlight"
-                             onClick={
-                               self.handle((_event, self) =>
-                                 if (self.state.callopen == Some(call.id)) {
-                                   self.send(CloseCall);
-                                 } else {
-                                   self.send(OpenCall(call.id));
-                                 }
-                               )
-                             }>
-                             {ReasonReact.string(call.id)}
-                           </a>
-                         </div>
-                         <div> {ReasonReact.string(call.method)} </div>
-                         <div>
-                           {ReasonReact.string(call.time |> betterdate)}
-                         </div>
-                         <div className="body">
-                           {
-                             if (self.state.callopen == Some(call.id)) {
+          {if (self.state.calls |> List.length == 0) {
+             <p>
+               {ReasonReact.string("No calls were made to this contract yet.")}
+             </p>;
+           } else {
+             ReasonReact.array(
+               Array.of_list(
+                 self.state.calls
+                 |> List.map((call: API.call) =>
+                      <div
+                        key={call.id}
+                        className={
+                          "call-item"
+                          ++ (
+                            if (self.state.callopen == Some(call.id)) {
+                              " open";
+                            } else {
+                              "";
+                            }
+                          )
+                        }>
+                        <div>
+                          <a
+                            className="highlight"
+                            onClick={
+                              self.handle((_event, self) =>
+                                if (self.state.callopen == Some(call.id)) {
+                                  self.send(CloseCall);
+                                } else {
+                                  self.send(OpenCall(call.id));
+                                }
+                              )
+                            }>
+                            {ReasonReact.string(call.id)}
+                          </a>
+                        </div>
+                        <div> {ReasonReact.string(call.method)} </div>
+                        <div>
+                          {ReasonReact.string(call.time |> betterdate)}
+                        </div>
+                        <div className="body">
+                          {if (self.state.callopen == Some(call.id)) {
+                             <div>
                                <div>
-                                 <div>
-                                   <ReactJSONView
-                                     src={call.payload}
-                                     name="payload"
-                                     theme="summerfruit-inverted"
-                                     iconStyle="triangle"
-                                     indentWidth=2
-                                     collapsed=2
-                                     enableClipboard=false
-                                     displayDataTypes=false
-                                     sortKeys=true
-                                   />
-                                 </div>
-                                 <div className="desc">
-                                   {
-                                     ReasonReact.string(
-                                       "Included "
-                                       ++ string_of_int(call.satoshis)
-                                       ++ " satoshis and paid "
-                                       ++ string_of_float(
-                                            float_of_int(call.paid) /. 1000.0,
-                                          )
-                                       ++ " at the total cost of "
-                                       ++ string_of_int(call.cost)
-                                       ++ " msats.",
-                                     )
-                                   }
-                                 </div>
-                               </div>;
-                             } else {
-                               <div />;
-                             }
-                           }
-                         </div>
-                       </div>
-                     ),
-                ),
-              );
-            }
-          }
+                                 <ReactJSONView
+                                   src={call.payload}
+                                   name="payload"
+                                   theme="summerfruit-inverted"
+                                   iconStyle="triangle"
+                                   indentWidth=2
+                                   collapsed=2
+                                   enableClipboard=false
+                                   displayDataTypes=false
+                                   sortKeys=true
+                                 />
+                               </div>
+                               <div className="desc">
+                                 {ReasonReact.string(
+                                    "Included "
+                                    ++ string_of_int(call.satoshis)
+                                    ++ " satoshis and paid "
+                                    ++ string_of_float(
+                                         float_of_int(call.paid) /. 1000.0,
+                                       )
+                                    ++ " at the total cost of "
+                                    ++ string_of_int(call.cost)
+                                    ++ " msats.",
+                                  )}
+                               </div>
+                             </div>;
+                           } else {
+                             <div />;
+                           }}
+                        </div>
+                      </div>
+                    ),
+               ),
+             );
+           }}
         </div>
         <div className="state">
           <h3> {ReasonReact.string("Current state")} </h3>
@@ -279,7 +261,7 @@ let make = (~contract: API.contract, _children) => {
             <div>
               <label>
                 {ReasonReact.string("Method: ")}
-                <input
+                <select
                   value={self.state.nextcall.method}
                   onChange={
                     self.handle((event, _self) =>
@@ -287,8 +269,17 @@ let make = (~contract: API.contract, _children) => {
                         EditCallMethod(event->ReactEvent.Form.target##value),
                       )
                     )
-                  }
-                />
+                  }>
+                  {ReasonReact.array(
+                     Array.of_list(
+                       contract.code
+                       |> API.Helpers.parseMethods
+                       |> List.map(m =>
+                            <option key=m> {ReasonReact.string(m)} </option>
+                          ),
+                     ),
+                   )}
+                </select>
               </label>
             </div>
             <div>

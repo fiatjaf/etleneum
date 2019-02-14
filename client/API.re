@@ -216,3 +216,23 @@ module LS = {
   let setItem = (k, v) =>
     Dom.Storage.localStorage |> Dom.Storage.setItem(k, v);
 };
+
+module Helpers = {
+  let fre = Revamp.Compiled.make({|function +([^_][^ ]*) *\( *\)|});
+
+  let parseMethods = code =>
+    Js.String.split("\n", code)
+    |> Array.to_list
+    |> List.map(line =>
+         switch (line |> Revamp.Compiled.captures(fre) |> Rebase.Seq.head) {
+         | None => ""
+         | Some(g) =>
+           switch (g |> Rebase.List.head) {
+           | None => ""
+           | Some(None) => ""
+           | Some(Some(x)) => x
+           }
+         }
+       )
+    |> List.filter(x => x != "");
+};

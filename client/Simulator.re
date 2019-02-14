@@ -74,125 +74,108 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
     switch (action) {
     | EditContractCode(code) =>
       ReasonReact.SideEffects(
-        (
-          self =>
-            self.send(SetState({
-                        ...state,
-                        contract: {
-                          ...contract,
-                          code,
-                        },
-                      }))
-        ),
+        self =>
+          self.send(SetState({
+                      ...state,
+                      contract: {
+                        ...contract,
+                        code,
+                      },
+                    })),
       )
     | EditContractState(statestr) =>
       ReasonReact.Update({...state, temp_contract_state: Some(statestr)})
     | ParseContractStateJSON =>
       ReasonReact.SideEffects(
-        (
-          self =>
-            switch (self.state.temp_contract_state) {
-            | None => ()
-            | Some(temp) =>
-              switch (Js.Json.parseExn(temp)) {
-              | json =>
-                {
-                  ...state,
-                  contract: {
-                    ...contract,
-                    state: json,
-                  },
-                  temp_contract_state: None,
-                }
-                ->SetState
-                |> self.send
-              | exception (Js.Exn.Error(_)) => ()
+        self =>
+          switch (self.state.temp_contract_state) {
+          | None => ()
+          | Some(temp) =>
+            switch (Js.Json.parseExn(temp)) {
+            | json =>
+              {
+                ...state,
+                contract: {
+                  ...contract,
+                  state: json,
+                },
+                temp_contract_state: None,
               }
+              ->SetState
+              |> self.send
+            | exception (Js.Exn.Error(_)) => ()
             }
-        ),
+          },
       )
     | EditContractFunds(funds) =>
       ReasonReact.SideEffects(
-        (
-          self =>
-            self.send(SetState({
-                        ...state,
-                        contract: {
-                          ...contract,
-                          funds,
-                        },
-                      }))
-        ),
+        self =>
+          self.send(SetState({
+                      ...state,
+                      contract: {
+                        ...contract,
+                        funds,
+                      },
+                    })),
       )
     | EditCallMethod(method) =>
       ReasonReact.SideEffects(
-        (
-          self =>
-            self.send(SetState({
-                        ...state,
-                        nextcall: {
-                          ...nextcall,
-                          method,
-                        },
-                      }))
-        ),
+        self =>
+          self.send(SetState({
+                      ...state,
+                      nextcall: {
+                        ...nextcall,
+                        method,
+                      },
+                    })),
       )
     | EditCallPayload(payload) =>
       ReasonReact.Update({...state, temp_call_payload: Some(payload)})
     | ParseCallPayloadJSON =>
       ReasonReact.SideEffects(
-        (
-          self =>
-            switch (self.state.temp_call_payload) {
-            | None => ()
-            | Some(temp) =>
-              switch (Js.Json.parseExn(temp)) {
-              | json =>
-                {
-                  ...state,
-                  nextcall: {
-                    ...nextcall,
-                    payload: json,
-                  },
-                  temp_call_payload: None,
-                }
-                ->SetState
-                |> self.send
-              | exception (Js.Exn.Error(_)) => ()
-              }
-            }
-        ),
-      )
-    | EditCallSatoshis(satoshis) =>
-      ReasonReact.SideEffects(
-        (
-          self =>
-            self.send(
-              SetState({
+        self =>
+          switch (self.state.temp_call_payload) {
+          | None => ()
+          | Some(temp) =>
+            switch (Js.Json.parseExn(temp)) {
+            | json =>
+              {
                 ...state,
                 nextcall: {
                   ...nextcall,
-                  satoshis,
+                  payload: json,
                 },
-              }),
-            )
-        ),
+                temp_call_payload: None,
+              }
+              ->SetState
+              |> self.send
+            | exception (Js.Exn.Error(_)) => ()
+            }
+          },
+      )
+    | EditCallSatoshis(satoshis) =>
+      ReasonReact.SideEffects(
+        self =>
+          self.send(
+            SetState({
+              ...state,
+              nextcall: {
+                ...nextcall,
+                satoshis,
+              },
+            }),
+          ),
       )
     | SetState(state) =>
       ReasonReact.UpdateWithSideEffects(
         state,
-        (
-          _self => {
-            API.LS.setItem(
-              "simulating-contract",
-              API.Encode.contract(state.contract),
-            );
-            API.LS.setItem(
-              "simulating-call",
-              API.Encode.call(state.nextcall),
-            );
-          }
-        ),
+        _self => {
+          API.LS.setItem(
+            "simulating-contract",
+            API.Encode.contract(state.contract),
+          );
+          API.LS.setItem("simulating-call", API.Encode.call(state.nextcall));
+        },
       )
     | SimulateCall =>
       ReasonReact.Update({
@@ -259,7 +242,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
           <div> <h3> {ReasonReact.string("Next call:")} </h3> </div>
           <div>
             <h5> {ReasonReact.string("Method: ")} </h5>
-            <input
+            <select
               value={self.state.nextcall.method}
               onChange={
                 self.handle((event, _self) =>
@@ -267,8 +250,17 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                     EditCallMethod(event->ReactEvent.Form.target##value),
                   )
                 )
-              }
-            />
+              }>
+              {ReasonReact.array(
+                 Array.of_list(
+                   self.state.contract.code
+                   |> API.Helpers.parseMethods
+                   |> List.map(m =>
+                        <option key=m> {ReasonReact.string(m)} </option>
+                      ),
+                 ),
+               )}
+            </select>
           </div>
           <div>
             <h5> {ReasonReact.string("Satoshis: ")} </h5>
@@ -323,100 +315,90 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
         </div>
         <div>
           <div> <h3> {ReasonReact.string("Result:")} </h3> </div>
-          {
-            switch (self.state.result) {
-            | None => <div />
-            | Some(result) =>
-              if (result.error == "") {
-                <div className="result">
-                  <div>
-                    <label> {ReasonReact.string("State: ")} </label>
-                    <ReactJSONView
-                      src={result.state}
-                      name="state"
-                      theme="summerfruit-inverted"
-                      iconStyle="triangle"
-                      indentWidth=2
-                      collapsed=2
-                      enableClipboard=false
-                      displayDataTypes=false
-                      sortKeys=true
-                    />
-                    <button
-                      onClick={
-                                let state = self.state;
-                                let contract = self.state.contract;
-                                self.handle((_event, self) =>
-                                  self.send(
-                                    SetState({
-                                      ...state,
-                                      contract: {
-                                        ...contract,
-                                        state: result.state,
-                                      },
-                                      temp_contract_state: None,
-                                    }),
-                                  )
-                                );
-                              }>
-                      {ReasonReact.string("Apply this")}
-                    </button>
-                  </div>
-                  <div>
-                    <label> {ReasonReact.string("Returned value: ")} </label>
-                    <ReactJSONView
-                      src={result.ret}
-                      name="ret"
-                      theme="summerfruit-inverted"
-                      iconStyle="triangle"
-                      indentWidth=2
-                      collapsed=2
-                      enableClipboard=false
-                      displayDataTypes=false
-                      sortKeys=true
-                    />
-                  </div>
-                  <div>
-                    {
-                      if (result.payments_done |> List.length == 0) {
+          {switch (self.state.result) {
+           | None => <div />
+           | Some(result) =>
+             if (result.error == "") {
+               <div className="result">
+                 <div>
+                   <label> {ReasonReact.string("State: ")} </label>
+                   <ReactJSONView
+                     src={result.state}
+                     name="state"
+                     theme="summerfruit-inverted"
+                     iconStyle="triangle"
+                     indentWidth=2
+                     collapsed=2
+                     enableClipboard=false
+                     displayDataTypes=false
+                     sortKeys=true
+                   />
+                   <button
+                     onClick={
+                               let state = self.state;
+                               let contract = self.state.contract;
+                               self.handle((_event, self) =>
+                                 self.send(
+                                   SetState({
+                                     ...state,
+                                     contract: {
+                                       ...contract,
+                                       state: result.state,
+                                     },
+                                     temp_contract_state: None,
+                                   }),
+                                 )
+                               );
+                             }>
+                     {ReasonReact.string("Apply this")}
+                   </button>
+                 </div>
+                 <div>
+                   <label> {ReasonReact.string("Returned value: ")} </label>
+                   <ReactJSONView
+                     src={result.ret}
+                     name="ret"
+                     theme="summerfruit-inverted"
+                     iconStyle="triangle"
+                     indentWidth=2
+                     collapsed=2
+                     enableClipboard=false
+                     displayDataTypes=false
+                     sortKeys=true
+                   />
+                 </div>
+                 <div>
+                   {if (result.payments_done |> List.length == 0) {
+                      <label>
+                        {ReasonReact.string("No payments made.")}
+                      </label>;
+                    } else {
+                      <div>
                         <label>
-                          {ReasonReact.string("No payments made.")}
-                        </label>;
-                      } else {
+                          {ReasonReact.string(
+                             "Payments made ("
+                             ++ string_of_int(result.total_paid)
+                             ++ " satoshis): ",
+                           )}
+                        </label>
                         <div>
-                          <label>
-                            {
-                              ReasonReact.string(
-                                "Payments made ("
-                                ++ string_of_int(result.total_paid)
-                                ++ " satoshis): ",
-                              )
-                            }
-                          </label>
-                          <div>
-                            {
-                              ReasonReact.array(
-                                Array.of_list(
-                                  result.payments_done
-                                  |> List.map(bolt11 =>
-                                       <div>
-                                         {ReasonReact.string(bolt11)}
-                                       </div>
-                                     ),
-                                ),
-                              )
-                            }
-                          </div>
-                        </div>;
-                      }
-                    }
-                  </div>
-                </div>;
-              } else {
-                <pre> {ReasonReact.string(result.error)} </pre>;
-              }
-            }
-          }
+                          {ReasonReact.array(
+                             Array.of_list(
+                               result.payments_done
+                               |> List.map(bolt11 =>
+                                    <div> {ReasonReact.string(bolt11)} </div>
+                                  ),
+                             ),
+                           )}
+                        </div>
+                      </div>;
+                    }}
+                 </div>
+               </div>;
+             } else {
+               <pre> {ReasonReact.string(result.error)} </pre>;
+             }
+           }}
         </div>
       </div>
     </div>,
