@@ -12,13 +12,6 @@ CREATE TABLE contracts (
   CONSTRAINT code_exists CHECK (code != '')
 );
 
-CREATE FUNCTION funds(contracts) RETURNS bigint AS $$
-  SELECT 1 + $1.refilled - $1.storage_costs + (
-    SELECT coalesce(sum(1000*satoshis - paid), 0)
-    FROM calls WHERE calls.contract_id = $1.id
-  );
-$$ LANGUAGE SQL;
-
 CREATE TABLE calls (
   id text PRIMARY KEY,
   time timestamp NOT NULL DEFAULT now(),
@@ -30,14 +23,12 @@ CREATE TABLE calls (
   paid int NOT NULL DEFAULT 0,
 
   CONSTRAINT method_exists CHECK (method != ''),
-  CONSTRAINT cost_positive CHECK (CASE
-    WHEN method == '__init__' THEN true
-    ELSE cost > 0
-  END),
-  CONSTRAINT hash_exists CHECK (hash != '')
+  CONSTRAINT cost_positive CHECK (method = '__init__' OR cost > 0)
 );
 
-
-
-table contracts;
-table calls;
+CREATE FUNCTION funds(contracts) RETURNS bigint AS $$
+  SELECT 1 + $1.refilled - $1.storage_costs + (
+    SELECT coalesce(sum(1000*satoshis - paid), 0)
+    FROM calls WHERE calls.contract_id = $1.id
+  );
+$$ LANGUAGE SQL;

@@ -10,3 +10,4 @@ static/*.js
 static/*.js.*
 static/*.css
 client/*.bs.js
+venv

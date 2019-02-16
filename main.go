@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/elazarl/go-bindata-assetfs"
@@ -102,8 +105,27 @@ func main() {
 		WriteTimeout: 25 * time.Second,
 		ReadTimeout:  25 * time.Second,
 	}
+
+	idleConnsClosed := make(chan struct{})
+	go func() {
+		sigint := make(chan os.Signal, 1)
+		signal.Notify(sigint, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL)
+		<-sigint
+
+		log.Debug().Msg("we received an interrupt signal, shut down")
+		if err := srv.Shutdown(context.Background()); err != nil {
+			// error from closing listeners, or context timeout:
+			log.Warn().Err(err).Msg("HTTP server shutdown")
+		}
+		close(idleConnsClosed)
+	}()
+
 	log.Info().Str("port", s.Port).Msg("listening.")
-	srv.ListenAndServe()
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		log.Warn().Err(err).Msg("listenAndServe error.")
+	}
+
+	<-idleConnsClosed
 }
 
 func probeLightningd() {
