@@ -27,6 +27,8 @@ type Settings struct {
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
+
+	InitialContractFillSatoshis int `envconfig:"INITIAL_CONTRACT_FILL_SATOSHIS" default:"1"`
 }
 
 var err error
@@ -65,10 +67,13 @@ func main() {
 	}
 
 	// lightningd connection
-	ln, err = lightning.Connect(s.SocketPath)
-	if err != nil {
-		log.Fatal().Err(err).Msg("couldn't connect to lightning-rpc")
+	lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
+	ln = &lightning.Client{
+		Path:             s.SocketPath,
+		LastInvoiceIndex: int(lastinvoiceindex),
+		PaymentHandler:   handleInvoicePaid,
 	}
+	ln.ListenForInvoices()
 
 	// pause here until lightningd works
 	probeLightningd()
@@ -90,7 +95,6 @@ func main() {
 	router.Path("/~/contracts").Methods("GET").HandlerFunc(listContracts)
 	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
 	router.Path("/~/contract/{ctid}/refill/{sats}").Methods("GET").HandlerFunc(refillContract)
-	router.Path("/~/contract/{ctid}/refill/{rid}").Methods("POST").HandlerFunc(applyContractRefill)
 	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
 	router.Path("/~/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
 	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
@@ -109,10 +113,10 @@ func main() {
 	idleConnsClosed := make(chan struct{})
 	go func() {
 		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL)
+		signal.Notify(sigint, syscall.SIGTERM, syscall.SIGINT)
 		<-sigint
 
-		log.Debug().Msg("we received an interrupt signal, shut down")
+		log.Debug().Msg("Received an interrupt signal, shutting down.")
 		if err := srv.Shutdown(context.Background()); err != nil {
 			// error from closing listeners, or context timeout:
 			log.Warn().Err(err).Msg("HTTP server shutdown")
@@ -122,7 +126,7 @@ func main() {
 
 	log.Info().Str("port", s.Port).Msg("listening.")
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Warn().Err(err).Msg("listenAndServe error.")
+		log.Warn().Err(err).Msg("listenAndServe")
 	}
 
 	<-idleConnsClosed

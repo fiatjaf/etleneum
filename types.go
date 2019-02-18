@@ -8,6 +8,12 @@ import (
 	"github.com/jmoiron/sqlx/types"
 )
 
+type Result struct {
+	Ok    bool        `json:"ok"`
+	Value interface{} `json:"value"`
+	Error string      `json:"error,omitempty"`
+}
+
 type Contract struct {
 	Id           string         `db:"id" json:"id"` // used in the invoice label
 	Code         string         `db:"code" json:"code"`
@@ -20,7 +26,7 @@ type Contract struct {
 
 	Funds       int    `db:"funds" json:"funds"` // contract balance in msats
 	Bolt11      string `db:"-" json:"invoice,omitempty"`
-	InvoicePaid bool   `db:"-" json:"invoice_paid"`
+	InvoicePaid *bool  `db:"-" json:"invoice_paid,omitempty"`
 }
 
 func contractFromRedis(ctid string) (ct *Contract, err error) {
@@ -46,10 +52,11 @@ func (c Contract) getCost() int {
 
 func (c *Contract) getInvoice() error {
 	label := s.ServiceId + "." + c.Id
-	desc := "etleneum __init__ [" + c.Id + "]"
-	bolt11, paid, err := getInvoice(label, desc, c.getCost())
+	desc := s.ServiceId + " __init__ [" + c.Id + "]"
+	msats := c.getCost() + 1000*s.InitialContractFillSatoshis
+	bolt11, paid, err := getInvoice(label, desc, msats)
 	c.Bolt11 = bolt11
-	c.InvoicePaid = paid
+	c.InvoicePaid = &paid
 	return err
 }
 
@@ -67,11 +74,71 @@ func (ct Contract) saveOnRedis() (jct []byte, err error) {
 	return
 }
 
+type Call struct {
+	Id         string         `db:"id" json:"id"` // used in the invoice label
+	Time       time.Time      `db:"time" json:"time"`
+	ContractId string         `db:"contract_id" json:"contract_id"`
+	Method     string         `db:"method" json:"method"`
+	Payload    types.JSONText `db:"payload" json:"payload"`
+	Satoshis   int            `db:"satoshis" json:"satoshis"` // sats to be added to the contract
+	Cost       int            `db:"cost" json:"cost"`         // msats to be paid to the platform
+	Paid       int            `db:"paid" json:"paid"`         // msats sum of payments done by this contract
+
+	Bolt11      string `db:"-" json:"invoice,omitempty"`
+	InvoicePaid *bool  `db:"-" json:"invoice_paid,omitempty"`
+}
+
+func (c *Call) calcCosts() {
+	c.Cost = 1000
+	c.Cost += int(float64(len(c.Payload)) * 1.5)
+}
+
+func (c *Call) getInvoice() error {
+	label := s.ServiceId + "." + c.ContractId + "." + c.Id
+	desc := s.ServiceId + " " + c.Method + " [" + c.ContractId + "][" + c.Id + "]"
+	msats := c.Cost + 1000*c.Satoshis
+	bolt11, paid, err := getInvoice(label, desc, msats)
+	c.Bolt11 = bolt11
+	c.InvoicePaid = &paid
+	return err
+}
+
+func callFromRedis(callid string) (call *Call, err error) {
+	var jcall []byte
+	call = &Call{}
+
+	jcall, err = rds.Get("call:" + callid).Bytes()
+	if err != nil {
+		return
+	}
+
+	err = json.Unmarshal(jcall, call)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (call Call) saveOnRedis() (jcall []byte, err error) {
+	jcall, err = json.Marshal(call)
+	if err != nil {
+		return
+	}
+
+	err = rds.Set("call:"+call.Id, jcall, time.Hour*20).Err()
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func (call Call) runCall(txn *sqlx.Tx) (ret interface{}, err error) {
 	// get contract data
 	var ct Contract
 	err = txn.Get(&ct, `
-SELECT *, contracts.funds,
+SELECT *, contracts.funds
 FROM contracts
 WHERE id = $1`,
 		call.ContractId)
@@ -155,70 +222,4 @@ FROM contracts WHERE id = $1`,
 	}
 
 	return
-}
-
-type Call struct {
-	Id         string         `db:"id" json:"id"` // used in the invoice label
-	Time       time.Time      `db:"time" json:"time"`
-	ContractId string         `db:"contract_id" json:"contract_id"`
-	Method     string         `db:"method" json:"method"`
-	Payload    types.JSONText `db:"payload" json:"payload"`
-	Satoshis   int            `db:"satoshis" json:"satoshis"` // sats to be added to the contract
-	Cost       int            `db:"cost" json:"cost"`         // msats to be paid to the platform
-	Paid       int            `db:"paid" json:"paid"`         // msats sum of payments done by this contract
-
-	Bolt11      string `db:"-" json:"invoice,omitempty"`
-	InvoicePaid bool   `db:"-" json:"invoice_paid"`
-}
-
-func (c *Call) calcCosts() {
-	c.Cost = 1000
-	c.Cost += int(float64(len(c.Payload)) * 1.5)
-}
-
-func (c *Call) getInvoice() error {
-	label := s.ServiceId + "." + c.ContractId + "." + c.Id
-	desc := "etleneum " + c.Method + " [" + c.ContractId + "][" + c.Id + "]"
-	msats := c.Cost + 1000*c.Satoshis
-	bolt11, paid, err := getInvoice(label, desc, msats)
-	c.Bolt11 = bolt11
-	c.InvoicePaid = paid
-	return err
-}
-
-func callFromRedis(callid string) (call *Call, err error) {
-	var jcall []byte
-	call = &Call{}
-
-	jcall, err = rds.Get("call:" + callid).Bytes()
-	if err != nil {
-		return
-	}
-
-	err = json.Unmarshal(jcall, call)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-func (call Call) saveOnRedis() (jcall []byte, err error) {
-	jcall, err = json.Marshal(call)
-	if err != nil {
-		return
-	}
-
-	err = rds.Set("call:"+call.Id, jcall, time.Hour*20).Err()
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-type Result struct {
-	Ok    bool        `json:"ok"`
-	Value interface{} `json:"value"`
-	Error string      `json:"error,omitempty"`
 }

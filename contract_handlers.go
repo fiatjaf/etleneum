@@ -19,8 +19,8 @@ SELECT id, name, readme FROM (
   FROM contracts AS c
 ) AS x
 ORDER BY lastcalltime DESC, created_at DESC
-`)
-	if err == sql.ErrNoRows {
+    `)
+	if err == nil || err == sql.ErrNoRows {
 		contracts = make([]Contract, 0)
 	} else if err != nil {
 		log.Warn().Err(err).Msg("failed to fetch contracts")
@@ -111,7 +111,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = checkPayment(s.ServiceId+"."+ctid, ct.getCost())
+	_, err = checkPayment(s.ServiceId+"."+ctid, ct.getCost()+s.InitialContractFillSatoshis*1000)
 	if err != nil {
 		logger.Warn().Err(err).Msg("payment check failed")
 		jsonError(w, "payment check failed", 402)
@@ -131,7 +131,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 	// create initial contract
 	_, err = txn.Exec(`
 INSERT INTO contracts (id, name, readme, code, state)
-VALUES ($1, $2, $3, $4, $5, '{}')
+VALUES ($1, $2, $3, $4, '{}')
     `, ct.Id, ct.Name, ct.Readme, ct.Code)
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
@@ -146,7 +146,8 @@ VALUES ($1, $2, $3, $4, $5, '{}')
 		Id:         ct.Id, // same
 		Method:     "__init__",
 		Payload:    []byte{},
-		Cost:       0,
+		Satoshis:   s.InitialContractFillSatoshis,
+		Cost:       ct.getCost(),
 	}
 
 	_, err = call.runCall(txn)
@@ -168,8 +169,7 @@ func refillContract(w http.ResponseWriter, r *http.Request) {
 	sats := mux.Vars(r)["sats"]
 	logger := log.With().Str("sats", sats).Str("ctid", ctid).Logger()
 
-	rid := cuid.Slug()
-	label := s.ServiceId + ".refill." + rid
+	label := s.ServiceId + ".refill." + ctid + "." + cuid.Slug()
 	desc := s.ServiceId + " contract refill [" + ctid + "]"
 
 	inv, err := ln.Call("invoice", sats+"000", label, desc, "36000")
@@ -181,30 +181,4 @@ func refillContract(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: inv.Get("bolt11").String()})
-}
-
-func applyContractRefill(w http.ResponseWriter, r *http.Request) {
-	ctid := mux.Vars(r)["ctid"]
-	rid := mux.Vars(r)["rid"]
-	logger := log.With().Str("rid", rid).Str("ctid", ctid).Logger()
-
-	label := s.ServiceId + ".refill." + rid
-	msats, err := checkPayment(label, -1 /* so checkPayment won't fail */)
-	if err != nil {
-		logger.Warn().Err(err).Msg("invoice not paid")
-		jsonError(w, "invoice not paid", 402)
-		return
-	}
-
-	_, err = pg.Exec(
-		`UPDATE contracts SET refilled += $2 WHERE id = $1`,
-		ctid, msats)
-	if err != nil {
-		logger.Warn().Err(err).Msg("database error")
-		jsonError(w, "database error", 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: nil})
 }

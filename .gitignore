@@ -11,3 +11,4 @@ static/*.js.*
 static/*.css
 client/*.bs.js
 venv
+__pycache__

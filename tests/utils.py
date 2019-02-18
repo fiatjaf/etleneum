@@ -6,8 +6,19 @@ import logging
 import subprocess
 import threading
 
-
 TIMEOUT = 5
+
+
+def wait_for(success, timeout=TIMEOUT):
+    start_time = time.time()
+    interval = 0.25
+    while not success() and time.time() < start_time + timeout:
+        time.sleep(interval)
+        interval *= 2
+        if interval > 5:
+            interval = 5
+    if time.time() > start_time + timeout:
+        raise ValueError("Error waiting for {}", success)
 
 
 class TailableProc(object):

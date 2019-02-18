@@ -5,8 +5,13 @@ import subprocess
 
 import pytest
 from lightning import LightningRpc
+from bitcoin import BitcoinRPC
 
-from .utils import TailableProc
+from .utils import TailableProc, wait_for
+
+bitcoind_bin = os.getenv("BITCOIND")
+lightningd_bin = os.getenv("LIGHTNINGD")
+bitcoin_cli_bin = os.getenv("BITCOIN_CLI")
 
 
 @pytest.fixture
@@ -20,53 +25,92 @@ def bitcoin_dir():
 def lightning_dirs():
     lightning_a = tempfile.mkdtemp(prefix="lightning-a.")
     lightning_b = tempfile.mkdtemp(prefix="lightning-b.")
-    yield [lightning_a, lightning_b]
+    lightning_c = tempfile.mkdtemp(prefix="lightning-c.")
+    yield [lightning_a, lightning_b, lightning_c]
     shutil.rmtree(lightning_a)
     shutil.rmtree(lightning_b)
+    shutil.rmtree(lightning_c)
 
 
 @pytest.fixture
 def bitcoind(bitcoin_dir):
     proc = TailableProc(
-        "{bin} -regtest -datadir={dir} -server -printtoconsole -logtimestamps -nolisten -rpcport=10287".format(
-            bin=os.getenv("BITCOIND"), dir=bitcoin_dir
+        "{bitcoind_bin} -regtest -datadir={dir} -server -printtoconsole -logtimestamps -nolisten -rpcport=10287 -rpcuser=rpcuser -rpcpassword=rpcpassword".format(
+            bitcoind_bin=bitcoind_bin, dir=bitcoin_dir
         ),
         verbose=False,
         procname="bitcoind",
     )
     proc.start()
     proc.wait_for_log("Done loading")
-    yield proc
+
+    rpc = BitcoinRPC("http://127.0.0.1:10287/", "rpcuser", "rpcpassword")
+    rpc.generate(101)
+
+    yield proc, rpc
 
     proc.stop()
 
 
 @pytest.fixture
 def lightnings(bitcoin_dir, bitcoind, lightning_dirs):
-    lightningd_bin = os.getenv("LIGHTNINGD")
-    bitcoin_cli_bin = os.getenv("BITCOIN_CLI")
-
     procs = []
     for i, dir in enumerate(lightning_dirs):
         proc = TailableProc(
-            "{lightningd_bin} --network regtest --bitcoin-cli {bitcoin_cli_bin} --bitcoin-rpcport=10287 --bitcoin-datadir {bitcoin_dir} --lightning-dir {dir} --bind-addr 127.0.0.1:987{i}".format(
+            "{lightningd_bin} --network regtest --bitcoin-cli {bitcoin_cli_bin} --bitcoin-rpcport=10287 --bitcoin-datadir {bitcoin_dir} --bitcoin-rpcuser rpcuser --bitcoin-rpcpassword rpcpassword --lightning-dir {dir} --bind-addr 127.0.0.1:987{i}".format(
                 lightningd_bin=lightningd_bin,
                 bitcoin_cli_bin=bitcoin_cli_bin,
                 bitcoin_dir=bitcoin_dir,
                 dir=dir,
                 i=i,
             ),
+            verbose=False,
             procname="lightningd-{}".format(i),
         )
         proc.start()
         proc.wait_for_log("Server started with public key")
         procs.append(proc)
 
-    yield procs
+    # make rpc clients
+    rpcs = []
+    for dir in lightning_dirs:
+        rpc = LightningRpc(os.path.join(dir, "lightning-rpc"))
+        rpcs.append(rpc)
 
-    for i, proc in enumerate(procs):
+    # get nodes funded
+    _, bitcoin_rpc = bitcoind
+    for rpc in rpcs:
+        addr = rpc.newaddr()["address"]
+        bitcoin_rpc.sendtoaddress(addr, 15)
+        bitcoin_rpc.generate(1)
+
+    for rpc in rpcs:
+        wait_for(lambda: len(rpc.listfunds()["outputs"]) == 1, timeout=60)
+
+    # make a ring of channels
+    for i in range(len(rpcs)):
+        f = rpcs[(i + 1) % len(rpcs)]  # from
+        t = rpcs[i]  # to
+        tinfo = t.getinfo()
+        f.connect(
+            tinfo["id"], tinfo["binding"][0]["address"], tinfo["binding"][0]["port"]
+        )
+        num_tx = len(bitcoin_rpc.getrawmempool())
+        f.fundchannel(tinfo["id"], 10000000)
+        wait_for(lambda: len(bitcoin_rpc.getrawmempool()) == num_tx + 1)
+        bitcoin_rpc.generate(1)
+
+    # wait for channels
+    for proc in procs:
+        proc.wait_for_log("to CHANNELD_NORMAL", timeout=60)
+    for rpc in rpcs:
+        wait_for(lambda: len(rpc.listfunds()["channels"]) > 0, timeout=60)
+
+    yield procs, rpcs
+
+    # stop nodes
+    for proc, rpc in zip(procs, rpcs):
         try:
-            rpc = LightningRpc(os.path.join(lightning_dirs[i], "lightning-rpc"))
             rpc.stop()
         except:
             pass
@@ -81,11 +125,23 @@ def init_db():
     if "@localhost" not in db or "test" not in db:
         raise Exception("Use the test database, please.")
 
+    # destroy db
+    end = subprocess.run(
+        "psql {url} -c 'drop table contracts cascade; drop table calls;'".format(
+            url=db
+        ),
+        shell=True,
+        capture_output=True,
+    )
+    print("db destroy stdout: " + end.stdout.decode("utf-8"))
+    print("db destroy stderr: " + end.stderr.decode("utf-8"))
+
+    # rebuild db
     end = subprocess.run(
         "psql {url} -f postgres.sql".format(url=db), shell=True, capture_output=True
     )
-    print("db stdout: " + end.stdout.decode("utf-8"))
-    print("db stderr: " + end.stderr.decode("utf-8"))
+    print("db creation stdout: " + end.stdout.decode("utf-8"))
+    print("db creation stderr: " + end.stderr.decode("utf-8"))
 
 
 @pytest.fixture
@@ -97,6 +153,6 @@ def etleneum(init_db, lightning_dirs, lightnings):
     proc = TailableProc("./etleneum", env=env, procname="etleneum")
     proc.start()
     proc.wait_for_log("listening.")
-    yield env["SERVICE_URL"]
+    yield proc, env["SERVICE_URL"]
 
     proc.stop()

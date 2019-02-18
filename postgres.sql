@@ -27,7 +27,7 @@ CREATE TABLE calls (
 );
 
 CREATE FUNCTION funds(contracts) RETURNS bigint AS $$
-  SELECT 1 + $1.refilled - $1.storage_costs + (
+  SELECT $1.refilled - $1.storage_costs + (
     SELECT coalesce(sum(1000*satoshis - paid), 0)
     FROM calls WHERE calls.contract_id = $1.id
   );

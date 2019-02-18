@@ -1,2 +1,3 @@
 pytest
 pylightning
+bitcoin-requests
