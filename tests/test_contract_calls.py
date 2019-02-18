@@ -2,7 +2,7 @@ import os
 import requests
 
 
-def test_contract_creation(etleneum, lightnings):
+def test_contract_calls(etleneum, lightnings):
     etleneum_proc, url = etleneum
     _, [rpc_a, rpc_b, rpc_c, *_] = lightnings
 
@@ -12,7 +12,7 @@ def test_contract_creation(etleneum, lightnings):
         "code": """
 function __init__ ()
   return {
-    balances = {}
+    balances = {dummy=0}
   }
 end
 
@@ -53,19 +53,17 @@ end
     r = requests.get(url + "/~/contract/" + ctid + "/calls")
     assert r.ok
     assert len(r.json()["value"]) == 1
-    assert set(r.json()["value"][0].items()) >= set(
-        {
-            "method": "__init__",
-            "cost": payment["msatoshi"],
-            "payload": {},
-            "paid": 0,
-            "satoshis": 1,
-        }.items()
-    )
+    call = r.json()["value"][0]
+    assert call["method"] == "__init__"
+    assert call["cost"] == payment["msatoshi"] - 1000  # -1 satoshi
+    assert call["payload"] == {}
+    assert call["paid"] == 0
+    assert call["satoshis"] == 1
 
     # prepare calls and send them
-    current_state = {"balances": {}}
-    current_funds = 1
+    current_state = {"balances": {"dummy": 0}}
+    current_funds = 1000
+    current_call_n = 1
     for buyer, amount, satoshis, succeed in [
         ("x", 2, 9, False),
         ("y", 30, 150, True),
@@ -83,54 +81,71 @@ end
         )
         assert r.ok
         callid = r.json()["value"]["id"]
-        cost = r.json()["value"]["cost"]
-        assert cost > satoshis * 1000
+        assert (
+            1100 > r.json()["value"]["cost"] > 1000
+        )  # cost is 1000 + some small msats
+        assert r.json()["value"]["satoshis"] == satoshis
 
         payment = rpc_b.pay(r.json()["value"]["invoice"])
         rpc_a.waitinvoice("{}.{}.{}".format(os.getenv("SERVICE_ID"), ctid, callid))
-        assert payment["msatoshi"] == cost
+        assert (
+            payment["msatoshi"]
+            == r.json()["value"]["cost"] + 1000 * r.json()["value"]["satoshis"]
+        )
 
         r = requests.post(url + "/~/call/" + callid)
         if succeed:
             assert r.ok
             bal = current_state["balances"].setdefault(buyer, 0)
             current_state["balances"][buyer] = bal + amount
-            current_funds += satoshis
+            current_funds += satoshis * 1000
+            current_call_n += 1
         else:
             assert not r.ok
 
-        # check contract state after
+        # check contract state and funds after
         r = requests.get(url + "/~/contract/" + ctid)
-        assert r.json()["value"]["state"] == current_state
-        assert r.json()["value"]["funds"] == current_funds
-        assert r.json()["value"]["paid"] == 0
+        assert (
+            r.json()["value"]["state"]
+            == current_state
+            == requests.get(url + "/~/contract/" + ctid + "/state").json()["value"]
+        )
+        assert (
+            r.json()["value"]["funds"]
+            == current_funds
+            == requests.get(url + "/~/contract/" + ctid + "/funds").json()["value"]
+        )
+
+        # calls after
+        r = requests.get(url + "/~/contract/" + ctid + "/calls")
+        assert r.ok
+        assert len(r.json()["value"]) == current_call_n
 
     # get an invoice and fail to pay it with the contract
-    inv = rpc_c.invoice(label="fail.1", desc="cashout", amount=current_funds + 1)
+    inv = rpc_c.invoice(
+        label="fail.1", description="cashout", msatoshi=current_funds + 1
+    )
     bolt11 = inv["bolt11"]
     r = requests.post(
         url + "/~/contract/" + ctid + "/call",
         json={"method": "cashout", "payload": {"invoice": bolt11}},
     )
     callid = r.json()["value"]["id"]
-    cost = r.json()["value"]["cost"]
     payment = rpc_b.pay(r.json()["value"]["invoice"])
     rpc_a.waitinvoice("{}.{}.{}".format(os.getenv("SERVICE_ID"), ctid, callid))
     r = requests.post(url + "/~/call/" + callid)
-    assert not r.ok
+    assert r.ok  # even when payments fail the call will still succeed
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
-    assert r.json()["value"]["paid"] == 0
 
     # succeed
-    inv = rpc_c.invoice(label="succeed", desc="cashout", amount=current_funds)
+    inv = rpc_c.invoice(label="succeed", description="cashout", msatoshi=current_funds)
     bolt11 = inv["bolt11"]
     r = requests.post(
         url + "/~/contract/" + ctid + "/call",
         json={"method": "cashout", "payload": {"invoice": bolt11}},
     )
     callid = r.json()["value"]["id"]
-    cost = r.json()["value"]["cost"]
     payment = rpc_b.pay(r.json()["value"]["invoice"])
     rpc_a.waitinvoice("{}.{}.{}".format(os.getenv("SERVICE_ID"), ctid, callid))
     r = requests.post(url + "/~/call/" + callid)
@@ -138,4 +153,19 @@ end
     rpc_c.waitinvoice("succeed")
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == 0
-    assert r.json()["value"]["paid"] == current_funds
+
+    # calls after
+    r = requests.get(url + "/~/contract/" + ctid + "/calls")
+    assert r.ok
+    assert len(r.json()["value"]) == current_call_n + 2
+    assert r.json()["value"][0]["paid"] == current_funds
+    assert r.json()["value"][0]["method"] == "cashout"
+
+    # the call before that should also be cashout
+    assert r.json()["value"][1]["paid"] == 0
+    assert r.json()["value"][1]["method"] == "cashout"
+
+    # before should be the last buy that succeed
+    assert r.json()["value"][2]["paid"] == 0
+    assert r.json()["value"][2]["method"] == "buy"
+    assert r.json()["value"][2]["satoshis"] == 10

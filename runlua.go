@@ -168,6 +168,7 @@ func make_lua_ln_pay(
 		l_maxsats := opts.RawGetString("max")
 		l_exact := opts.RawGetString("exact")
 		l_hash := opts.RawGetString("hash")
+		l_payee := opts.RawGetString("payee")
 
 		log.Debug().
 			Interface("max", l_maxsats).
@@ -179,6 +180,7 @@ func make_lua_ln_pay(
 			invmsats    float64
 			invhash     string
 			invexpiries time.Time
+			invpayee    string
 		)
 
 		res, err := ln.Call("decodepay", bolt11)
@@ -189,10 +191,19 @@ func make_lua_ln_pay(
 			return 2
 		}
 
+		// check payee id filter
+		invpayee = res.Get("payee").String()
+		if l_payee != lua.LNil && lua.LVAsString(l_payee) != invpayee {
+			msg := "invoice payee public key doesn't match"
+			L.Push(lua.LNumber(0))
+			L.Push(lua.LString(msg))
+			return 2
+		}
+
 		// check hash filter
 		invhash = res.Get("payment_hash").String()
 		if l_hash != lua.LNil && lua.LVAsString(l_hash) != invhash {
-			msg := "invoice hash doesn't correspond"
+			msg := "invoice hash doesn't match"
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2
@@ -202,7 +213,7 @@ func make_lua_ln_pay(
 		invsats := invmsats / 1000
 		// check max satoshis filter
 		if l_maxsats != lua.LNil && float64(lua.LVAsNumber(l_maxsats)) < invsats {
-			msg := "invoice max satoshis doesn't correspond"
+			msg := "invoice max satoshis doesn't match"
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2
@@ -210,7 +221,7 @@ func make_lua_ln_pay(
 
 		// check exact satoshis filter
 		if l_exact != lua.LNil && float64(lua.LVAsNumber(l_exact)) != invsats {
-			msg := "invoice exact satoshis doesn't correspond"
+			msg := "invoice exact satoshis doesn't match"
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2

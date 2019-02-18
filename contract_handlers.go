@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"
 )
 
@@ -90,12 +91,34 @@ WHERE id = $1`,
 	} else if err != nil {
 		// it's a database error
 		log.Warn().Err(err).Str("ctid", ctid).Msg("database error fetching contract")
-		jsonError(w, "", 500)
+		jsonError(w, "database error", 500)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: ct})
+}
+
+func getContractState(w http.ResponseWriter, r *http.Request) {
+	var state types.JSONText
+	err = pg.Get(&state, `SELECT state FROM contracts WHERE id = $1`, mux.Vars(r)["ctid"])
+	if err != nil {
+		jsonError(w, "contract not found", 404)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: state})
+}
+
+func getContractFunds(w http.ResponseWriter, r *http.Request) {
+	var funds int
+	err = pg.Get(&funds, `SELECT contracts.funds FROM contracts WHERE id = $1`, mux.Vars(r)["ctid"])
+	if err != nil {
+		jsonError(w, "contract not found", 404)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: funds})
 }
 
 func makeContract(w http.ResponseWriter, r *http.Request) {
