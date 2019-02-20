@@ -209,15 +209,10 @@ FROM contracts WHERE id = $1`,
 		// everything is saved and well alright.
 	// queue the payments (calls can't be reversed)
 	for _, bolt11 := range paymentsPending {
-		kind := "payment-from-call"
-		payload := map[string]interface{}{
-			"callid": call.Id,
-			"ctid":   call.ContractId,
-			"bolt11": bolt11,
-		}
-		if err := queueTask(kind, payload); err != nil {
-			log.Error().Err(err).Str("kind", kind).Interface("payload", payload).
-				Msg("failed to queue")
+		if err := queuePayment(bolt11, call.ContractId, call.Id); err != nil {
+			log.Error().Err(err).Str("bolt11", bolt11).
+				Str("callid", call.Id).Str("ctid", call.ContractId).
+				Msg("failed to queue payment")
 		}
 	}
 
