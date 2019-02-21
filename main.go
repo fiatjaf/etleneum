@@ -15,6 +15,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
+	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"gopkg.in/redis.v5"
 )
@@ -106,7 +107,10 @@ func main() {
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{
-		Handler:      router,
+		Handler: cors.New(cors.Options{
+			AllowedOrigins:   []string{"*"},
+			AllowCredentials: false,
+		}).Handler(router),
 		Addr:         "0.0.0.0:" + s.Port,
 		WriteTimeout: 25 * time.Second,
 		ReadTimeout:  25 * time.Second,
@@ -123,6 +127,7 @@ func main() {
 			// error from closing listeners, or context timeout:
 			log.Warn().Err(err).Msg("HTTP server shutdown")
 		}
+
 		close(idleConnsClosed)
 	}()
 
