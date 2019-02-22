@@ -44,13 +44,16 @@ module.exports.runlua = function runlua(
           if (filters.hash && res.paymentHash != filters.hash) {
             return 0
           }
+          if (filters.payee && res.payeeNode != filters.payee) {
+            return 0
+          }
 
           paymentsDone.push(bolt11)
           totalPaid += amountmsats
 
           return amountmsats
         },
-        gettext: function(url, headers) {
+        httpgettext: function(url, headers) {
           console.log(
             `here we would do an http get to ${url} with headers ${JSON.stringify(
               headers
@@ -58,7 +61,7 @@ module.exports.runlua = function runlua(
           )
           return ''
         },
-        getjson: function(url, headers) {
+        httpgetjson: function(url, headers) {
           console.log(
             `here we would do an http get to ${url} with headers ${JSON.stringify(
               headers
@@ -80,20 +83,22 @@ module.exports.runlua = function runlua(
 ${sandbox}
 ${code}
 
-local ln = {pay=lnpay}
-local http = {gettext=gettext, getjson=getjson}
+require("os")
 
-local ret = sandbox.run(${method}, {
-  quota=50, env={
-    print=print,
-    sha256=sha256,
-    ln=ln,
-    http=http,
-    payload=payload,
-    state=state,
-    satoshis=satoshis
-  }
-})
+local ret = sandbox.run(${method}, {quota=50, env={
+  print=print,
+  http={
+    gettext=httpgettext,
+    getjson=httpgetjson
+  },
+  util={
+    sha256=sha256
+  },
+  ln={pay=lnpay},
+  payload=payload,
+  state=state,
+  satoshis=satoshis
+}})
 
 getstateafter(state)
 getreturnedvalue(ret)

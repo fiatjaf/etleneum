@@ -3,11 +3,12 @@ import shutil
 import tempfile
 import subprocess
 
+import requests
 import pytest
 from lightning import LightningRpc
 from bitcoin import BitcoinRPC
 
-from .utils import TailableProc, wait_for
+from .utils import TailableProc, wait_for, Contract
 
 bitcoind_bin = os.getenv("BITCOIND")
 lightningd_bin = os.getenv("LIGHTNINGD")
@@ -156,3 +157,20 @@ def etleneum(init_db, lightning_dirs, lightnings):
     yield proc, env["SERVICE_URL"]
 
     proc.stop()
+
+
+@pytest.fixture
+def make_contract(etleneum, lightnings):
+    etleneum_proc, url = etleneum
+    _, [rpc_a, rpc_b, *_] = lightnings
+
+    def make(**ctdata):
+        r = requests.post(url + "/~/contract", json=ctdata)
+        ctid = r.json()["value"]["id"]
+        rpc_b.pay(r.json()["value"]["invoice"])
+        rpc_a.waitinvoice("{}.{}".format(os.getenv("SERVICE_ID"), ctid))
+        r = requests.post(url + "/~/contract/" + ctid)
+        r.raise_for_status()
+        return Contract(ctid, url, rpc_a, rpc_b, etleneum_proc)
+
+    return make

@@ -71,7 +71,8 @@ func runLua(
 	}
 
 	// run the code
-	log.Debug().Int("satoshis", call.Satoshis).
+	log.Debug().Str("method", call.Method).
+		Int("satoshis", call.Satoshis).
 		Interface("payload", payload).
 		Interface("state", currentstate).
 		Msg("running code")
@@ -91,14 +92,19 @@ func runLua(
 	code := fmt.Sprintf(`
 %s
 %s
-local ln = {pay=lnpay}
-local http = {gettext=gettext, getjson=getjson}
+
+require("os")
 
 local ret = sandbox.run(%s, {quota=50, env={
   print=print,
-  sha256=sha256,
-  ln=ln,
-  http=http,
+  http={
+    gettext=httpgettext,
+    getjson=httpgetjson
+  },
+  util={
+    sha256=sha256
+  },
+  ln={pay=lnpay},
   payload=payload,
   state=state,
   satoshis=satoshis
@@ -174,6 +180,7 @@ func make_lua_ln_pay(
 			Interface("max", l_maxsats).
 			Interface("exact", l_exact).
 			Interface("hash", l_hash).
+			Interface("payee", l_payee).
 			Str("bolt11", bolt11).Msg("ln.pay called")
 
 		var (
@@ -194,7 +201,8 @@ func make_lua_ln_pay(
 		// check payee id filter
 		invpayee = res.Get("payee").String()
 		if l_payee != lua.LNil && lua.LVAsString(l_payee) != invpayee {
-			msg := "invoice payee public key doesn't match"
+			msg := fmt.Sprintf("invoice payee public key doesn't match: %s != %s",
+				l_payee.String(), invpayee)
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2
@@ -203,7 +211,8 @@ func make_lua_ln_pay(
 		// check hash filter
 		invhash = res.Get("payment_hash").String()
 		if l_hash != lua.LNil && lua.LVAsString(l_hash) != invhash {
-			msg := "invoice hash doesn't match"
+			msg := fmt.Sprintf("invoice hash doesn't match: %s != %s",
+				l_hash.String(), invhash)
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2
@@ -213,7 +222,8 @@ func make_lua_ln_pay(
 		invsats := invmsats / 1000
 		// check max satoshis filter
 		if l_maxsats != lua.LNil && float64(lua.LVAsNumber(l_maxsats)) < invsats {
-			msg := "invoice max satoshis doesn't match"
+			msg := fmt.Sprintf("invoice max satoshis doesn't match: %f < %f",
+				float64(lua.LVAsNumber(l_maxsats)), invsats)
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2
@@ -221,7 +231,8 @@ func make_lua_ln_pay(
 
 		// check exact satoshis filter
 		if l_exact != lua.LNil && float64(lua.LVAsNumber(l_exact)) != invsats {
-			msg := "invoice exact satoshis doesn't match"
+			msg := fmt.Sprintf("invoice exact satoshis doesn't match: %f != %f",
+				float64(lua.LVAsNumber(l_maxsats)), invsats)
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
 			return 2
@@ -229,7 +240,7 @@ func make_lua_ln_pay(
 
 		// check contract funds
 		if float64(get_contract_funds()) < invmsats {
-			msg := "contract doesn't have enough funds"
+			msg := "contract doesn't have enough funds."
 			log.Print(msg)
 			L.Push(lua.LNumber(0))
 			L.Push(lua.LString(msg))
@@ -288,8 +299,8 @@ func make_lua_http(L *lua.LState) (lua_http_gettext lua.LValue, lua_http_getjson
 			return
 		}
 
-		if lheaders != nil {
-			lheaders.(*lua.LTable).ForEach(func(k lua.LValue, v lua.LValue) {
+		if ltable, ok := lheaders.(*lua.LTable); ok {
+			ltable.ForEach(func(k lua.LValue, v lua.LValue) {
 				req.Header.Set(lua.LVAsString(k), lua.LVAsString(v))
 			})
 		}
@@ -314,7 +325,7 @@ func make_lua_http(L *lua.LState) (lua_http_gettext lua.LValue, lua_http_getjson
 
 	lua_http_gettext = L.NewFunction(func(L *lua.LState) int {
 		url := L.CheckString(1)
-		lheaders := L.CheckTable(2)
+		lheaders := L.Get(2)
 		respbytes, err := http_get(url, lheaders)
 		if err != nil {
 			L.Push(lua.LNil)
@@ -328,7 +339,7 @@ func make_lua_http(L *lua.LState) (lua_http_gettext lua.LValue, lua_http_getjson
 
 	lua_http_getjson = L.NewFunction(func(L *lua.LState) int {
 		url := L.CheckString(1)
-		lheaders := L.CheckTable(2)
+		lheaders := L.Get(2)
 		respbytes, err := http_get(url, lheaders)
 		if err != nil {
 			L.Push(lua.LNil)

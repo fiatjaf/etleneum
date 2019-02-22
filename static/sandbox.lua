@@ -26,16 +26,13 @@ local BASE_ENV = {}
 _VERSION assert error    ipairs   next pairs
 pcall    select tonumber tostring type unpack xpcall
 
-coroutine.create coroutine.resume coroutine.running coroutine.status
-coroutine.wrap   coroutine.yield
-
 math.abs   math.acos math.asin  math.atan math.atan2 math.ceil
 math.cos   math.cosh math.deg   math.exp  math.fmod  math.floor
 math.frexp math.huge math.ldexp math.log  math.log10 math.max
 math.min   math.modf math.pi    math.pow  math.rad   math.random
 math.sin   math.sinh math.sqrt  math.tan  math.tanh
 
-os.clock os.difftime os.time
+os.clock os.difftime os.time os.date
 
 string.byte string.char  string.find  string.format string.gmatch
 string.gsub string.len   string.lower string.match  string.reverse
