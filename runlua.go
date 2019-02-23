@@ -91,11 +91,16 @@ func runLua(
 	sandboxCode := string(bsandboxCode)
 	code := fmt.Sprintf(`
 %s
-%s
 
 require("os")
 
-local ret = sandbox.run(%s, {quota=50, env={
+function call ()
+%s
+
+  return %s()
+end
+
+local ret = sandbox.run(call, {quota=50, env={
   print=print,
   http={
     gettext=httpgettext,
