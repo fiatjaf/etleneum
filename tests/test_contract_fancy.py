@@ -111,6 +111,9 @@ def test_sandbox(make_contract):
             name="test",
             readme="test test",
             code="""
+    os.execute('rm file')
+    os.execute('touch nofile')
+
     function __init__ ()
       os.execute("rm file")
       os.execute("touch nofile")
@@ -161,3 +164,28 @@ end
     contract.call("silence", {"_message": "hello", "useless": "nada"}, 0)
     assert contract.calls[0]["method"] == "silence"
     assert contract.calls[0]["payload"] == {"useless": "nada"}
+
+
+def test_global_methods_variables(make_contract):
+    contract = make_contract(
+        name="test",
+        readme="test test",
+        code="""
+function __init__ ()
+  return {}
+end
+
+local constant = 23
+
+function fn ()
+  return 23
+end
+
+function nothing ()
+  return {constant=constant, fn=fn()}
+end
+        """,
+    )
+
+    ret = contract.call("nothing", {}, 0)
+    assert ret == {"constant": 23, "fn": 23}
