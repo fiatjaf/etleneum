@@ -136,6 +136,9 @@ return ret
 	if err != nil {
 		return
 	}
+	if string(bret) == "[]" {
+		bret = []byte("{}")
+	}
 	err = json.Unmarshal(bret, &ret)
 	if err != nil {
 		return
@@ -149,6 +152,9 @@ return ret
 		bstate, err = gluajson.Encode(L.GetGlobal("state"))
 		if err != nil {
 			return
+		}
+		if string(bstate) == "[]" {
+			bstate = []byte("{}")
 		}
 	}
 
