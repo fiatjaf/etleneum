@@ -135,6 +135,28 @@ func (call Call) saveOnRedis() (jcall []byte, err error) {
 	return
 }
 
+func (call *Call) deletePayloadHiddenFields() error {
+	// fields starting with _ are not saved in the contract log
+	if len(call.Payload) == 0 {
+		return nil
+	}
+
+	payload := make(map[string]interface{})
+	err := json.Unmarshal([]byte(call.Payload), &payload)
+	if err != nil {
+		return err
+	}
+
+	for k := range payload {
+		if strings.HasPrefix(k, "_") {
+			delete(payload, k)
+		}
+	}
+
+	call.Payload, err = json.Marshal(payload)
+	return err
+}
+
 func (call Call) runCall(txn *sqlx.Tx) (ret interface{}, err error) {
 	// get contract data
 	var ct Contract
@@ -165,6 +187,13 @@ WHERE id = $1
 	if err != nil {
 		log.Warn().Err(err).Str("callid", call.Id).Str("state", string(newState)).
 			Msg("database error")
+		return
+	}
+
+	err = call.deletePayloadHiddenFields()
+	if err != nil {
+		log.Warn().Err(err).Str("callid", call.Id).Str("payload", string(call.Payload)).
+			Msg("failed to delete payload hidden fields")
 		return
 	}
 
