@@ -124,7 +124,7 @@ def lightnings(bitcoin_dir, bitcoind, lightning_dirs):
 def init_db():
     db = os.getenv("DATABASE_URL")
     if "@localhost" not in db or "test" not in db:
-        raise Exception("Use the test database, please.")
+        raise Exception("Use the test postgres database, please.")
 
     # destroy db
     end = subprocess.run(
@@ -146,7 +146,19 @@ def init_db():
 
 
 @pytest.fixture
-def etleneum(init_db, lightning_dirs, lightnings):
+def flush_redis():
+    r = os.getenv("REDIS_URL")
+    if "localhost" not in r:
+        raise Exception("Use the test redis database, please.")
+
+    # delete everything
+    end = subprocess.run("redis-cli flushdb", shell=True, capture_output=True)
+    print("redis destroy stdout: " + end.stdout.decode("utf-8"))
+    print("redis destroy stderr: " + end.stderr.decode("utf-8"))
+
+
+@pytest.fixture
+def etleneum(init_db, flush_redis, lightning_dirs, lightnings):
     dir_a = lightning_dirs[0]
     env = os.environ.copy()
     env.update({"SOCKET_PATH": os.path.join(dir_a, "lightning-rpc")})

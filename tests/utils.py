@@ -189,12 +189,19 @@ class Contract(object):
         r.raise_for_status()
         return r.json()["value"]
 
-    def refill(self, satoshis):
-        r = requests.get(self.url + "/~/contract/" + self.id + "/refill/18")
+    @property
+    def calls(self):
+        r = requests.get(self.url + "/~/contract/" + self.id + "/calls")
         r.raise_for_status()
         return r.json()["value"]
-        self.payer.pay(r.json()["value"])
-        self.etleneum_proc.wait_for_log("got payment")
+
+    def refill(self, satoshis):
+        r = requests.get(
+            self.url + "/~/contract/" + self.id + "/refill/" + str(satoshis)
+        )
+        r.raise_for_status()
+        self.payer_rpc.pay(r.json()["value"])
+        self.etleneum_proc.wait_for_log("contract refill")
 
     def call(self, method, payload, satoshis):
         r = requests.post(

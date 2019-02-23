@@ -6,6 +6,11 @@ def test_contract_creation(etleneum, lightnings):
     etleneum_proc, url = etleneum
     _, [rpc_a, rpc_b, *_] = lightnings
 
+    # there are zero contracts
+    r = requests.get(url + "/~/contracts")
+    assert r.ok
+    assert r.json() == {"ok": True, "value": []}
+
     ctdata = {
         "code": "function __init__()\n  return {x=23}\nend",
         "name": "test",

@@ -126,3 +126,38 @@ def test_sandbox(make_contract):
 
     with pytest.raises(Exception):
         assert contract.state == None
+
+
+def test_refill(make_contract):
+    contract = make_contract(
+        name="test",
+        readme="test test",
+        code="""
+function __init__ ()
+  return {x=1}
+end
+        """,
+    )
+
+    contract.refill(10)
+    assert contract.funds == 11000
+
+
+def test_hidden_fields(make_contract):
+    contract = make_contract(
+        name="test",
+        readme="test test",
+        code="""
+function __init__ ()
+  return {}
+end
+
+function silence ()
+  state.message = payload._message
+end
+        """,
+    )
+
+    contract.call("silence", {"_message": "hello", "useless": "nada"}, 0)
+    assert contract.calls[0]["method"] == "silence"
+    assert contract.calls[0]["payload"] == {"useless": "nada"}
