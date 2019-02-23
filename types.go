@@ -48,7 +48,7 @@ func contractFromRedis(ctid string) (ct *Contract, err error) {
 }
 
 func (c Contract) getCost() int {
-	return 53 * len(c.Code)
+	return 1000*s.InitialContractCostSatoshis + 1000*len(c.Code)
 }
 
 func (c *Contract) getInvoice() error {
@@ -90,7 +90,7 @@ type Call struct {
 }
 
 func (c *Call) calcCosts() {
-	c.Cost = 1000
+	c.Cost = s.FixedCallCostSatoshis * 1000
 	c.Cost += int(float64(len(c.Payload)) * 1.5)
 }
 

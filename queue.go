@@ -1,100 +1,168 @@
 package main
 
 import (
-	"fmt"
-	"strings"
+	"encoding/json"
+	"errors"
+	"io/ioutil"
+	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/tidwall/gjson"
+	"gopkg.in/redis.v5"
+)
+
+const (
+	PENDING_QUEUE   = "pending-payments"
+	PROCESSING_POOL = "processing-payments"
+	FAILED_POOL     = "failed-payments"
 )
 
 func startQueue() {
 	go func() {
 		for {
-			bolt11, contractId, callId := getNext()
-			var res gjson.Result
-			res, err = ln.CallWithCustomTimeout(time.Second*10, "pay", bolt11)
-			log.Debug().Err(err).Str("res", res.String()).
-				Str("bolt11", bolt11).
-				Str("callid", callId).
-				Str("ctid", contractId).
-				Msg("payment from contract call")
+			bolt11 := getNext()
 
-			blob := encodePendingPayment(bolt11, contractId, callId)
+			logger := log.With().Str("bolt11", bolt11).Logger()
+			logger.Debug().Msg("making payment from contract call")
+
+			var res gjson.Result
+			res, err := ln.CallWithCustomTimeout(
+				time.Second*time.Duration(s.PaymentRetrySeconds)+5,
+				"pay", map[string]interface{}{
+					"bolt11":        bolt11,
+					"riskfactor":    3,
+					"maxfeepercent": 0.7,
+					"exemptfee":     1100,
+					"retry_for":     s.PaymentRetrySeconds,
+				})
+
 			if err != nil {
-				err = rds.SMove("processing-payments", "failed-payments", blob).Err()
+				logger.Warn().Err(err).Str("res", res.String()).Msg("payment failed")
+
+				err = rds.SMove(PROCESSING_POOL, FAILED_POOL, bolt11).Err()
 				if err != nil {
-					log.Error().Err(err).Str("blob", blob).
+					logger.Error().Err(err).Str("bolt11", bolt11).
 						Msg("error moving from processing-payments to failed-payments")
 				}
 			} else {
-				err = rds.SRem("processing-payments", blob).Err()
+				err = rds.SRem(PROCESSING_POOL, bolt11).Err()
 				if err != nil {
-					log.Error().Err(err).Str("blob", blob).
+					logger.Error().Err(err).Str("bolt11", bolt11).
 						Msg("error moving from processing-payments to failed-payments")
 				}
+
+				logger.Warn().Msg("payment succeeded")
 			}
 		}
 	}()
 }
 
-func getNext() (string, string, string) {
-	var err error
-	log.Print("getting next")
+func getNext() (bolt11 string) {
+	var next string
 
-	if rds.SCard("processing-payments").Val() > 0 {
-		log.Print("SCARD ", rds.SCard("processing-payments").Val())
-		// some payment was pending in this queue, perform it first
-		next, err := rds.SRandMember("processing-payments").Result()
-		if err != nil {
-			log.Error().Err(err).Msg("failed to get directly from processing-payments")
-		} else if next != "" {
-			return decodePendingPayment(next)
+	err := rds.Watch(func(rtx *redis.Tx) error {
+		var err error
+		if rds.SCard(PROCESSING_POOL).Val() > 0 {
+			// some payment was pending in this queue, perform it first
+			next, err = rds.SRandMember(PROCESSING_POOL).Result()
+			if err != nil {
+				log.Error().Err(err).Msg("failed to get directly from processing-payments")
+			} else if next != "" {
+				return nil
+			}
 		}
-	}
 
-	res, err := rds.BRPop(time.Minute*30, "pending-payments").Result()
+		res, err := rds.BRPop(time.Minute*30, PENDING_QUEUE).Result()
+		if err != nil {
+			return err
+		}
+
+		if len(res) == 0 {
+			return errors.New("queue empty")
+		}
+
+		next = res[1]
+		if next == "" {
+			return errors.New("got blank invoice from queue")
+		}
+
+		err = rds.SAdd(PROCESSING_POOL, next).Err()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
 		return getNext()
 	}
 
-	log.Print("GOT BRPOP ", res)
-
-	if len(res) == 0 {
-		return getNext()
-	}
-
-	next := res[1]
-	if next == "" {
-		return getNext()
-	}
-
-	rds.SAdd("processing-payments", next)
-
-	return decodePendingPayment(next)
-}
-
-func encodePendingPayment(bolt11, contractId, callId string) string {
-	return fmt.Sprintf("%s.%s.%s", bolt11, contractId, callId)
-}
-
-func decodePendingPayment(blob string) (bolt11, contractId, callId string) {
-	p := strings.Split(blob, ".")
-	if len(p) != 3 {
-		log.Fatal().Str("blob", blob).Msg("wrong pending-payment blob")
-		return
-	}
-
-	bolt11 = p[0]
-	contractId = p[1]
-	callId = p[2]
-	return
+	return next
 }
 
 func queuePayment(bolt11, contractId, callId string) error {
-	err := rds.LPush("pending-payments", encodePendingPayment(bolt11, contractId, callId)).Err()
+	err := rds.LPush(PENDING_QUEUE, bolt11).Err()
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func retryPayment(w http.ResponseWriter, r *http.Request) {
+	oldbolt11 := mux.Vars(r)["bolt11"]
+	newbolt11 := oldbolt11 // default to the same
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err == nil {
+		newbolt11 = gjson.GetBytes(b, "invoice").String()
+	}
+
+	logger := log.With().Str("o", oldbolt11).Str("n", newbolt11).Logger()
+
+	// check the two amounts
+	o, _ := ln.Call("decodepay", oldbolt11)
+	n, _ := ln.Call("decodepay", newbolt11)
+	if n.Get("msatoshi").Int() != o.Get("msatoshi").Int() {
+		logger.Debug().
+			Int64("o-msats", o.Get("msatoshi").Int()).Int64("n-msats", n.Get("msatoshi").Int()).
+			Msg("retry with invalid amount")
+		jsonError(w, "retry with invalid amount", 403)
+		return
+	}
+
+	// when retrying it is sufficient to know the previous bolt11 as that should have been
+	// sent in a hidden field (like {_invoice: 'lnbc...'}) thus only the payee should
+	// know the full invoice.
+
+	// delete the old and queue the new
+	err = rds.Watch(func(rtx *redis.Tx) error {
+		if !rtx.SIsMember(FAILED_POOL, oldbolt11).Val() {
+			logger.Warn().Err(err).Msg("payment to retry not found")
+			jsonError(w, "payment retry not found", 404)
+			return errors.New("not found")
+		}
+
+		err := rtx.SRem(FAILED_POOL, oldbolt11).Err()
+		if err != nil {
+			logger.Warn().Err(err).Msg("failed to remove previous payment from queue")
+			jsonError(w, "", 500)
+			return err
+		}
+
+		err = rtx.LPush(PENDING_QUEUE, newbolt11).Err()
+		if err != nil {
+			logger.Warn().Err(err).Msg("failed to remove previous payment from queue")
+			jsonError(w, "", 500)
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Result{Ok: true})
 }
