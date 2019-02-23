@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -162,7 +163,8 @@ UPDATE contracts SET state = $2
 WHERE id = $1
     `, call.ContractId, newState)
 	if err != nil {
-		log.Warn().Err(err).Str("callid", call.Id).Msg("database error")
+		log.Warn().Err(err).Str("callid", call.Id).Str("state", string(newState)).
+			Msg("database error")
 		return
 	}
 
