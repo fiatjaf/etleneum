@@ -33,6 +33,7 @@
     "bs-fetch": "^0.3.1",
     "js-sha256": "^0.9.0",
     "lightnode-invoice": "^0.3.0",
+    "markdown-it": "^8.4.2",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
     "react-json-view": "^1.19.1",
