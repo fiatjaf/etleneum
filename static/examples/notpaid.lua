@@ -1,0 +1,4 @@
+-- an endpoint for your client to pay you
+-- their website automatically queries this to see if is paid
+-- if not the website gets darkened
+-- https://github.com/kleampa/not-paid

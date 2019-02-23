@@ -1,3 +1,5 @@
+[@bs.module "./markdown.js"] external markdown: string => string = "markdown";
+
 type state = {
   calls: list(API.call),
   callopen: option(string),
@@ -149,7 +151,9 @@ let make = (~contract: API.contract, _children) => {
       <div>
         <div className="readme">
           <h3> {ReasonReact.string("Readme")} </h3>
-          {ReasonReact.string(contract.readme)}
+          <article
+            dangerouslySetInnerHTML={"__html": markdown(contract.readme)}
+          />
         </div>
         <div>
           <h3> {ReasonReact.string("Code")} </h3>

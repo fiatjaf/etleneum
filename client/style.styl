@@ -23,6 +23,25 @@ a
   &:hover
     text-decoration underline
 
+article
+  a
+    color #25aa7b
+    text-decoration underline
+
+  h1:not(:hover)
+    .header-anchor
+      color transparent
+
+  code, pre
+    background whitesmoke
+    line-height calc(1em + 10px)
+
+  code
+    padding 3px
+
+  pre
+    padding 8px
+
 .button
   display flex
   justify-content center
@@ -43,11 +62,6 @@ textarea
 input, textarea
   padding 9px
   border 1px solid
-
-code
-  padding 3px
-  background whitesmoke
-  line-height calc(1em + 10px)
 
 .react-json-view .string-value
   white-space pre-wrap

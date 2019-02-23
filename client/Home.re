@@ -18,7 +18,7 @@ let make = _children => {
           <h1> {ReasonReact.string("No proof-of-work")} </h1>
           <p>
             {ReasonReact.string(
-               "You think proof-of-work is destroying the enviroment? Etleneum was made for you. Different from Ethereum, which uses proof-of-work, despite all the talk against it, Etleneum doesn't use anything like that. Our consensus process doesn't require that because our network only has one node and data stored in a single Postgres database.",
+               "You think proof-of-work is destroying the enviroment? Etleneum was made for you. Different from Ethereum, which uses proof-of-work, despite all the talk against it, Etleneum doesn't use anything like that. Our consensus process doesn't require that because our network has only one node and data stored in a single Postgres database.",
              )}
           </p>
         </div>
@@ -49,10 +49,10 @@ let make = _children => {
 # How does it work
 
 1. Write a smart contract
-
-  We follow here the same set of bad decisions taken by people who designed Ethereum, thus we define a \"smart contract\" as a collection of methods, funds and state. Methods are [Lua](https://www.lua.org/) functions; state is a JSON/Lua table object that can be accessed and updated by methods; funds are the satoshis you can deposit into the contract whenever you call a method, or extract from the contract by calling `ln.pay`.
-
 2. Call the smart contracts methods
+3. Done
+
+We should have a better explanation here, but for now please read the [docs](/docs).
     ",
             ),
         }
@@ -66,7 +66,7 @@ let make = _children => {
 
 1. What can do with Etleneum?
 
-Well, you can do a lot of things. We should have a list of examples somewhere, but you can start looking at https://www.stateofthedapps.com/ for inspiration (or maybe not, you'll end up building a game of collectible fake animals).
+Well, you can do a lot of things. We should have a list of examples somewhere, but you can start looking at https://stateofthedapps.com/ for inspiration (or maybe not, you'll end up building a game of collectible fake animals).
 
 Oh, remember all our [API](/docs) methods are [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)-enabled, so you can build single-page web applications with just JavaScript and host them for free, but superpower them with Etleneum contracts on the back!
 
