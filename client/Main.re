@@ -61,7 +61,14 @@ let make = _children => {
   },
   initialState: _state => {
     contracts: [],
-    newcontractstate: NewContract.initialState,
+    newcontractstate: {
+      ...NewContract.initialState,
+      contract:
+        switch (API.LS.getItem("creating-contract")) {
+        | None => NewContract.initialState.contract
+        | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.contract
+        },
+    },
     view: ContractList,
   },
   reducer: (action: action, state: state) =>
@@ -145,12 +152,7 @@ let make = _children => {
           ();
         },
       )
-    | CreateContract =>
-      ReasonReact.Update({
-        ...state,
-        newcontractstate: NewContract.initialState,
-        view: ViewNewContract,
-      })
+    | CreateContract => ReasonReact.Update({...state, view: ViewNewContract})
     | OpenSimulator => ReasonReact.Update({...state, view: ViewSimulator})
     | LoadContractForSimulator(ctid) =>
       ReasonReact.SideEffects(
@@ -227,10 +229,16 @@ let make = _children => {
           view: ViewNewContract,
         })
       | _ =>
-        ReasonReact.Update({
-          ...state,
-          newcontractstate: NewContract.reduceState(act, newcontractstate),
-        })
+        let newcontractstate = NewContract.reduceState(act, newcontractstate);
+
+        ReasonReact.UpdateWithSideEffects(
+          {...state, newcontractstate},
+          _self =>
+            API.LS.setItem(
+              "creating-contract",
+              API.Encode.contract(newcontractstate.contract),
+            ),
+        );
       };
     },
   render: self =>

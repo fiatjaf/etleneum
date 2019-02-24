@@ -1,9 +1,12 @@
+open Rebase;
+
 type state = {
   contract: API.contract,
   temp_contract_state: option(string),
   nextcall: API.call,
   temp_call_payload: option(string),
   result: option(luaresult),
+  available_methods: list(string),
 }
 and luaresult = {
   state: Js.Json.t,
@@ -43,7 +46,7 @@ let component = ReasonReact.reducerComponent("Simulator");
 let make = (~preloadContract=?, ~preloadCall=?, _children) => {
   ...component,
   initialState: () => {
-    contract:
+    let contract =
       switch (preloadContract) {
       | None =>
         switch (API.LS.getItem("simulating-contract")) {
@@ -51,21 +54,26 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
         | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.contract
         }
       | Some(precon) => precon
-      },
-    nextcall:
-      switch (preloadContract, preloadCall) {
-      | (None, None) =>
-        switch (API.LS.getItem("simulating-call")) {
-        | None => API.emptyCall
-        | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
-        }
-      | (Some(_), None) => API.emptyCall
-      | (None, Some(precall))
-      | (Some(_), Some(precall)) => precall
-      },
-    temp_call_payload: None,
-    temp_contract_state: None,
-    result: None,
+      };
+
+    {
+      contract,
+      nextcall:
+        switch (preloadContract, preloadCall) {
+        | (None, None) =>
+          switch (API.LS.getItem("simulating-call")) {
+          | None => API.emptyCall
+          | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
+          }
+        | (Some(_), None) => API.emptyCall
+        | (None, Some(precall))
+        | (Some(_), Some(precall)) => precall
+        },
+      temp_call_payload: None,
+      temp_contract_state: None,
+      result: None,
+      available_methods: API.Helpers.parseMethods(contract.code),
+    };
   },
   reducer: (action: action, state: state) => {
     let contract = state.contract;
@@ -73,16 +81,34 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
 
     switch (action) {
     | EditContractCode(code) =>
+      let available_methods = API.Helpers.parseMethods(code);
+      let method =
+        if (available_methods |> List.exists(m => m == state.nextcall.method)) {
+          state.nextcall.method;
+        } else {
+          switch (List.head(available_methods)) {
+          | None => ""
+          | Some(method) => method
+          };
+        };
+
       ReasonReact.SideEffects(
         self =>
-          self.send(SetState({
-                      ...state,
-                      contract: {
-                        ...contract,
-                        code,
-                      },
-                    })),
-      )
+          self.send(
+            SetState({
+              ...state,
+              contract: {
+                ...contract,
+                code,
+              },
+              available_methods,
+              nextcall: {
+                ...nextcall,
+                method,
+              },
+            }),
+          ),
+      );
     | EditContractState(statestr) =>
       ReasonReact.Update({...state, temp_contract_state: Some(statestr)})
     | ParseContractStateJSON =>
@@ -208,11 +234,6 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                   )
                 )
               }
-              onBlur={
-                self.handle((_event, _self) =>
-                  self.send(ParseContractStateJSON)
-                )
-              }
               value={self.state.contract.code}
             />
           </div>
@@ -225,6 +246,11 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                 self.send(
                   EditContractState(event->ReactEvent.Form.target##value),
                 )
+              )
+            }
+            onBlur={
+              self.handle((_event, _self) =>
+                self.send(ParseContractStateJSON)
               )
             }
             value={
@@ -252,9 +278,9 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                 )
               }>
               {ReasonReact.array(
-                 Array.of_list(
-                   self.state.contract.code
-                   |> API.Helpers.parseMethods
+                 Array.fromList(
+                   self.state.available_methods
+                   |> List.concat(["__init__"])
                    |> List.map(m =>
                         <option key=m> {ReasonReact.string(m)} </option>
                       ),
@@ -378,19 +404,21 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                           {ReasonReact.string(
                              "Payments made ("
                              ++ string_of_int(result.total_paid)
-                             ++ " satoshis): ",
+                             ++ " msats): ",
                            )}
                         </label>
-                        <div>
+                        <ul>
                           {ReasonReact.array(
-                             Array.of_list(
+                             Array.fromList(
                                result.payments_done
                                |> List.map(bolt11 =>
-                                    <div> {ReasonReact.string(bolt11)} </div>
+                                    <li key=bolt11>
+                                      {ReasonReact.string(bolt11)}
+                                    </li>
                                   ),
                              ),
                            )}
-                        </div>
+                        </ul>
                       </div>;
                     }}
                  </div>
