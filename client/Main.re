@@ -1,4 +1,5 @@
 open API;
+open Rebase;
 
 type state = {
   contracts: list(contract),
@@ -13,7 +14,7 @@ and view =
   | ContractList
   | ViewContract(contract)
   | ViewNewContract
-  | ViewCall(call, option(result))
+  | ViewCall(call, option(response))
   | ViewSimulator
   | ViewSimulatorWithContract(contract);
 
@@ -28,7 +29,7 @@ type action =
   | LoadContract(string)
   | LoadCall(string)
   | GotCall(call)
-  | GotCallResult(result)
+  | GotCallResult(response)
   | DispatchCall(string)
   | CreateContract
   | OpenSimulator
@@ -118,12 +119,12 @@ let make = _children => {
       ReasonReact.Update({...state, view: ViewContract(contract)})
     | GotCall(call) =>
       ReasonReact.Update({...state, view: ViewCall(call, None)})
-    | GotCallResult(result) =>
+    | GotCallResult(response) =>
       ReasonReact.Update(
         switch (state.view) {
         | ViewCall(call, _) => {
             ...state,
-            view: ViewCall(call, Some(result)),
+            view: ViewCall(call, Some(response)),
           }
         | _ => state
         },
@@ -212,19 +213,19 @@ let make = _children => {
           self => {
             let _ =
               API.Contract.make(newcontractstate.contract.id)
-              |> Js.Promise.then_((v: result) =>
+              |> Js.Promise.then_((v: response) =>
                    self.send(NewContractAction(GotInitResult(Some(v))))
                    |> Js.Promise.resolve
                  );
             ();
           },
         )
-      | GotInitResult(result) =>
+      | GotInitResult(response) =>
         ReasonReact.Update({
           ...state,
           newcontractstate: {
             ...newcontractstate,
-            result,
+            response,
           },
           view: ViewNewContract,
         })
@@ -310,20 +311,60 @@ let make = _children => {
                </h1>
                <div className="contracts">
                  {ReasonReact.array(
-                    Array.of_list(
+                    Array.fromList(
                       self.state.contracts
                       |> List.map((c: contract) =>
-                           <div key={c.id} className="contract-item">
-                             <a
-                               onClick={
-                                 self.handle((_event, _self) =>
-                                   ReasonReact.Router.push(
-                                     "/contract/" ++ c.id,
-                                   )
-                                 )
-                               }>
-                               {ReasonReact.string(c.name)}
-                             </a>
+                           <div
+                             key={c.id}
+                             className="contract-item"
+                             onClick={
+                               self.handle((_event, _self) =>
+                                 ReasonReact.Router.push("/contract/" ++ c.id)
+                               )
+                             }>
+                             <h1> {ReasonReact.string(c.name)} </h1>
+                             <span>
+                               {ReasonReact.string(
+                                  String.sub(~from=0, ~length=250, c.readme)
+                                  ++ (
+                                    if (String.length(c.readme) > 250) {
+                                      "…";
+                                    } else {
+                                      "";
+                                    }
+                                  ),
+                                )}
+                             </span>
+                             <div>
+                               {ReasonReact.string(
+                                  string_of_int(c.funds)
+                                  ++ " msatoshi"
+                                  ++ (
+                                    if (c.funds == 1) {
+                                      "";
+                                    } else {
+                                      "s";
+                                    }
+                                  ),
+                                )}
+                             </div>
+                             <div>
+                               {ReasonReact.string(
+                                  switch (c.ncalls) {
+                                  | Some(n) =>
+                                    string_of_int(n)
+                                    ++ " call"
+                                    ++ (
+                                      if (n == 1) {
+                                        "";
+                                      } else {
+                                        "s";
+                                      }
+                                    )
+                                  | None => "0 calls"
+                                  },
+                                )}
+                             </div>
                            </div>
                          ),
                     ),
@@ -336,10 +377,10 @@ let make = _children => {
                state={self.state.newcontractstate}
                send={act => self.send(NewContractAction(act))}
              />
-           | ViewCall(call, result) =>
+           | ViewCall(call, response) =>
              <CallPage
                call
-               result
+               response
                dispatch={() => self.send(DispatchCall(call.id))}
              />
            | ViewSimulator => <Simulator />

@@ -12,20 +12,21 @@ import (
 )
 
 func listContracts(w http.ResponseWriter, r *http.Request) {
-	var contracts []Contract
+	contracts := make([]Contract, 0)
 	err = pg.Select(&contracts, `
-SELECT id, name, readme FROM (
-  SELECT id, name, readme, created_at,
-    (SELECT max(time) FROM calls WHERE contract_id = c.id) AS lastcalltime
+SELECT id, name, readme, funds, ncalls FROM (
+  SELECT id, name, readme, created_at, c.funds,
+    (SELECT max(time) FROM calls WHERE contract_id = c.id) AS lastcalltime,
+    (SELECT count(*) FROM calls WHERE contract_id = c.id) AS ncalls
   FROM contracts AS c
 ) AS x
 ORDER BY lastcalltime DESC, created_at DESC
     `)
-	if err == nil || err == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		contracts = make([]Contract, 0)
 	} else if err != nil {
 		log.Warn().Err(err).Msg("failed to fetch contracts")
-		jsonError(w, "", 404)
+		jsonError(w, "", 500)
 		return
 	}
 

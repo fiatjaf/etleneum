@@ -26,6 +26,7 @@ type Contract struct {
 	Refilled     int            `db:"refilled" json:"refilled"`           // msats refilled without use of a normal call
 
 	Funds       int    `db:"funds" json:"funds"` // contract balance in msats
+	NCalls      int    `db:"ncalls" json:"ncalls,omitempty"`
 	Bolt11      string `db:"-" json:"invoice,omitempty"`
 	InvoicePaid *bool  `db:"-" json:"invoice_paid,omitempty"`
 }

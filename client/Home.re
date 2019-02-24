@@ -68,11 +68,27 @@ We should have a better explanation here, but for now please read the [docs](/do
 
 Well, you can do a lot of things. We should have a list of examples somewhere, but you can start looking at https://stateofthedapps.com/ for inspiration (or maybe not, you'll end up building a game of collectible fake animals).
 
-Oh, remember all our [API](/docs) methods are [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)-enabled, so you can build single-page web applications with just JavaScript and host them for free, but superpower them with Etleneum contracts on the back!
+Oh, remember all our [API](/docs) methods are [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)-enabled, so you can build single-page static web applications with just JavaScript, but superpower them with Etleneum contracts on the back!
 
-2. This can't be safer than Ethereum. It is centralized!
+2. Is it better than Ethereum?
 
-Yes, you are right. Infura has a lot more of engineers and a much better infrastructure than us, so please don't put a lot of money here. We may get hacked or lose our node with all its channels at anytime and we offer no guarantee whatsoever.
+Of course!
+
+3. It can't be better than Ethereum. It's centralized!
+
+Yes, you are probably right. Infura has a lot more of engineers and a much better infrastructure than us, so they offer a much fancier website, personal support 24/7 and more uptime guarantees. If you're running an ICO you should probably choose Ethereum.
+
+4. Why did you choose Lua as the programming language?
+
+Because we're following the steps of the Ethereum community, so we wanted a language no one is very familiar with, but is still an easy dynamic language with room for lots of bugs to appear in the contracts.
+
+5. Your background colors is awful. How can I change it?
+
+Visit our [background hue setter contract](/contract/ew0u7ipyp) and you'll be able to change it for just 100 satoshis!
+
+6. What are the privacy policy and terms of service?
+
+All we store is what is public and you can see from in this website. This is alpha-quality software. We may get hacked, lose our database or delete our Lightning node database at anytime and we can't offer any guarantee whatsoever, so please proceed wisely. Actually since we allow arbitrary code execution we will probably get hacked sooner than you can imagine.
     ",
             ),
         }

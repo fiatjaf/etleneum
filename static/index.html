@@ -12,3 +12,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/glua@0.4.5/dist/glua.min.js"></script>
 <script src="/static/bundle.js"></script>
+<script>
+fetch('/~/contract/ew0u7ipyp/state')
+  .then(r => r.json())
+  .then(r => r.value.hue)
+  .then(hue => {
+    document.documentElement.style.backgroundColor = `hsl(${hue}, 66%, 84%)`
+  })
+</script>

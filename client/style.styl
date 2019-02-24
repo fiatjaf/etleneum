@@ -28,12 +28,16 @@ article
     color #25aa7b
     text-decoration underline
 
-  h1:not(:hover)
-    .header-anchor
-      color transparent
+  h1, h2, h3, h4, h5, h6
+    &:not(:hover)
+      a.header-anchor
+        color transparent
+
+  a.header-anchor
+    text-decoration none
 
   code, pre
-    background whitesmoke
+    background #ffeaea
     line-height calc(1em + 10px)
 
   code
@@ -62,6 +66,7 @@ textarea
 input, textarea
   padding 9px
   border 1px solid
+  background white
 
 .react-json-view .string-value
   white-space pre-wrap
@@ -85,7 +90,7 @@ nav
 
   a:hover
     padding 3px 6px
-    background #ededed
+    background #ffeaea
 
 #home
   header
@@ -115,12 +120,37 @@ nav
   .contract-item
     padding 10px
     border-radius 12px
-    background-color #ededed
+    background-color #ffeaea
+    transition background-color 500ms linear
     margin 9px 18px
-    max-width 263px
-    overflow hidden
-    text-overflow ellipsis
-    white-space pre
+    max-width 363px
+    cursor pointer
+
+    &:hover
+      background-color white
+
+    h1
+      overflow hidden
+      text-overflow ellipsis
+      white-space pre
+      font-size 120%
+      font-weight normal
+      margin 0
+
+    span
+      margin 7px
+      font-size 15px
+      display block
+      text-align justify
+
+    span, div
+      opacity 0.6
+
+    p
+      margin 10px
+
+    div
+      text-align right
 
 .contract
   & > div

@@ -13,9 +13,9 @@ let make = _children => {
               "
 # Writing a contract
 
-  A contract is constituted by multiple methods, which can be called by anyone and may affect the contract state, make GET requests to other places on the internet and pay Lightning Network invoices. What we call methods are just Lua functions.
+  A contract consists of a **state**, some **funds** and multiple **methods**, which can be called by anyone and may affect the contract state, make GET requests to other places on the internet and pay Lightning Network invoices. What we call methods are just Lua functions.
 
-  See the following example of an ICO contract:
+  See the following example of a simple ICO contract code:
 
 ```
 function __init__ ()
@@ -47,14 +47,18 @@ function cashout ()
 end
 ```
 
-  Some things to consider:
+  All what that contract does is accept satoshis in the `buytoken` method and assign balances of an unnamed mysterious token to the payer. Each token costs 5 satoshis and the method checks if the quantity the buyer wants matchs the amount of satoshis he has included in the call.
+
+  Note that, because this is just an example, there aren't any considerations of security, identification or authentication, users are just arbitrary names defined by the buyer.
+
+  The other method, `cashout` is used by the token issuer to grab the money it has secured in the ICO and go away. As the contract is just an example, the method it uses to cash out is to send an invoice with a predefined hash (to which he must know the preimage beforehand). Since a preimage can be only used once this contract will only be able to be cashed-out once.
+
+  Other things you must know:
 
   * Each contract must have an `__init__' method. That is a special method that is called only when the contract is created, it must return a Lua table that will server as the initial contract state.
   * All other top level functions are methods callable from the external world.
-
-Each contract starts with
-
-A contract consists of
+  * Even if an HTTP request or an `ln.pay` call fail, the call will still be ok and the contract state will still be updated and so on. If you want the call to fail completely you must call the Lua function `error()`.
+  * Failed calls should refundable, but that's not implemented yet.
 
 # Calling a contract
 
@@ -69,6 +73,8 @@ A contract consists of
     number of satoshis plus a small cost. The number of satoshis is available to the
     call as the global variable `satoshis`. Regardless of what the contract code does
     with it, the satoshis are added to the contract funds.
+
+  After sending these you'll receive an invoice. Pay that invoice and proceed to make the call. It will run the contract's given **method** and update it accordingly. That's all.
 
 # Contract API
 
@@ -94,7 +100,7 @@ A contract consists of
 
   `Contract`: `{id: String, code: String, name: String, readme: String, funds: Int}`
 
-  `Call`: {id: String, time: String, method: String, payload: Any, satoshis: Int, cost: Int, paid: Int}
+  `Call`: `{id: String, time: String, method: String, payload: Any, satoshis: Int, cost: Int, paid: Int}`
 All paths start at `https://etleneum.com` and must be called with `Content-Type: application/json`. All methods are CORS-enabled and no authorization mechanism is required or supported: everything is public.
 
 All calls return an object of type `{ok: Bool, error: String, value: Any}`. The relevant data is always in the `value` key and `error` is only present when the call has failed. In the following endpoint descriptions we omit the `ok/value` envelope and show just the returned value that should be inside `value`.

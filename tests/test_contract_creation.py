@@ -22,9 +22,14 @@ def test_contract_creation(etleneum, lightnings):
     assert r.ok
     bolt11 = r.json()["value"]["invoice"]
     assert bolt11.startswith("lnbc")
+    ctid = r.json()["value"]["id"]
+
+    # there are still zero contracts in the list
+    r = requests.get(url + "/~/contracts")
+    assert r.ok
+    assert r.json() == {"ok": True, "value": []}
 
     # get prepared
-    ctid = r.json()["value"]["id"]
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.ok
     assert r.json()["value"]["invoice"] == bolt11
@@ -63,6 +68,17 @@ def test_contract_creation(etleneum, lightnings):
     assert r.json()["value"]["funds"] == 1000
     assert r.json()["value"]["refilled"] == 0
     assert r.json()["value"]["storage_costs"] == 0
+
+    # contract list should show this
+    r = requests.get(url + "/~/contracts")
+    assert r.ok
+    contracts = r.json()["value"]
+    assert len(contracts) == 1
+    assert contracts[0]["name"] == ctdata["name"]
+    assert contracts[0]["readme"] == ctdata["readme"]
+    assert contracts[0]["id"] == ctid
+    assert contracts[0]["funds"] == 1000
+    assert contracts[0]["ncalls"] == 1
 
     # get contract calls (should contain the initial call)
     r = requests.get(url + "/~/contract/" + ctid + "/calls")

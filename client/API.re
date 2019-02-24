@@ -12,6 +12,7 @@ type contract = {
   funds: int,
   bolt11: option(string),
   invoice_paid: bool,
+  ncalls: option(int),
 }
 and call = {
   id: string,
@@ -25,7 +26,7 @@ and call = {
   bolt11: option(string),
   invoice_paid: bool,
 }
-and result = {
+and response = {
   ok: bool,
   value: Js.Json.t,
   error: string,
@@ -43,6 +44,7 @@ let emptyContract = {
   refilled: 0,
   bolt11: None,
   invoice_paid: false,
+  ncalls: None,
 };
 let emptyCall = {
   id: "",
@@ -60,7 +62,7 @@ let emptyCall = {
 module Decode = {
   open Json.Decode;
 
-  let result = json => {
+  let response = json => {
     ok: json |> field("ok", bool),
     value: json |> field("value", x => x),
     error:
@@ -92,11 +94,13 @@ module Decode = {
     bolt11: json |> optional(field("invoice", string)),
     invoice_paid:
       json |> (field("invoice_paid", bool) |> withDefault(false)),
+    ncalls: json |> optional(field("ncalls", int)),
   };
 
-  let contractResponse = json => json |> result |> (r => r.value |> contract);
+  let contractResponse = json =>
+    json |> response |> (r => r.value |> contract);
   let contractListResponse = json =>
-    json |> result |> (r => r.value |> list(contract));
+    json |> response |> (r => r.value |> list(contract));
 
   let call = json => {
     id: json |> (field("id", string) |> withDefault(emptyCall.id)),
@@ -117,9 +121,9 @@ module Decode = {
       json |> (field("invoice_paid", bool) |> withDefault(false)),
   };
 
-  let callResponse = json => json |> result |> (r => r.value |> call);
+  let callResponse = json => json |> response |> (r => r.value |> call);
   let callListResponse = json =>
-    json |> result |> (r => r.value |> list(call));
+    json |> response |> (r => r.value |> list(call));
 };
 
 module Encode = {
@@ -175,7 +179,7 @@ module Contract = {
       Fetch.RequestInit.make(~method_=Fetch.Post, ()),
     )
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.result |> resolve);
+    |> then_(json => json |> Decode.response |> resolve);
 };
 
 module Call = {
@@ -208,7 +212,7 @@ module Call = {
       Fetch.RequestInit.make(~method_=Fetch.Post, ()),
     )
     |> then_(Fetch.Response.json)
-    |> then_(json => json |> Decode.result |> resolve);
+    |> then_(json => json |> Decode.response |> resolve);
 };
 
 module LS = {

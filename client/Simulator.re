@@ -5,7 +5,7 @@ type state = {
   temp_contract_state: option(string),
   nextcall: API.call,
   temp_call_payload: option(string),
-  result: option(luaresult),
+  call_result: option(luaresult),
   available_methods: list(string),
 }
 and luaresult = {
@@ -71,7 +71,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
         },
       temp_call_payload: None,
       temp_contract_state: None,
-      result: None,
+      call_result: None,
       available_methods: API.Helpers.parseMethods(contract.code),
     };
   },
@@ -206,7 +206,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
     | SimulateCall =>
       ReasonReact.Update({
         ...state,
-        result:
+        call_result:
           runlua(
             state.contract.code,
             state.contract.state,
@@ -341,15 +341,15 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
         </div>
         <div>
           <div> <h3> {ReasonReact.string("Result:")} </h3> </div>
-          {switch (self.state.result) {
+          {switch (self.state.call_result) {
            | None => <div />
-           | Some(result) =>
-             if (result.error == "") {
-               <div className="result">
+           | Some(call_result) =>
+             if (call_result.error == "") {
+               <div className="call_result">
                  <div>
                    <label> {ReasonReact.string("State: ")} </label>
                    <ReactJSONView
-                     src={result.state}
+                     src={call_result.state}
                      name="state"
                      theme="summerfruit-inverted"
                      iconStyle="triangle"
@@ -369,7 +369,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                                      ...state,
                                      contract: {
                                        ...contract,
-                                       state: result.state,
+                                       state: call_result.state,
                                      },
                                      temp_contract_state: None,
                                    }),
@@ -382,7 +382,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                  <div>
                    <label> {ReasonReact.string("Returned value: ")} </label>
                    <ReactJSONView
-                     src={result.ret}
+                     src={call_result.ret}
                      name="ret"
                      theme="summerfruit-inverted"
                      iconStyle="triangle"
@@ -394,7 +394,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                    />
                  </div>
                  <div>
-                   {if (result.payments_done |> List.length == 0) {
+                   {if (call_result.payments_done |> List.length == 0) {
                       <label>
                         {ReasonReact.string("No payments made.")}
                       </label>;
@@ -403,14 +403,14 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                         <label>
                           {ReasonReact.string(
                              "Payments made ("
-                             ++ string_of_int(result.total_paid)
+                             ++ string_of_int(call_result.total_paid)
                              ++ " msats): ",
                            )}
                         </label>
                         <ul>
                           {ReasonReact.array(
                              Array.fromList(
-                               result.payments_done
+                               call_result.payments_done
                                |> List.map(bolt11 =>
                                     <li key=bolt11>
                                       {ReasonReact.string(bolt11)}
@@ -424,7 +424,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                  </div>
                </div>;
              } else {
-               <pre> {ReasonReact.string(result.error)} </pre>;
+               <pre> {ReasonReact.string(call_result.error)} </pre>;
              }
            }}
         </div>
