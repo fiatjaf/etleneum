@@ -1,3 +1,5 @@
+open Rebase;
+
 [@bs.module "./markdown.js"] external markdown: string => string = "markdown";
 
 type state = {
@@ -20,10 +22,17 @@ type action =
   | PrepareCall
   | CallPrepared(API.call);
 
-let betterdate = datestr =>
-  try (String.sub(datestr, 0, 10) ++ " at " ++ String.sub(datestr, 11, 8)) {
-  | Invalid_argument(_) => datestr
+let betterdate = datestr => {
+  let d =
+    String.sub(~from=0, ~length=10, datestr)
+    ++ " at "
+    ++ String.sub(~from=11, ~length=8, datestr);
+  if (String.length(d) < 20) {
+    datestr;
+  } else {
+    d;
   };
+};
 
 let component = ReasonReact.reducerComponent("ContractPage");
 
@@ -31,14 +40,25 @@ let make = (~contract: API.contract, _children) => {
   ...component,
   didMount: self => self.send(LoadCalls),
   initialState: () => {
-    calls: [],
-    callopen: None,
-    nextcall:
-      switch (API.LS.getItem("next-call:" ++ contract.id)) {
-      | None => API.emptyCall
-      | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
-      },
-    temp_call_payload: None,
+    let firstmethod = API.Helpers.parseMethods(contract.code) |> List.head;
+
+    {
+      calls: [],
+      callopen: None,
+      nextcall:
+        switch (API.LS.getItem("next-call:" ++ contract.id)) {
+        | None => {
+            ...API.emptyCall,
+            method:
+              switch (firstmethod) {
+              | Some(method) => method
+              | None => ""
+              },
+          }
+        | Some(jstr) => jstr |> Js.Json.parseExn |> API.Decode.call
+        },
+      temp_call_payload: None,
+    };
   },
   reducer: (action: action, state: state) => {
     let nextcall = state.nextcall;
@@ -169,7 +189,7 @@ let make = (~contract: API.contract, _children) => {
              </p>;
            } else {
              ReasonReact.array(
-               Array.of_list(
+               Array.fromList(
                  self.state.calls
                  |> List.map((call: API.call) =>
                       <div
@@ -275,7 +295,7 @@ let make = (~contract: API.contract, _children) => {
                     )
                   }>
                   {ReasonReact.array(
-                     Array.of_list(
+                     Array.fromList(
                        contract.code
                        |> API.Helpers.parseMethods
                        |> List.map(m =>
