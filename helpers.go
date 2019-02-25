@@ -57,6 +57,10 @@ func checkPayment(label string, pricemsats int) (msats int, err error) {
 		return 0, errors.New("tried to check a payment with price zero")
 	}
 
+	if s.Development {
+		return pricemsats, nil
+	}
+
 	res, err := ln.Call("listinvoices", label)
 	if err != nil {
 		return

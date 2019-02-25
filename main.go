@@ -33,6 +33,8 @@ type Settings struct {
 	InitialContractFillSatoshis int `envconfig:"INITIAL_CONTRACT_FILL_SATOSHIS" default:"1"`
 	FixedCallCostSatoshis       int `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
 	PaymentRetrySeconds         int `envconfig:"PAYMENT_RETRY_SECONDS" default:"120"`
+
+	Development bool `envconfig:"DEV" default:"false"`
 }
 
 var err error
