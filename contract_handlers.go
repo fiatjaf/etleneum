@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/fiatjaf/etleneum/types"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx/types"
+	sqlxtypes "github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"
 )
 
 func listContracts(w http.ResponseWriter, r *http.Request) {
-	contracts := make([]Contract, 0)
+	contracts := make([]types.Contract, 0)
 	err = pg.Select(&contracts, `
 SELECT id, name, readme, funds, ncalls FROM (
   SELECT id, name, readme, created_at, c.funds,
@@ -23,7 +24,7 @@ SELECT id, name, readme, funds, ncalls FROM (
 ORDER BY lastcalltime DESC, created_at DESC
     `)
 	if err == sql.ErrNoRows {
-		contracts = make([]Contract, 0)
+		contracts = make([]types.Contract, 0)
 	} else if err != nil {
 		log.Warn().Err(err).Msg("failed to fetch contracts")
 		jsonError(w, "", 500)
@@ -38,7 +39,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	// making a contract only saves it temporarily.
 	// the contract can be inspected only by its creator.
 	// once the creator knows everything is right, he can call init.
-	ct := &Contract{}
+	ct := &types.Contract{}
 	err := json.NewDecoder(r.Body).Decode(ct)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to parse contract json.")
@@ -47,14 +48,14 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	}
 	ct.Id = cuid.Slug()
 
-	err = ct.getInvoice()
+	err = getContractInvoice(ct)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "", 500)
 		return
 	}
 
-	_, err = ct.saveOnRedis()
+	_, err = saveContractOnRedis(*ct)
 	if err != nil {
 		log.Warn().Err(err).Interface("ct", ct).Msg("failed to save to redis")
 		jsonError(w, "", 500)
@@ -67,7 +68,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 func getContract(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 
-	ct := &Contract{}
+	ct := &types.Contract{}
 	err = pg.Get(ct, `
 SELECT *, contracts.funds
 FROM contracts
@@ -82,7 +83,7 @@ WHERE id = $1`,
 			jsonError(w, "", 404)
 			return
 		}
-		err = ct.getInvoice()
+		err = getContractInvoice(ct)
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to get/make invoice")
@@ -101,7 +102,7 @@ WHERE id = $1`,
 }
 
 func getContractState(w http.ResponseWriter, r *http.Request) {
-	var state types.JSONText
+	var state sqlxtypes.JSONText
 	err = pg.Get(&state, `SELECT state FROM contracts WHERE id = $1`, mux.Vars(r)["ctid"])
 	if err != nil {
 		jsonError(w, "contract not found", 404)
@@ -135,7 +136,10 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = checkPayment(s.ServiceId+"."+ctid, ct.getCost()+s.InitialContractFillSatoshis*1000)
+	_, err = checkPayment(
+		s.ServiceId+"."+ctid,
+		getContractCost(*ct)+s.InitialContractFillSatoshis*1000,
+	)
 	if err != nil {
 		logger.Warn().Err(err).Msg("payment check failed")
 		jsonError(w, "payment check failed", 402)
@@ -165,16 +169,16 @@ VALUES ($1, $2, $3, $4, '{}')
 	}
 
 	// instantiate call
-	call := Call{
+	call := &types.Call{
 		ContractId: ct.Id,
 		Id:         ct.Id, // same
 		Method:     "__init__",
 		Payload:    []byte{},
 		Satoshis:   s.InitialContractFillSatoshis,
-		Cost:       ct.getCost(),
+		Cost:       getContractCost(*ct),
 	}
 
-	_, err = call.runCall(txn)
+	_, err = runCall(call, txn)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
 		jsonError(w, "failed to run call", 500)

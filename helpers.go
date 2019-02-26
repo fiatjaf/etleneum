@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
-	"strings"
 	"time"
-
-	lua "github.com/yuin/gopher-lua"
 )
+
+type Result struct {
+	Ok    bool        `json:"ok"`
+	Value interface{} `json:"value"`
+	Error string      `json:"error,omitempty"`
+}
 
 func getInvoice(label, desc string, msats int) (string, bool, error) {
 	res, err := ln.Call("listinvoices", label)
@@ -78,51 +80,6 @@ func checkPayment(label string, pricemsats int) (msats int, err error) {
 	}
 
 	return int(res.Get("invoices.0.msatoshi_received").Int()), nil
-}
-
-var reNumber = regexp.MustCompile("\\d+")
-
-func stackTraceWithCode(stacktrace string, code string) string {
-	var result []string
-
-	stlines := strings.Split(stacktrace, "\n")
-	lines := strings.Split(code, "\n")
-	result = append(result, stlines[0])
-
-	for i := 1; i < len(stlines); i++ {
-		stline := stlines[i]
-		result = append(result, stline)
-
-		snum := reNumber.FindString(stline)
-		if snum != "" {
-			num, _ := strconv.Atoi(snum)
-			for i, line := range lines {
-				line = fmt.Sprintf("%3d %s", i+1, line)
-				if i+1 > num-3 && i+1 < num+3 {
-					result = append(result, line)
-				}
-			}
-		}
-	}
-
-	return strings.Join(result, "\n")
-}
-
-func luaErrorType(apierr *lua.ApiError) string {
-	switch apierr.Type {
-	case lua.ApiErrorSyntax:
-		return "ApiErrorSyntax"
-	case lua.ApiErrorFile:
-		return "ApiErrorFile"
-	case lua.ApiErrorRun:
-		return "ApiErrorRun"
-	case lua.ApiErrorError:
-		return "ApiErrorError"
-	case lua.ApiErrorPanic:
-		return "ApiErrorPanic"
-	default:
-		return "unknown"
-	}
 }
 
 func jsonError(w http.ResponseWriter, message string, code int) {

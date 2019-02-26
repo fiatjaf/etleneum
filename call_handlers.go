@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/fiatjaf/etleneum/types"
 	"github.com/gorilla/mux"
 	"github.com/lucsky/cuid"
 )
@@ -14,7 +15,7 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 	logger := log.With().Str("ctid", ctid).Logger()
 
-	var calls []Call
+	var calls []types.Call
 	err = pg.Select(&calls, `
 SELECT *
 FROM calls
@@ -23,7 +24,7 @@ ORDER BY time DESC
 LIMIT 20
         `, ctid)
 	if err == sql.ErrNoRows {
-		calls = make([]Call, 0)
+		calls = make([]types.Call, 0)
 	} else if err != nil {
 		logger.Warn().Err(err).Msg("failed to fetch calls")
 		jsonError(w, "", 404)
@@ -38,7 +39,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 	logger := log.With().Str("ctid", ctid).Logger()
 
-	call := &Call{}
+	call := &types.Call{}
 	err := json.NewDecoder(r.Body).Decode(call)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to parse call json.")
@@ -56,15 +57,15 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	call.calcCosts()
-	err = call.getInvoice()
+	calcCallCosts(call)
+	err = getCallInvoice(call)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "failed to make invoice, please try again", 500)
 		return
 	}
 
-	_, err = call.saveOnRedis()
+	_, err = saveCallOnRedis(*call)
 	if err != nil {
 		logger.Warn().Err(err).Interface("call", call).
 			Msg("failed to save call on redis")
@@ -80,7 +81,7 @@ func getCall(w http.ResponseWriter, r *http.Request) {
 	callid := mux.Vars(r)["callid"]
 	logger := log.With().Str("callid", callid).Logger()
 
-	call := &Call{}
+	call := &types.Call{}
 	err = pg.Get(call, `
 SELECT * FROM calls WHERE id = $1
     `, callid)
@@ -131,7 +132,7 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer txn.Rollback()
-	returnedValue, err := call.runCall(txn)
+	returnedValue, err := runCall(call, txn)
 	if err != nil {
 		logger.Warn().Err(err).Str("ctid", call.ContractId).Msg("failed to run call")
 		jsonError(w, "failed to run call", 500)

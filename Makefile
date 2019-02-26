@@ -1,11 +1,16 @@
-all: etleneum
+all: etleneum runlua/runlua
 
-etleneum: $(shell find . -name "*.go")
+etleneum: $(shell find . -name "*.go") bindata.go runlua/assets/bindata.go
 	go build -o ./etleneum
+
+runlua/runlua:
+	go-bindata -pkg assets -o runlua/assets/bindata.go runlua/assets/...
+	cd runlua && go build -o ./runlua
 
 prod: $(shell find . -name "*.go") static/bundle.min.js static/style.min.css
 	mv static/bundle.min.js static/bundle.js
 	mv static/style.min.css static/style.css
+	go-bindata -pkg assets -o runlua/assets/bindata.go runlua/assets/...
 	go-bindata -o bindata.go static/...
 	go build -o ./etleneum
 
@@ -15,9 +20,12 @@ watch:
 bindata.go: $(shell find static)
 	go-bindata -debug -o bindata.go static/...
 
+runlua/assets/bindata.go: $(shell find runlua/assets)
+	go-bindata -debug -pkg assets -o runlua/assets/bindata.go runlua/assets/...
+
 static/bundle.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world
-	./node_modules/.bin/browserify client/App.bs.js -dv --outfile static/bundle.js
+	./node_modules/.bin/browserifyinc client/App.bs.js -dv --outfile static/bundle.js
 
 static/bundle.min.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world

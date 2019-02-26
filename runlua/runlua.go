@@ -1,4 +1,4 @@
-package main
+package runlua
 
 import (
 	"context"
@@ -9,17 +9,25 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
 
+	lua "github.com/J-J-J/goluajit"
+	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/gluajson"
-	lua "github.com/yuin/gopher-lua"
+	"github.com/rs/zerolog"
+	"github.com/tidwall/gjson"
 )
 
-func runLua(
-	contract Contract,
-	call Call,
+var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+func RunCall(
+	sandboxCode string,
+	parseInvoice func(string) (gjson.Result, error),
+	contract types.Contract,
+	call types.Call,
 ) (bstate []byte, totalPaid int, paymentsPending []string, ret interface{}, err error) {
 	// init lua
 	L := lua.NewState()
@@ -36,6 +44,7 @@ func runLua(
 	lua_ln_pay, payments_done := make_lua_ln_pay(
 		L,
 		func() (msats int) { return initialFunds - totalPaid },
+		parseInvoice,
 	)
 
 	mutex := &sync.Mutex{}
@@ -87,8 +96,6 @@ func runLua(
 	L.SetGlobal("print", lua_print)
 	L.SetGlobal("sha256", L.NewFunction(lua_sha256))
 
-	bsandboxCode, _ := Asset("static/sandbox.lua")
-	sandboxCode := string(bsandboxCode)
 	code := fmt.Sprintf(`
 %s
 
@@ -120,7 +127,7 @@ return ret
 	// call function
 	err = L.DoString(code)
 	if err != nil {
-		if apierr, ok := err.(*lua.ApiError); ok {
+		if apierr, ok := err.(*lua.APIError); ok {
 			fmt.Println(stackTraceWithCode(apierr.StackTrace, code))
 			log.Error().Str("obj", apierr.Object.String()).
 				Str("type", luaErrorType(apierr)).Err(apierr.Cause).
@@ -168,6 +175,7 @@ type payment struct {
 func make_lua_ln_pay(
 	L *lua.LState,
 	get_contract_funds func() int, // in msats
+	parseInvoice func(string) (gjson.Result, error),
 ) (lua_ln_pay lua.LValue, payments_done chan payment) {
 	payments_done = make(chan payment)
 
@@ -195,7 +203,7 @@ func make_lua_ln_pay(
 			invpayee    string
 		)
 
-		res, err := ln.Call("decodepay", bolt11)
+		res, err := parseInvoice(bolt11)
 		if err != nil {
 			log.Print(err)
 			L.Push(lua.LNumber(0))

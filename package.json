@@ -1,6 +1,7 @@
 {
   "browserify": {
     "transform": [
+      "browserify-global-shim",
       [
         "babelify",
         {
@@ -12,6 +13,9 @@
       "brfs"
     ]
   },
+  "browserify-global-shim": {
+    "glua": "glua"
+  },
   "devDependencies": {
     "@babel/core": "7.0.0-rc.1",
     "@babel/preset-env": "7.0.0-rc.1",
@@ -19,7 +23,9 @@
     "babelify": "^9.0.0",
     "brfs": "^2.0.1",
     "browserify": "^16.2.2",
+    "browserify-global-shim": "^1.0.3",
     "envify": "^4.1.0",
+    "glua": "^1.0.2",
     "prettier": "1.14.2",
     "stylus": "^0.54.5",
     "terser": "^3.16.1",

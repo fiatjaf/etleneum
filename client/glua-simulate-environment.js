@@ -1,6 +1,6 @@
 /** @format */
 
-const glua = window.glua
+const glua = require('glua')
 const invoice = require('lightnode-invoice')
 const sha256 = require('js-sha256').sha256
 const fs = require('fs')
@@ -34,16 +34,16 @@ module.exports.runlua = function runlua(
       let amountmsats = amountsats * 1000
 
       if (filters.max && amountsats > filters.max) {
-        return 0
+        return {_glua_multi: [0, "max doesn't match"]}
       }
       if (filters.exact && amountsats != filters.exact) {
-        return 0
+        return {_glua_multi: [0, "exact doesn't match"]}
       }
       if (filters.hash && res.paymentHash != filters.hash) {
-        return 0
+        return {_glua_multi: [0, "hash doesn't match"]}
       }
       if (filters.payee && res.payeeNode != filters.payee) {
-        return 0
+        return {_glua_multi: [0, "payee doesn't match"]}
       }
 
       paymentsDone.push(bolt11)
