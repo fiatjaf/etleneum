@@ -96,7 +96,7 @@ WHERE id = $1`,
 	// actually run the call
 	bsandboxCode, _ := Asset("static/sandbox.lua")
 	sandboxCode := string(bsandboxCode)
-	newState, totalPaid, paymentsPending, returnedValue, err := runlua.RunCall(
+	newStateO, totalPaid, paymentsPending, returnedValue, err := runlua.RunCall(
 		sandboxCode,
 		func(inv string) (gjson.Result, error) { return ln.Call("decodepay", inv) },
 		ct,
@@ -106,7 +106,13 @@ WHERE id = $1`,
 		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to run call")
 		return
 	}
+
 	ret = returnedValue
+	newState, err := json.Marshal(newStateO)
+	if err != nil {
+		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to marshal new state")
+		return
+	}
 
 	// save new state
 	_, err = txn.Exec(`

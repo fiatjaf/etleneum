@@ -1,7 +1,6 @@
 package runlua
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,13 +9,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
-	lua "github.com/J-J-J/goluajit"
+	"github.com/aarzilli/golua/lua"
 	"github.com/fiatjaf/etleneum/types"
-	"github.com/fiatjaf/gluajson"
+	"github.com/fiatjaf/lunatico"
 	"github.com/rs/zerolog"
 	"github.com/tidwall/gjson"
 )
@@ -28,21 +29,16 @@ func RunCall(
 	parseInvoice func(string) (gjson.Result, error),
 	contract types.Contract,
 	call types.Call,
-) (bstate []byte, totalPaid int, paymentsPending []string, ret interface{}, err error) {
+) (stateAfter interface{}, totalPaid int, paymentsPending []string, returnedValue interface{}, err error) {
 	// init lua
 	L := lua.NewState()
 	defer L.Close()
-
-	// execution timeout (will cause execution to err)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	L.SetContext(ctx)
+	L.OpenLibs()
 
 	initialFunds := contract.Funds + call.Satoshis*1000
 	totalPaid = 0
 
 	lua_ln_pay, payments_done := make_lua_ln_pay(
-		L,
 		func() (msats int) { return initialFunds - totalPaid },
 		parseInvoice,
 	)
@@ -64,8 +60,7 @@ func RunCall(
 		done <- true
 	}()
 
-	lua_print, _ := make_lua_print(L)
-	lua_http_gettext, lua_http_getjson, _ := make_lua_http(L)
+	lua_http_gettext, lua_http_getjson, _ := make_lua_http()
 
 	var currentstate map[string]interface{}
 	err = contract.State.Unmarshal(&currentstate)
@@ -87,27 +82,21 @@ func RunCall(
 		Msg("running code")
 
 	// globals
-	L.SetGlobal("state", gluajson.DecodeValue(L, currentstate))
-	L.SetGlobal("payload", gluajson.DecodeValue(L, payload))
-	L.SetGlobal("satoshis", lua.LNumber(call.Satoshis))
-	L.SetGlobal("lnpay", lua_ln_pay)
-	L.SetGlobal("httpgettext", lua_http_gettext)
-	L.SetGlobal("httpgetjson", lua_http_getjson)
-	L.SetGlobal("print", lua_print)
-	L.SetGlobal("sha256", L.NewFunction(lua_sha256))
+	lunatico.SetGlobals(L, map[string]interface{}{
+		"state":       currentstate,
+		"payload":     payload,
+		"satoshis":    call.Satoshis,
+		"lnpay":       lua_ln_pay,
+		"httpgettext": lua_http_gettext,
+		"httpgetjson": lua_http_getjson,
+		"print":       log.Print,
+		"sha256":      lua_sha256,
+	})
 
 	code := fmt.Sprintf(`
 %s
 
-require("os")
-
-function call ()
-%s
-
-  return %s()
-end
-
-local ret = sandbox.run(call, {quota=50, env={
+custom_env = {
   print=print,
   http={
     gettext=httpgettext,
@@ -120,51 +109,42 @@ local ret = sandbox.run(call, {quota=50, env={
   payload=payload,
   state=state,
   satoshis=satoshis
-}})
-return ret
+}
+
+for k, v in pairs(custom_env) do
+  sandbox_env[k] = v
+end
+
+function call ()
+%s
+
+  return %s()
+end
+
+ret = run(sandbox_env, call)
     `, sandboxCode, contract.Code, call.Method)
 
-	// call function
 	err = L.DoString(code)
 	if err != nil {
-		if apierr, ok := err.(*lua.APIError); ok {
-			fmt.Println(stackTraceWithCode(apierr.StackTrace, code))
-			log.Error().Str("obj", apierr.Object.String()).
-				Str("type", luaErrorType(apierr)).Err(apierr.Cause).
-				Str("method", call.Method).Msg("")
-			err = errors.New("error executing lua code")
-		} else {
-			log.Error().Err(err).Str("method", call.Method).Msg("error calling method")
-		}
+		log.Print(stackTraceWithCode(err.Error(), code))
 		return
 	}
+
+	globalsAfter := lunatico.GetGlobals(L, "ret", "state")
+	stateAfter = globalsAfter["state"]
+	returnedValue = globalsAfter["ret"]
 
 	// finish
 	close(payments_done)
 	<-done
 
-	// returned value
-	bret, err := gluajson.Encode(L.Get(-1))
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal(bret, &ret)
-	if err != nil {
-		return
-	}
-
 	// get state after method is run
 	if call.Method == "__init__" {
 		// on __init__ calls the returned value is the initial state
-		bstate = bret
-	} else {
-		bstate, err = gluajson.Encode(L.GetGlobal("state"))
-		if err != nil {
-			return
-		}
+		stateAfter = returnedValue
 	}
 
-	return bstate, totalPaid, paymentsPending, ret, nil
+	return stateAfter, totalPaid, paymentsPending, returnedValue, nil
 }
 
 type payment struct {
@@ -173,28 +153,21 @@ type payment struct {
 }
 
 func make_lua_ln_pay(
-	L *lua.LState,
 	get_contract_funds func() int, // in msats
-	parseInvoice func(string) (gjson.Result, error),
-) (lua_ln_pay lua.LValue, payments_done chan payment) {
+	parse_invoice func(string) (gjson.Result, error),
+) (lua_ln_pay func(string, ...map[string]interface{}) (int, error), payments_done chan payment) {
 	payments_done = make(chan payment)
 
-	lua_ln_pay = L.NewFunction(func(L *lua.LState) int {
-		bolt11 := L.CheckString(1)
-		defaults := L.NewTable()
-		opts := L.OptTable(2, defaults)
+	lua_ln_pay = func(bolt11 string, filters ...map[string]interface{}) (int, error) {
+		filter := make(map[string]interface{})
 
-		l_maxsats := opts.RawGetString("max")
-		l_exact := opts.RawGetString("exact")
-		l_hash := opts.RawGetString("hash")
-		l_payee := opts.RawGetString("payee")
+		for _, f := range filters {
+			for attr, value := range f {
+				filter[attr] = value
+			}
+		}
 
-		log.Debug().
-			Interface("max", l_maxsats).
-			Interface("exact", l_exact).
-			Interface("hash", l_hash).
-			Interface("payee", l_payee).
-			Str("bolt11", bolt11).Msg("ln.pay called")
+		log.Debug().Interface("filter", filter).Str("bolt11", bolt11).Msg("ln.pay called")
 
 		var (
 			invmsats    float64
@@ -203,61 +176,53 @@ func make_lua_ln_pay(
 			invpayee    string
 		)
 
-		res, err := parseInvoice(bolt11)
+		res, err := parse_invoice(bolt11)
 		if err != nil {
-			log.Print(err)
-			L.Push(lua.LNumber(0))
-			L.Push(lua.LString(err.Error()))
-			return 2
+			return 0, err
 		}
 
 		// check payee id filter
 		invpayee = res.Get("payee").String()
-		if l_payee != lua.LNil && lua.LVAsString(l_payee) != invpayee {
-			msg := fmt.Sprintf("invoice payee public key doesn't match: %s != %s",
-				l_payee.String(), invpayee)
-			L.Push(lua.LNumber(0))
-			L.Push(lua.LString(msg))
-			return 2
+		f_payee, set := filter["payee"]
+		v_payee, ok := f_payee.(string)
+		if set && ok && v_payee != invpayee {
+			err := fmt.Errorf("invoice payee public key doesn't match: %s != %s", v_payee, invpayee)
+			return 0, err
 		}
 
 		// check hash filter
 		invhash = res.Get("payment_hash").String()
-		if l_hash != lua.LNil && lua.LVAsString(l_hash) != invhash {
-			msg := fmt.Sprintf("invoice hash doesn't match: %s != %s",
-				l_hash.String(), invhash)
-			L.Push(lua.LNumber(0))
-			L.Push(lua.LString(msg))
-			return 2
+		f_hash, set := filter["hash"]
+		v_hash, ok := f_hash.(string)
+		if set && ok && v_hash != invhash {
+			err := fmt.Errorf("invoice hash doesn't match: %s != %s", v_hash, invhash)
+			return 0, err
 		}
 
 		invmsats = res.Get("msatoshi").Float()
 		invsats := invmsats / 1000
+
 		// check max satoshis filter
-		if l_maxsats != lua.LNil && float64(lua.LVAsNumber(l_maxsats)) < invsats {
-			msg := fmt.Sprintf("invoice max satoshis doesn't match: %f < %f",
-				float64(lua.LVAsNumber(l_maxsats)), invsats)
-			L.Push(lua.LNumber(0))
-			L.Push(lua.LString(msg))
-			return 2
+		f_max, set := filter["max"]
+		v_max, ok := f_max.(float64)
+		if set && ok && v_max != invsats {
+			err := fmt.Errorf("invoice max satoshis doesn't match: %f < %f", v_max, invsats)
+			return 0, err
 		}
 
 		// check exact satoshis filter
-		if l_exact != lua.LNil && float64(lua.LVAsNumber(l_exact)) != invsats {
-			msg := fmt.Sprintf("invoice exact satoshis doesn't match: %f != %f",
-				float64(lua.LVAsNumber(l_maxsats)), invsats)
-			L.Push(lua.LNumber(0))
-			L.Push(lua.LString(msg))
-			return 2
+		f_exact, set := filter["exact"]
+		v_exact, ok := f_exact.(float64)
+		if set && ok && v_exact != invsats {
+			err := fmt.Errorf("invoice exact satoshis doesn't match: %f != %f", v_exact, invsats)
+			return 0, err
 		}
 
 		// check contract funds
 		if float64(get_contract_funds()) < invmsats {
-			msg := "contract doesn't have enough funds."
-			log.Print(msg)
-			L.Push(lua.LNumber(0))
-			L.Push(lua.LString(msg))
-			return 2
+			err := fmt.Errorf("contract doesn't have enough funds.")
+			log.Print(err)
+			return 0, err
 		}
 
 		// check invoice expiration (should be at least 30 minutes in the future)
@@ -265,10 +230,8 @@ func make_lua_ln_pay(
 			time.Second * time.Duration(res.Get("expiry").Int()),
 		)
 		if invexpiries.Before(time.Now().Add(time.Minute * 30)) {
-			msg := "invoice is expired or about to expire"
-			L.Push(lua.LNumber(0))
-			L.Push(lua.LString(msg))
-			return 2
+			err := fmt.Errorf("invoice is expired or about to expire")
+			return 0, err
 		}
 
 		payments_done <- payment{msats: int(invmsats), bolt11: bolt11}
@@ -276,35 +239,21 @@ func make_lua_ln_pay(
 		// after the contract is finished and we're able to get
 		// its funds from the database.
 
-		L.Push(lua.LNumber(invmsats))
-		return 1
-	})
+		return int(invmsats), nil
+	}
 
 	return
 }
 
-func make_lua_print(L *lua.LState) (lua_print lua.LValue, printed []string) {
-	printed = make([]string, 0)
-
-	lua_print = L.NewFunction(func(L *lua.LState) int {
-		arg := L.CheckAny(1)
-		log.Debug().Str("arg", arg.String()).Msg("printing from contract")
-
-		if v, err := gluajson.Encode(arg); err == nil {
-			printed = append(printed, string(v))
-		}
-
-		return 0
-	})
-
-	return
-}
-
-func make_lua_http(L *lua.LState) (lua_http_gettext lua.LValue, lua_http_getjson lua.LValue, calls_p *int) {
+func make_lua_http() (
+	lua_http_gettext func(string, ...map[string]string) (string, error),
+	lua_http_getjson func(string, ...map[string]string) (interface{}, error),
+	calls_p *int,
+) {
 	calls := 0
 	calls_p = &calls
 
-	http_get := func(url string, lheaders lua.LValue) (b []byte, err error) {
+	http_get := func(url string, headers ...map[string]string) (b []byte, err error) {
 		log.Debug().Str("url", url).Msg("http call from contract")
 
 		req, err := http.NewRequest("GET", url, nil)
@@ -312,10 +261,10 @@ func make_lua_http(L *lua.LState) (lua_http_gettext lua.LValue, lua_http_getjson
 			return
 		}
 
-		if ltable, ok := lheaders.(*lua.LTable); ok {
-			ltable.ForEach(func(k lua.LValue, v lua.LValue) {
-				req.Header.Set(lua.LVAsString(k), lua.LVAsString(v))
-			})
+		for _, headermap := range headers {
+			for k, v := range headermap {
+				req.Header.Set(k, v)
+			}
 		}
 
 		resp, err := http.DefaultClient.Do(req)
@@ -336,61 +285,66 @@ func make_lua_http(L *lua.LState) (lua_http_gettext lua.LValue, lua_http_getjson
 		return b, nil
 	}
 
-	lua_http_gettext = L.NewFunction(func(L *lua.LState) int {
-		url := L.CheckString(1)
-		lheaders := L.Get(2)
-		respbytes, err := http_get(url, lheaders)
+	lua_http_gettext = func(url string, headers ...map[string]string) (t string, err error) {
+		respbytes, err := http_get(url, headers...)
 		if err != nil {
-			L.Push(lua.LNil)
-			L.Push(lua.LString(err.Error()))
-			return 2
+			return "", err
+		}
+		return string(respbytes), nil
+	}
+
+	lua_http_getjson = func(url string, headers ...map[string]string) (j interface{}, err error) {
+		respbytes, err := http_get(url, headers...)
+		if err != nil {
+			return nil, err
 		}
 
-		L.Push(lua.LString(string(respbytes)))
-		return 1
-	})
-
-	lua_http_getjson = L.NewFunction(func(L *lua.LState) int {
-		url := L.CheckString(1)
-		lheaders := L.Get(2)
-		respbytes, err := http_get(url, lheaders)
+		var value interface{}
+		err = json.Unmarshal(respbytes, &value)
 		if err != nil {
-			L.Push(lua.LNil)
-			L.Push(lua.LString(err.Error()))
-			return 2
+			return nil, err
 		}
 
-		lv, err := gluajson.Decode(L, respbytes)
-		if err != nil {
-			L.Push(lua.LNil)
-			L.Push(lua.LString(err.Error()))
-			return 2
-		}
-
-		L.Push(lv)
-		return 1
-	})
+		return value, nil
+	}
 
 	return
 }
 
-func lua_sha256(L *lua.LState) int {
+func lua_sha256(preimage string) (hash string, err error) {
 	h := sha256.New()
-	s := lua.LVAsString(L.Get(1))
-	raw := lua.LVAsBool(L.Get(2))
-	_, err := h.Write([]byte(s))
+	_, err = h.Write([]byte(preimage))
 	if err != nil {
-		L.Push(lua.LNil)
-		L.Push(lua.LString(err.Error()))
-		return 2
+		return "", err
+	}
+	hash = hex.EncodeToString(h.Sum(nil))
+	return hash, nil
+}
+
+var reNumber = regexp.MustCompile("\\d+")
+
+func stackTraceWithCode(stacktrace string, code string) string {
+	var result []string
+
+	stlines := strings.Split(stacktrace, "\n")
+	lines := strings.Split(code, "\n")
+	result = append(result, stlines[0])
+
+	for i := 0; i < len(stlines); i++ {
+		stline := stlines[i]
+		result = append(result, stline)
+
+		snum := reNumber.FindString(stline)
+		if snum != "" {
+			num, _ := strconv.Atoi(snum)
+			for i, line := range lines {
+				line = fmt.Sprintf("%3d %s", i+1, line)
+				if i+1 > num-3 && i+1 < num+3 {
+					result = append(result, line)
+				}
+			}
+		}
 	}
 
-	var result string
-	if !raw {
-		result = hex.EncodeToString(h.Sum(nil))
-	} else {
-		result = string(h.Sum(nil))
-	}
-	L.Push(lua.LString(result))
-	return 1
+	return strings.Join(result, "\n")
 }

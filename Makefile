@@ -1,11 +1,10 @@
-all: etleneum runlua/runlua
+all: etleneum runcall
 
 etleneum: $(shell find . -name "*.go") bindata.go runlua/assets/bindata.go
 	go build -o ./etleneum
 
-runlua/runlua:
-	go-bindata -pkg assets -o runlua/assets/bindata.go runlua/assets/...
-	cd runlua && go build -o ./runlua
+runcall: runlua/runlua.go runlua/assets/bindata.go runlua/cmd/main.go
+	cd runlua/cmd && go build -o ../../runcall
 
 prod: $(shell find . -name "*.go") static/bundle.min.js static/style.min.css
 	mv static/bundle.min.js static/bundle.js
@@ -21,7 +20,7 @@ bindata.go: $(shell find static)
 	go-bindata -debug -o bindata.go static/...
 
 runlua/assets/bindata.go: $(shell find runlua/assets)
-	go-bindata -debug -pkg assets -o runlua/assets/bindata.go runlua/assets/...
+	go-bindata -pkg assets -o runlua/assets/bindata.go -ignore=.*\.go runlua/assets/...
 
 static/bundle.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
 	bsb -make-world
