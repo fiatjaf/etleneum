@@ -1,11 +1,12 @@
 /** @format */
 
-const glua = require('glua')
+const fengari = require('fengari')
+const flua = require('flua')
 const invoice = require('lightnode-invoice')
 const sha256 = require('js-sha256').sha256
 const fs = require('fs')
 
-const sandbox = fs.readFileSync('static/sandbox.lua', 'utf-8')
+const sandbox = fs.readFileSync('./runlua/assets/sandbox.lua', 'utf-8')
 
 module.exports.runlua = function runlua(
   code,
@@ -21,12 +22,6 @@ module.exports.runlua = function runlua(
   var error = ''
 
   let globals = {
-    getstateafter: function(x) {
-      stateAfter = x
-    },
-    getreturnedvalue: function(x) {
-      returnedValue = x
-    },
     lnpay: function(bolt11, filters) {
       filters = filters || {}
       let res = invoice.decode(bolt11)
@@ -34,16 +29,16 @@ module.exports.runlua = function runlua(
       let amountmsats = amountsats * 1000
 
       if (filters.max && amountsats > filters.max) {
-        return {_glua_multi: [0, "max doesn't match"]}
+        return [0, "max doesn't match"]
       }
       if (filters.exact && amountsats != filters.exact) {
-        return {_glua_multi: [0, "exact doesn't match"]}
+        return [0, "exact doesn't match"]
       }
       if (filters.hash && res.paymentHash != filters.hash) {
-        return {_glua_multi: [0, "hash doesn't match"]}
+        return [0, "hash doesn't match"]
       }
       if (filters.payee && res.payeeNode != filters.payee) {
-        return {_glua_multi: [0, "payee doesn't match"]}
+        return [0, "payee doesn't match"]
       }
 
       paymentsDone.push(bolt11)
@@ -81,15 +76,7 @@ module.exports.runlua = function runlua(
   let fullcall = `
 ${sandbox}
 
-require("os")
-
-function call ()
-${code}
-
-  return ${method}()
-end
-
-local ret = sandbox.run(call, {quota=50, env={
+custom_env = {
   print=print,
   http={
     gettext=httpgettext,
@@ -102,26 +89,38 @@ local ret = sandbox.run(call, {quota=50, env={
   payload=payload,
   state=state,
   satoshis=satoshis
-}})
+}
 
-getstateafter(state)
-getreturnedvalue(ret)
+for k, v in pairs(custom_env) do
+  sandbox_env[k] = v
+end
+
+function call ()
+${code}
+
+  return ${method}()
+end
+
+ret = run(sandbox_env, call)
     `
 
   try {
-    glua.runWithGlobals(globals, fullcall)
+    console.log(fullcall)
+    let {state, ret} = flua.runWithGlobals(globals, fullcall, ['state', 'ret'])
+    stateAfter = state
+    returnedValue = ret
   } catch (e) {
     error = e.message
 
-    let res = /line:(\d+)/.exec(e.message)
+    let res = /:(\d+):/.exec(e.message)
     if (res && res.length > 1) {
-      let line = parseInt(res[1]) - 1
+      let line = parseInt(res[1])
       error +=
         '\n' +
         fullcall
           .split('\n')
           .slice(line - 3, line + 3)
-          .map((l, i) => `${i + line - 3}`.padStart(3) + l)
+          .map((l, i) => `${i + 1 + line - 3} ${l}`.padStart(3))
           .join('\n')
     }
   }

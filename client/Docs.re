@@ -47,18 +47,17 @@ function cashout ()
 end
 ```
 
-  All what that contract does is accept satoshis in the `buytoken` method and assign balances of an unnamed mysterious token to the payer. Each token costs 5 satoshis and the method checks if the quantity the buyer wants matchs the amount of satoshis he has included in the call.
-
-  Note that, because this is just an example, there aren't any considerations of security, identification or authentication, users are just arbitrary names defined by the buyer.
+  All what that contract does is to accept satoshis in the `buytoken` method and assign balances of an unnamed mysterious token to the payer. Each token costs 5 satoshis and the method checks if the quantity the buyer wants matchs the amount of satoshis he has included in the call. Note that, because this is just an example, there aren't any considerations of identification or authentication, users are just arbitrary names defined by the buyer.
 
   The other method, `cashout` is used by the token issuer to grab the money it has secured in the ICO and go away. As the contract is just an example, the method it uses to cash out is to send an invoice with a predefined hash (to which he must know the preimage beforehand). Since a preimage can be only used once this contract will only be able to be cashed-out once.
 
   Other things you must know:
 
-  * Each contract must have an `__init__' method. That is a special method that is called only when the contract is created, it must return a Lua table that will server as the initial contract state.
+  * Each contract must have an `__init__` method. That is a special method that is called only when the contract is created, it must return a Lua table that will server as the initial contract state.
   * All other top level functions are methods callable from the external world.
   * Even if an HTTP request or an `ln.pay` call fail, the call will still be ok and the contract state will still be updated and so on. If you want the call to fail completely you must call the Lua function `error()`.
-  * Failed calls should refundable, but that's not implemented yet.
+  * Failed calls should be refundable, but that's not implemented yet.
+  * No one is able to change a contract's code after it has been activated, not even the contract creator.
 
 # Calling a contract
 
@@ -98,12 +97,15 @@ end
 
 # JSON API
 
+  Anything you can do on this website you can also do through Etleneum's public JSON API.
+
   `Contract`: `{id: String, code: String, name: String, readme: String, funds: Int}`
 
   `Call`: `{id: String, time: String, method: String, payload: Any, satoshis: Int, cost: Int, paid: Int}`
-All paths start at `https://etleneum.com` and must be called with `Content-Type: application/json`. All methods are CORS-enabled and no authorization mechanism is required or supported: everything is public.
 
-All calls return an object of type `{ok: Bool, error: String, value: Any}`. The relevant data is always in the `value` key and `error` is only present when the call has failed. In the following endpoint descriptions we omit the `ok/value` envelope and show just the returned value that should be inside `value`.
+  All paths start at `https://etleneum.com` and must be called with `Content-Type: application/json`. All methods are [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)-enabled and no authorization mechanism is required or supported.
+
+  All calls return an object of type `{ok: Bool, error: String, value: Any}`. The relevant data is always in the `value` key and `error` is only present when the call has failed. In the following endpoint descriptions we omit the `ok/value` envelope and show just what should be inside `value`.
 
   * `GET` `/~/contracts` lists all the contracts, sorted by the most recent activity, returns `[Contract]`;
   * `POST` `/~/contract` prepares a new contract, takes `{name: String, code: String, readme: String}`, returns `{id: String, invoice: String}`;

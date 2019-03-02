@@ -28,7 +28,7 @@ type action =
   | SetState(state)
   | SimulateCall;
 
-[@bs.module "./glua-simulate-environment.js"]
+[@bs.module "./runlua.js"]
 external runlua: (string, Js.Json.t, string, Js.Json.t, int) => Js.Json.t =
   "runlua";
 

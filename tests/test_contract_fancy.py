@@ -36,34 +36,49 @@ def test_pay_on_http_response(make_contract, lightnings):
         readme="test test",
         code="""
 function __init__ ()
-  return {q=0, ended=false}
+  return {deposited=0, conditionok=false, withdrawcalled=false, didwithdraw=false}
 end
 
 function deposit ()
-  state.q = satoshis
+  state.deposited = satoshis
   return {x=satoshis}
 end
 
 function withdraw ()
   local msatspaid = 0
   local x = http.getjson("https://httpbin.org/anything?x=" .. payload.x).args.x
-  if tonumber(x) == state.q then
+  if tonumber(x) == state.deposited then
     local payee = "%s"
     msatspaid, err = ln.pay(payload.invoice, {payee=payee})
     if err == nil then
-      state.q = 0
+      state.didwithdraw = true
     end
-    state.ended = true
+    state.conditionok = true
   end
+  state.withdrawcalled = true
   return msatspaid
 end
     """
         % rpc_c.getinfo()["id"],
     )
 
+    # starting state
+    assert contract.state == {
+        "deposited": 0,
+        "withdrawcalled": False,
+        "conditionok": False,
+        "didwithdraw": False,
+    }
+
     ret = contract.call("deposit", {}, 23)
     assert contract.funds == 24000
     assert ret == {"x": 23}
+    assert contract.state == {
+        "deposited": 23,
+        "withdrawcalled": False,
+        "conditionok": False,
+        "didwithdraw": False,
+    }
 
     invalid_payee = rpc_b.invoice(
         label="invalid_payee", description="", msatoshi=24000
@@ -77,25 +92,45 @@ end
 
     # if condition doesn't match
     paid = contract.call("withdraw", {"x": 12, "invoice": valid_invoice}, 0)
-    assert contract.state == {"ended": False, "q": 23}
+    assert contract.state == {
+        "deposited": 23,
+        "withdrawcalled": True,
+        "conditionok": False,
+        "didwithdraw": False,
+    }
     assert paid == 0
     assert contract.funds == 24000
 
     # condition matches, but payment fails
     paid = contract.call("withdraw", {"x": 23, "invoice": invalid_payee}, 0)
-    assert contract.state == {"ended": True, "q": 23}
+    assert contract.state == {
+        "deposited": 23,
+        "withdrawcalled": True,
+        "conditionok": True,
+        "didwithdraw": False,
+    }
     assert paid == 0
     assert contract.funds == 24000
 
     # condition matches, but payments fails
     paid = contract.call("withdraw", {"x": 23, "invoice": invalid_amount}, 0)
-    assert contract.state == {"ended": True, "q": 23}
+    assert contract.state == {
+        "deposited": 23,
+        "withdrawcalled": True,
+        "conditionok": True,
+        "didwithdraw": False,
+    }
     assert paid == 0
     assert contract.funds == 24000
 
     # payment succeeds
     paid = contract.call("withdraw", {"x": 23, "invoice": valid_invoice}, 0)
-    assert contract.state == {"ended": True, "q": 0}
+    assert contract.state == {
+        "deposited": 23,
+        "withdrawcalled": True,
+        "conditionok": True,
+        "didwithdraw": True,
+    }
     assert paid == 23000
     assert contract.funds == 1000
 

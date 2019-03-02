@@ -89,7 +89,7 @@ func RunCall(
 		"lnpay":       lua_ln_pay,
 		"httpgettext": lua_http_gettext,
 		"httpgetjson": lua_http_getjson,
-		"print":       log.Print,
+		"print":       func(args ...interface{}) { fmt.Println(args...) },
 		"sha256":      lua_sha256,
 	})
 
@@ -155,12 +155,14 @@ type payment struct {
 func make_lua_ln_pay(
 	get_contract_funds func() int, // in msats
 	parse_invoice func(string) (gjson.Result, error),
-) (lua_ln_pay func(string, ...map[string]interface{}) (int, error), payments_done chan payment) {
+) (
+	lua_ln_pay func(string, ...map[string]interface{}) (int, error),
+	payments_done chan payment,
+) {
 	payments_done = make(chan payment)
 
 	lua_ln_pay = func(bolt11 string, filters ...map[string]interface{}) (int, error) {
 		filter := make(map[string]interface{})
-
 		for _, f := range filters {
 			for attr, value := range f {
 				filter[attr] = value
@@ -178,44 +180,50 @@ func make_lua_ln_pay(
 
 		res, err := parse_invoice(bolt11)
 		if err != nil {
+			log.Debug().Err(err).Str("bolt11", bolt11).Msg("failed to parse invoice")
+			err = errors.New("failed to parse invoice: " + err.Error())
 			return 0, err
 		}
 
 		// check payee id filter
 		invpayee = res.Get("payee").String()
-		f_payee, set := filter["payee"]
-		v_payee, ok := f_payee.(string)
-		if set && ok && v_payee != invpayee {
-			err := fmt.Errorf("invoice payee public key doesn't match: %s != %s", v_payee, invpayee)
-			return 0, err
+		if f_payee, set := filter["payee"]; set {
+			if v_payee, ok := f_payee.(string); ok && v_payee != invpayee {
+				err := fmt.Errorf("invoice payee public key doesn't match: %s != %s",
+					v_payee, invpayee)
+				log.Print(err)
+				return 0, err
+			}
 		}
 
 		// check hash filter
 		invhash = res.Get("payment_hash").String()
-		f_hash, set := filter["hash"]
-		v_hash, ok := f_hash.(string)
-		if set && ok && v_hash != invhash {
-			err := fmt.Errorf("invoice hash doesn't match: %s != %s", v_hash, invhash)
-			return 0, err
+		if f_hash, set := filter["hash"]; set {
+			if v_hash, ok := f_hash.(string); ok && v_hash != invhash {
+				err := fmt.Errorf("invoice hash doesn't match: %s != %s", v_hash, invhash)
+				log.Print(err)
+				return 0, err
+			}
 		}
 
 		invmsats = res.Get("msatoshi").Float()
 		invsats := invmsats / 1000
 
 		// check max satoshis filter
-		f_max, set := filter["max"]
-		v_max, ok := f_max.(float64)
-		if set && ok && v_max != invsats {
-			err := fmt.Errorf("invoice max satoshis doesn't match: %f < %f", v_max, invsats)
-			return 0, err
+		if f_max, set := filter["max"]; set {
+			if v_max, ok := f_max.(float64); ok && v_max != invsats {
+				err := fmt.Errorf("invoice max satoshis doesn't match: %f < %f", v_max, invsats)
+				log.Print(err)
+				return 0, err
+			}
 		}
-
 		// check exact satoshis filter
-		f_exact, set := filter["exact"]
-		v_exact, ok := f_exact.(float64)
-		if set && ok && v_exact != invsats {
-			err := fmt.Errorf("invoice exact satoshis doesn't match: %f != %f", v_exact, invsats)
-			return 0, err
+		if f_exact, set := filter["exact"]; set {
+			if v_exact, ok := f_exact.(float64); ok && v_exact != invsats {
+				err := fmt.Errorf("invoice exact satoshis doesn't match: %f != %f", v_exact, invsats)
+				log.Print(err)
+				return 0, err
+			}
 		}
 
 		// check contract funds
@@ -244,7 +252,6 @@ func make_lua_ln_pay(
 
 	return
 }
-
 func make_lua_http() (
 	lua_http_gettext func(string, ...map[string]string) (string, error),
 	lua_http_getjson func(string, ...map[string]string) (interface{}, error),

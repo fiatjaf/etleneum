@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/runlua"
+	runlua_assets "github.com/fiatjaf/etleneum/runlua/assets"
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/tidwall/gjson"
@@ -94,7 +95,7 @@ WHERE id = $1`,
 	}
 
 	// actually run the call
-	bsandboxCode, _ := Asset("static/sandbox.lua")
+	bsandboxCode, _ := runlua_assets.Asset("runlua/assets/sandbox.lua")
 	sandboxCode := string(bsandboxCode)
 	newStateO, totalPaid, paymentsPending, returnedValue, err := runlua.RunCall(
 		sandboxCode,
