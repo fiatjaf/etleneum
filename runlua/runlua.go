@@ -27,6 +27,7 @@ var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 func RunCall(
 	sandboxCode string,
 	parseInvoice func(string) (gjson.Result, error),
+	makeRequest func(*http.Request) (*http.Response, error),
 	contract types.Contract,
 	call types.Call,
 ) (stateAfter interface{}, totalPaid int, paymentsPending []string, returnedValue interface{}, err error) {
@@ -39,6 +40,7 @@ func RunCall(
 	totalPaid = 0
 
 	lua_ln_pay, payments_done := make_lua_ln_pay(
+		L,
 		func() (msats int) { return initialFunds - totalPaid },
 		parseInvoice,
 	)
@@ -60,7 +62,7 @@ func RunCall(
 		done <- true
 	}()
 
-	lua_http_gettext, lua_http_getjson, _ := make_lua_http()
+	lua_http_gettext, lua_http_getjson, _ := make_lua_http(makeRequest)
 
 	var currentstate map[string]interface{}
 	err = contract.State.Unmarshal(&currentstate)
@@ -79,6 +81,7 @@ func RunCall(
 		Int("satoshis", call.Satoshis).
 		Interface("payload", payload).
 		Interface("state", currentstate).
+		Int("funds", initialFunds).
 		Msg("running code")
 
 	// globals
@@ -89,7 +92,7 @@ func RunCall(
 		"lnpay":       lua_ln_pay,
 		"httpgettext": lua_http_gettext,
 		"httpgetjson": lua_http_getjson,
-		"print":       func(args ...interface{}) { fmt.Println(args...) },
+		"print":       func(args ...interface{}) { log.Print(args...) },
 		"sha256":      lua_sha256,
 	})
 
@@ -153,6 +156,7 @@ type payment struct {
 }
 
 func make_lua_ln_pay(
+	L *lua.State,
 	get_contract_funds func() int, // in msats
 	parse_invoice func(string) (gjson.Result, error),
 ) (
@@ -191,7 +195,6 @@ func make_lua_ln_pay(
 			if v_payee, ok := f_payee.(string); ok && v_payee != invpayee {
 				err := fmt.Errorf("invoice payee public key doesn't match: %s != %s",
 					v_payee, invpayee)
-				log.Print(err)
 				return 0, err
 			}
 		}
@@ -201,7 +204,6 @@ func make_lua_ln_pay(
 		if f_hash, set := filter["hash"]; set {
 			if v_hash, ok := f_hash.(string); ok && v_hash != invhash {
 				err := fmt.Errorf("invoice hash doesn't match: %s != %s", v_hash, invhash)
-				log.Print(err)
 				return 0, err
 			}
 		}
@@ -211,9 +213,8 @@ func make_lua_ln_pay(
 
 		// check max satoshis filter
 		if f_max, set := filter["max"]; set {
-			if v_max, ok := f_max.(float64); ok && v_max != invsats {
+			if v_max, ok := f_max.(float64); ok && v_max < invsats {
 				err := fmt.Errorf("invoice max satoshis doesn't match: %f < %f", v_max, invsats)
-				log.Print(err)
 				return 0, err
 			}
 		}
@@ -221,7 +222,6 @@ func make_lua_ln_pay(
 		if f_exact, set := filter["exact"]; set {
 			if v_exact, ok := f_exact.(float64); ok && v_exact != invsats {
 				err := fmt.Errorf("invoice exact satoshis doesn't match: %f != %f", v_exact, invsats)
-				log.Print(err)
 				return 0, err
 			}
 		}
@@ -230,6 +230,10 @@ func make_lua_ln_pay(
 		if float64(get_contract_funds()) < invmsats {
 			err := fmt.Errorf("contract doesn't have enough funds.")
 			log.Print(err)
+
+			// this is a lua exception as the contract writer shouldn't have to be handling it
+			L.RaiseError(err.Error())
+
 			return 0, err
 		}
 
@@ -237,8 +241,12 @@ func make_lua_ln_pay(
 		invexpiries = time.Unix(res.Get("created_at").Int(), 0).Add(
 			time.Second * time.Duration(res.Get("expiry").Int()),
 		)
-		if invexpiries.Before(time.Now().Add(time.Minute * 30)) {
+		if invexpiries.Before(time.Now().Add(time.Minute * 5)) {
 			err := fmt.Errorf("invoice is expired or about to expire")
+
+			// this is a lua exception as the contract writer shouldn't have to be handling it
+			L.RaiseError(err.Error())
+
 			return 0, err
 		}
 
@@ -252,15 +260,15 @@ func make_lua_ln_pay(
 
 	return
 }
-func make_lua_http() (
-	lua_http_gettext func(string, ...map[string]string) (string, error),
-	lua_http_getjson func(string, ...map[string]string) (interface{}, error),
+func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
+	lua_http_gettext func(string, ...map[string]interface{}) (string, error),
+	lua_http_getjson func(string, ...map[string]interface{}) (interface{}, error),
 	calls_p *int,
 ) {
 	calls := 0
 	calls_p = &calls
 
-	http_get := func(url string, headers ...map[string]string) (b []byte, err error) {
+	http_get := func(url string, headers ...map[string]interface{}) (b []byte, err error) {
 		log.Debug().Str("url", url).Msg("http call from contract")
 
 		req, err := http.NewRequest("GET", url, nil)
@@ -270,11 +278,13 @@ func make_lua_http() (
 
 		for _, headermap := range headers {
 			for k, v := range headermap {
-				req.Header.Set(k, v)
+				if sv, ok := v.(string); ok {
+					req.Header.Set(k, sv)
+				}
 			}
 		}
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := makeRequest(req)
 		if err != nil {
 			return
 		}
@@ -292,7 +302,7 @@ func make_lua_http() (
 		return b, nil
 	}
 
-	lua_http_gettext = func(url string, headers ...map[string]string) (t string, err error) {
+	lua_http_gettext = func(url string, headers ...map[string]interface{}) (t string, err error) {
 		respbytes, err := http_get(url, headers...)
 		if err != nil {
 			return "", err
@@ -300,7 +310,7 @@ func make_lua_http() (
 		return string(respbytes), nil
 	}
 
-	lua_http_getjson = func(url string, headers ...map[string]string) (j interface{}, err error) {
+	lua_http_getjson = func(url string, headers ...map[string]interface{}) (j interface{}, err error) {
 		respbytes, err := http_get(url, headers...)
 		if err != nil {
 			return nil, err

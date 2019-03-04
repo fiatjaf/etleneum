@@ -90,6 +90,17 @@ end
         "bolt11"
     ]
 
+    # condition matches, but payment fails due to lack of funds
+    with pytest.raises(Exception):
+        contract.call("withdraw", {"x": 23, "invoice": invalid_amount}, 0)
+    assert contract.state == {
+        "deposited": 23,
+        "withdrawcalled": False,
+        "conditionok": False,
+        "didwithdraw": False,
+    }
+    assert contract.funds == 24000
+
     # if condition doesn't match
     paid = contract.call("withdraw", {"x": 12, "invoice": valid_invoice}, 0)
     assert contract.state == {
@@ -101,19 +112,8 @@ end
     assert paid == 0
     assert contract.funds == 24000
 
-    # condition matches, but payment fails
-    paid = contract.call("withdraw", {"x": 23, "invoice": invalid_payee}, 0)
-    assert contract.state == {
-        "deposited": 23,
-        "withdrawcalled": True,
-        "conditionok": True,
-        "didwithdraw": False,
-    }
-    assert paid == 0
-    assert contract.funds == 24000
-
     # condition matches, but payments fails
-    paid = contract.call("withdraw", {"x": 23, "invoice": invalid_amount}, 0)
+    paid = contract.call("withdraw", {"x": 23, "invoice": invalid_payee}, 0)
     assert contract.state == {
         "deposited": 23,
         "withdrawcalled": True,
@@ -136,6 +136,34 @@ end
 
     inv = rpc_c.waitinvoice("valid")
     assert inv["msatoshi_received"] == 23000
+
+
+def test_contract_funds_limit(make_contract, lightnings):
+    _, [_, rpc_b, rpc_c, *_] = lightnings
+
+    contract = make_contract(
+        name="test",
+        readme="test test",
+        code="""
+function __init__ ()
+  return {}
+end
+
+function withdraw ()
+  ln.pay(payload.invoice)
+end
+    """,
+    )
+
+    contract.refill(100)
+
+    invoice = rpc_c.invoice(label="inv", description="", msatoshi=101000)["bolt11"]
+
+    try:
+        contract.call("withdraw", {"invoice": invoice}, 0)
+        assert False
+    except Exception:
+        assert True
 
 
 def test_sandbox(make_contract):
@@ -164,21 +192,6 @@ def test_sandbox(make_contract):
 
     with pytest.raises(Exception):
         assert contract.state == None
-
-
-def test_refill(make_contract):
-    contract = make_contract(
-        name="test",
-        readme="test test",
-        code="""
-function __init__ ()
-  return {x=1}
-end
-        """,
-    )
-
-    contract.refill(10)
-    assert contract.funds == 11000
 
 
 def test_hidden_fields(make_contract):

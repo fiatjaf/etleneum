@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 
 	"github.com/fiatjaf/etleneum/runlua"
@@ -31,6 +33,10 @@ func main() {
 			Value: "{}",
 			Usage: "Current contract state as JSON string.",
 		},
+		cli.IntFlag{
+			Name:  "funds",
+			Usage: "Contract will have this amount of funds.",
+		},
 		cli.StringFlag{
 			Name:  "method",
 			Value: "__init__",
@@ -45,6 +51,10 @@ func main() {
 			Name:  "satoshis",
 			Value: 0,
 			Usage: "Satoshis to include in the call.",
+		},
+		cli.StringSliceFlag{
+			Name:  "http",
+			Usage: "HTTP response to mock. Can be called multiple times. Will return the multiple values in order to each HTTP call made by the contract.",
 		},
 	}
 	app.Action = func(c *cli.Context) error {
@@ -63,7 +73,29 @@ func main() {
 			os.Exit(1)
 		}
 
-		// payload
+		// http mock
+		httpResponses := c.StringSlice("http")
+		httpRespIndex := 0
+		returnHttp := func(r *http.Request) (*http.Response, error) {
+			if httpRespIndex < len(httpResponses) {
+				// use a mock
+				respText := httpResponses[httpRespIndex]
+				body := bytes.NewBufferString(respText)
+				w := &http.Response{
+					Status:        "200 OK",
+					StatusCode:    200,
+					Proto:         "HTTP/1.0",
+					ProtoMajor:    1,
+					ProtoMinor:    0,
+					Request:       r,
+					Body:          ioutil.NopCloser(body),
+					ContentLength: int64(body.Len()),
+				}
+				httpRespIndex++
+				return w, nil
+			}
+			return http.DefaultClient.Do(r)
+		}
 
 		state, paid, payments, returned, err := runlua.RunCall(
 			sandboxCode,
@@ -80,9 +112,11 @@ func main() {
 
 				return gjson.ParseBytes(jsonb), nil
 			},
+			returnHttp,
 			types.Contract{
 				Code:  string(bcontractCode),
 				State: sqlxtypes.JSONText([]byte(c.String("state"))),
+				Funds: c.Int("funds"),
 			},
 			types.Call{
 				Satoshis: c.Int("satoshis"),

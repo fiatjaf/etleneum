@@ -102,3 +102,18 @@ def test_contract_creation(etleneum, lightnings):
     assert r.json()["value"]["refilled"] == 18000
     assert r.json()["value"]["funds"] == 19000
     assert r.json()["value"]["storage_costs"] == 0
+
+
+def test_refill(make_contract):
+    contract = make_contract(
+        name="test",
+        readme="test test",
+        code="""
+function __init__ ()
+  return {x=1}
+end
+        """,
+    )
+
+    contract.refill(10)
+    assert contract.funds == 11000

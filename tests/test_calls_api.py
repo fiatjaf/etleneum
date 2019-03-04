@@ -134,7 +134,7 @@ end
     payment = rpc_b.pay(r.json()["value"]["invoice"])
     rpc_a.waitinvoice("{}.{}.{}".format(os.getenv("SERVICE_ID"), ctid, callid))
     r = requests.post(url + "/~/call/" + callid)
-    assert r.ok  # even when payments fail the call will still succeed
+    assert not r.ok  # contract without funds is always an error
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
 
@@ -157,15 +157,11 @@ end
     # calls after
     r = requests.get(url + "/~/contract/" + ctid + "/calls")
     assert r.ok
-    assert len(r.json()["value"]) == current_call_n + 2
+    assert len(r.json()["value"]) == current_call_n + 1
     assert r.json()["value"][0]["paid"] == current_funds
     assert r.json()["value"][0]["method"] == "cashout"
 
-    # the call before that should also be cashout
+    # before should be the last buy that succeeded
     assert r.json()["value"][1]["paid"] == 0
-    assert r.json()["value"][1]["method"] == "cashout"
-
-    # before should be the last buy that succeed
-    assert r.json()["value"][2]["paid"] == 0
-    assert r.json()["value"][2]["method"] == "buy"
-    assert r.json()["value"][2]["satoshis"] == 10
+    assert r.json()["value"][1]["method"] == "buy"
+    assert r.json()["value"][1]["satoshis"] == 10

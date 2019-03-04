@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 	"time"
 
@@ -100,6 +101,9 @@ WHERE id = $1`,
 	newStateO, totalPaid, paymentsPending, returnedValue, err := runlua.RunCall(
 		sandboxCode,
 		func(inv string) (gjson.Result, error) { return ln.Call("decodepay", inv) },
+		func(r *http.Request) (*http.Response, error) {
+			return http.DefaultClient.Do(r)
+		},
 		ct,
 		*call,
 	)
