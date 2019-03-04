@@ -31,6 +31,29 @@ func RunCall(
 	contract types.Contract,
 	call types.Call,
 ) (stateAfter interface{}, totalPaid int, paymentsPending []string, returnedValue interface{}, err error) {
+	res := make(chan bool, 1)
+	go func() {
+		stateAfter, totalPaid, paymentsPending, returnedValue, err = runCall(
+			sandboxCode, parseInvoice, makeRequest, contract, call)
+		res <- true
+	}()
+
+	select {
+	case <-res:
+		return
+	case <-time.After(time.Second * 3):
+		err = errors.New("timeout!")
+		return
+	}
+}
+
+func runCall(
+	sandboxCode string,
+	parseInvoice func(string) (gjson.Result, error),
+	makeRequest func(*http.Request) (*http.Response, error),
+	contract types.Contract,
+	call types.Call,
+) (stateAfter interface{}, totalPaid int, paymentsPending []string, returnedValue interface{}, err error) {
 	// init lua
 	L := lua.NewState()
 	defer L.Close()

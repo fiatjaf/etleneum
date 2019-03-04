@@ -194,6 +194,24 @@ def test_sandbox(make_contract):
         assert contract.state == None
 
 
+def test_timeout(make_contract):
+    with pytest.raises(Exception):
+        contract = make_contract(
+            name="test",
+            readme="test test",
+            code="""
+function __init__ ()
+  while true do
+    local x = 'y'
+  end
+end
+            """,
+        )
+
+    with pytest.raises(Exception):
+        assert contract.state == None
+
+
 def test_hidden_fields(make_contract):
     contract = make_contract(
         name="test",
