@@ -48,17 +48,23 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	}
 	ct.Id = cuid.Slug()
 
+	if ok := checkContractCode(ct.Code); !ok {
+		log.Warn().Err(err).Msg("invalid contract code")
+		jsonError(w, "invalid contract code", 400)
+		return
+	}
+
 	err = getContractInvoice(ct)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
-		jsonError(w, "", 500)
+		jsonError(w, "failed to make invoice", 500)
 		return
 	}
 
 	_, err = saveContractOnRedis(*ct)
 	if err != nil {
 		log.Warn().Err(err).Interface("ct", ct).Msg("failed to save to redis")
-		jsonError(w, "", 500)
+		jsonError(w, "failed to save prepared contract", 500)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

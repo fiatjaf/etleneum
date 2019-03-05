@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"regexp"
 	"time"
 
+	"github.com/aarzilli/golua/lua"
 	"github.com/fiatjaf/etleneum/types"
 )
 
@@ -24,8 +26,23 @@ func contractFromRedis(ctid string) (ct *types.Contract, err error) {
 	return
 }
 
+func checkContractCode(code string) (ok bool) {
+	L := lua.NewState()
+	defer L.Close()
+
+	lerr := L.LoadString(code)
+	if lerr != 0 {
+		return false
+	}
+
+	return true
+}
+
+var wordMatcher *regexp.Regexp = regexp.MustCompile("\b\\w+\b")
+
 func getContractCost(ct types.Contract) int {
-	return 1000*s.InitialContractCostSatoshis + 1000*len(ct.Code)
+	words := len(wordMatcher.FindAllString(ct.Code, -1))
+	return 1000*s.InitialContractCostSatoshis + 1000*words
 }
 
 func getContractInvoice(ct *types.Contract) error {
