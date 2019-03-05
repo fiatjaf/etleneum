@@ -79,7 +79,7 @@ end
 
   Contract code have access to the standard [Lua](https://www.lua.org/manual/5.3/manual.html#6) library, excluding potentially harmful stuff. Plus the following special functions:
 
-  * `ln.pay(invoice[, filters])` triggers a Lightning payment from the contract to the given `invoice`. `filters` is a table that can contain any combination of `payee`, `hash`, `exact` and `max`. These serve as constraints to invoices that can be paid in that call (`payee` is a Lightning node id, `hash` is the invoice payment hash, `exact` and `max` are integer amounts in satoshis). Returns `msatoshis` if everything is ok or `0, errormessage` if the constraints don't match.
+  * `ln.pay(invoice[, filters])` triggers a Lightning payment from the contract to the given `invoice`. `filters` is a table that can contain any combination of `payee`, `hash`, `exact` and `max`. These serve as constraints to invoices that can be paid in that call (`payee` is a Lightning node id, `hash` is the invoice payment hash, `exact` and `max` are integer amounts in satoshis). Returns `msatoshis, nil` if everything is ok or `0, errormessage` if the constraints don't match.
   * `util.sha256(string)` returns the hash of the given string.
   * `http.gettext(url[, headers])` returns the text body of the response to the given URL call or `nil, errormessage`.
   * `http.getjson(url[, headers])` does the same, but returns a table with the decoded JSON instead of raw text.
@@ -99,9 +99,8 @@ end
 
   Anything you can do on this website you can also do through Etleneum's public JSON API.
 
-  `Contract`: `{id: String, code: String, name: String, readme: String, funds: Int}`
-
-  `Call`: `{id: String, time: String, method: String, payload: Any, satoshis: Int, cost: Int, paid: Int}`
+  * `Contract`: `{id: String, code: String, name: String, readme: String, funds: Int}`
+  * `Call`: `{id: String, time: String, method: String, payload: Any, satoshis: Int, cost: Int, paid: Int}`
 
   All paths start at `https://etleneum.com` and must be called with `Content-Type: application/json`. All methods are [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)-enabled and no authorization mechanism is required or supported.
 

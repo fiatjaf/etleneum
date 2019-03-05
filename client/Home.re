@@ -84,11 +84,19 @@ Because we're following the steps of the Ethereum community, so we wanted a lang
 
 5. Your background color is awful. How can I change it?
 
-Visit our [background hue setter contract](/contract/ew0u7ipyp) and you'll be able to change it for just 100 satoshis!
+Yes. Visit our [background hue setter contract](/contract/ew0u7ipyp) and you'll be able to change it!
 
 6. What are the privacy policy and terms of service?
 
 All we store is what is public and you can see from in this website. This is alpha-quality software. We may get hacked, lose our database or delete our Lightning node database at anytime and we can't offer any guarantee whatsoever, so please proceed wisely. Actually since we allow arbitrary code execution we will probably get hacked sooner than you can imagine. It also must be said that we reserve the right to delete contracts and do other forms of evil if we think they're malicious or spammy.
+
+7. Are you going to get hacked?
+
+Probably.
+
+8. How do you plan on funding the platform?
+
+We charge for making contracts and calls. It's cheap, but maybe we'll increase that later. We also are going to be charging a storage cost for idle contracts. All contracts start with 1 satoshi in their balance and for a normal contract that should last for at least one year (you can always refill at any time you want), that's just to keep the system clear. Maybe we'll increase that if we start to get a lot of spammy or broken contracts, or maybe we'll just delete these.
     ",
             ),
         }
