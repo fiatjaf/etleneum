@@ -212,6 +212,30 @@ end
         assert contract.state == None
 
 
+def test_syntax(make_contract):
+    with pytest.raises(Exception):
+        make_contract(
+            name="test",
+            readme="test test",
+            code="""
+function __init__
+  return {}
+end
+            """,
+        )
+
+    with pytest.raises(Exception):
+        make_contract(
+            name="test",
+            readme="test test",
+            code="""
+function start ()
+  return {}
+end
+            """,
+        )
+
+
 def test_hidden_fields(make_contract):
     contract = make_contract(
         name="test",

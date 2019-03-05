@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/aarzilli/golua/lua"
@@ -27,6 +28,10 @@ func contractFromRedis(ctid string) (ct *types.Contract, err error) {
 }
 
 func checkContractCode(code string) (ok bool) {
+	if strings.Index(code, "function __init__") == -1 {
+		return false
+	}
+
 	L := lua.NewState()
 	defer L.Close()
 
