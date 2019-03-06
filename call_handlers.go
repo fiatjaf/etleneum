@@ -27,7 +27,7 @@ LIMIT 20
 		calls = make([]types.Call, 0)
 	} else if err != nil {
 		logger.Warn().Err(err).Msg("failed to fetch calls")
-		jsonError(w, "", 404)
+		jsonError(w, "failed to fetch calls", 404)
 		return
 	}
 
@@ -42,8 +42,8 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	call := &types.Call{}
 	err := json.NewDecoder(r.Body).Decode(call)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to parse call json.")
-		jsonError(w, "", 400)
+		log.Warn().Err(err).Msg("failed to parse call json")
+		jsonError(w, "failed to parse json", 400)
 		return
 	}
 	call.ContractId = ctid
@@ -69,7 +69,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Warn().Err(err).Interface("call", call).
 			Msg("failed to save call on redis")
-		jsonError(w, "", 500)
+		jsonError(w, "failed to save prepared call", 500)
 		return
 	}
 
@@ -128,14 +128,14 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		logger.Warn().Err(err).Msg("transaction start failed")
-		jsonError(w, "", 500)
+		jsonError(w, "database error", 500)
 		return
 	}
 	defer txn.Rollback()
 	returnedValue, err := runCall(call, txn)
 	if err != nil {
 		logger.Warn().Err(err).Str("ctid", call.ContractId).Msg("failed to run call")
-		jsonError(w, "failed to run call", 500)
+		jsonError(w, "failed to run call: "+err.Error(), 500)
 		return
 	}
 

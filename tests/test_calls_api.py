@@ -81,9 +81,7 @@ end
         )
         assert r.ok
         callid = r.json()["value"]["id"]
-        assert (
-            1100 > r.json()["value"]["cost"] > 1000
-        )  # cost is 1000 + some small msats
+        assert 1300 > r.json()["value"]["cost"] > 1000
         assert r.json()["value"]["satoshis"] == satoshis
 
         payment = rpc_b.pay(r.json()["value"]["invoice"])

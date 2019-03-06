@@ -27,7 +27,7 @@ ORDER BY lastcalltime DESC, created_at DESC
 		contracts = make([]types.Contract, 0)
 	} else if err != nil {
 		log.Warn().Err(err).Msg("failed to fetch contracts")
-		jsonError(w, "", 500)
+		jsonError(w, "failed to fetch contracts", 500)
 		return
 	}
 
@@ -42,8 +42,8 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	ct := &types.Contract{}
 	err := json.NewDecoder(r.Body).Decode(ct)
 	if err != nil {
-		log.Warn().Err(err).Msg("failed to parse contract json.")
-		jsonError(w, "", 400)
+		log.Warn().Err(err).Msg("failed to parse contract json")
+		jsonError(w, "failed to parse json", 400)
 		return
 	}
 	ct.Id = cuid.Slug()
@@ -86,14 +86,14 @@ WHERE id = $1`,
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to fetch fetch contract from redis")
-			jsonError(w, "", 404)
+			jsonError(w, "failed to fetch prepared contract", 404)
 			return
 		}
 		err = getContractInvoice(ct)
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to get/make invoice")
-			jsonError(w, "", 500)
+			jsonError(w, "failed to get or make invoice", 500)
 			return
 		}
 	} else if err != nil {
@@ -157,7 +157,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		logger.Warn().Err(err).Msg("transaction start failed")
-		jsonError(w, "", 500)
+		jsonError(w, "database error", 500)
 		return
 	}
 	defer txn.Rollback()
@@ -170,7 +170,7 @@ VALUES ($1, $2, $3, $4, '{}')
 	if err != nil {
 		log.Warn().Err(err).Str("ctid", ctid).
 			Msg("failed to save contract on database")
-		jsonError(w, "", 500)
+		jsonError(w, "database error", 500)
 		return
 	}
 
