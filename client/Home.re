@@ -98,7 +98,11 @@ Probably.
 
 We charge for making contracts and calls. It's cheap, but maybe we'll increase that later. We also are going to be charging a storage cost for idle contracts. All contracts start with 1 satoshi in their balance and for a normal contract that should last for at least one year (you can always refill at any time you want), that's just to keep the system clear. Maybe we'll increase that if we start to get a lot of spammy or broken contracts, or maybe we'll just delete these.
 
-9. Is this Sam's or ship resistant?
+9. Where can I talk about Etleneum?
+
+Try [our Telegram group](https://t.me/etleneum) or [our Twitter](https://twitter.com/etleneum).
+
+10. Is this Sam's or ship resistant?
 
 Yes. Our founder isn't called Sam, but since we are in the middle of the continent I believe no ship will be able to get here.
     ",
