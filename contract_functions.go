@@ -43,7 +43,7 @@ func checkContractCode(code string) (ok bool) {
 	return true
 }
 
-var wordMatcher *regexp.Regexp = regexp.MustCompile("\b\\w+\b")
+var wordMatcher *regexp.Regexp = regexp.MustCompile(`\b\w+\b`)
 
 func getContractCost(ct types.Contract) int {
 	words := len(wordMatcher.FindAllString(ct.Code, -1))
