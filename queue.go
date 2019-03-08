@@ -55,16 +55,6 @@ func getNext() (bolt11 string) {
 
 	err := rds.Watch(func(rtx *redis.Tx) error {
 		var err error
-		if rds.SCard(PROCESSING_POOL).Val() > 0 {
-			// some payment was pending in this queue, perform it first
-			next, err = rds.SRandMember(PROCESSING_POOL).Result()
-			if err != nil {
-				log.Error().Err(err).Msg("failed to get directly from processing-payments")
-			} else if next != "" {
-				return nil
-			}
-		}
-
 		res, err := rds.BRPop(time.Minute*30, PENDING_QUEUE).Result()
 		if err != nil {
 			return err
