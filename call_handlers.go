@@ -119,7 +119,7 @@ func makeCall(w http.ResponseWriter, r *http.Request) {
 	_, err = checkPayment(label, call.Cost+call.Satoshis*1000)
 	if err != nil {
 		logger.Warn().Err(err).Msg("payment check failed")
-		jsonError(w, "payment check failed", 402)
+		jsonError(w, "Payment check failed.", 402)
 		return
 	}
 

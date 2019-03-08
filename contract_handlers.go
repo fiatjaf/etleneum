@@ -148,7 +148,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		logger.Warn().Err(err).Msg("payment check failed")
-		jsonError(w, "payment check failed", 402)
+		jsonError(w, "Payment check failed.", 402)
 		return
 	}
 

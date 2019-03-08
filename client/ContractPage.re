@@ -240,17 +240,25 @@ let make = (~contract: API.contract, _children) => {
                                  />
                                </div>
                                <div className="desc">
-                                 {ReasonReact.string(
-                                    "Included "
-                                    ++ string_of_int(call.satoshis)
-                                    ++ " satoshis and paid "
-                                    ++ string_of_float(
-                                         float_of_int(call.paid) /. 1000.0,
-                                       )
-                                    ++ " at the total cost of "
-                                    ++ string_of_int(call.cost)
-                                    ++ " msats.",
-                                  )}
+                                 <p>
+                                   {ReasonReact.string(
+                                      "included "
+                                      ++ string_of_int(call.satoshis)
+                                      ++ " satoshis and withdrew "
+                                      ++ string_of_float(
+                                           float_of_int(call.paid) /. 1000.0,
+                                         ),
+                                    )}
+                                 </p>
+                                 <p>
+                                   {ReasonReact.string(
+                                      "total cost: "
+                                      ++ string_of_int(
+                                           call.satoshis * 1000 + call.cost,
+                                         )
+                                      ++ " msats",
+                                    )}
+                                 </p>
                                </div>
                              </div>;
                            } else {

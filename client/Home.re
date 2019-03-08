@@ -82,7 +82,7 @@ Yes, you are probably right. Infura has a lot more of engineers and a much bette
 
 Because we're following the steps of the Ethereum community, so we wanted a language no one is very familiar with, but is still easy and dynamic with lots of room for bugs to appear.
 
-5. Your background color is awful. How can I change it?
+5. Your background color is awful. Can I change it?
 
 Yes. Visit our [background hue setter contract](/contract/ew0u7ipyp) and you'll be able to change it!
 
@@ -104,7 +104,7 @@ Try [our Telegram group](https://t.me/etleneum) or [our Twitter](https://twitter
 
 10. Is this Sam's or ship resistant?
 
-Yes. Our founder isn't called Sam, but since we are in the middle of the continent I believe no ship will be able to get here.
+Yes. Our founder isn't called Sam, but since we are in the center of the continent I believe no ship will be able to get here. Centralization isn't all bad after all.
     ",
             ),
         }
