@@ -113,11 +113,10 @@ func checkPaymentStatus(bolt11 string) {
 
 func paymentSuccess(payment gjson.Result) {
 	bolt11 := payment.Get("bolt11").String()
-	preimage := payment.Get("preimage").String()
+	preimage := payment.Get("payment_preimage").String()
 	logger := log.With().Str("bolt11", bolt11).Str("preimage", preimage).Logger()
 
-	logger.Warn().
-		Msg("payment succeeded")
+	logger.Info().Msg("payment succeeded")
 	err = rds.Watch(func(rtx *redis.Tx) error {
 		if err := rtx.SRem(PROCESSING_POOL, bolt11).Err(); err != nil {
 			logger.Warn().Err(err).Msg("failed to remove pending payment")

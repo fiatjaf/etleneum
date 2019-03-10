@@ -15,7 +15,7 @@ import (
 
 func calcCallCosts(c *types.Call) {
 	c.Cost = s.FixedCallCostSatoshis * 1000
-	c.Cost += int(float64(len(c.Payload)) * 10)
+	c.Cost += int(float64(len(c.Payload)) * 1)
 	if c.Satoshis > 100 {
 		c.Cost += int(float64(c.Satoshis) / 200)
 	}
