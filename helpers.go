@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 )
+
+var wordMatcher *regexp.Regexp = regexp.MustCompile(`\b\w+\b`)
 
 type Result struct {
 	Ok    bool        `json:"ok"`
