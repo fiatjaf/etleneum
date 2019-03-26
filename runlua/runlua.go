@@ -115,8 +115,19 @@ func runCall(
 		"lnpay":       lua_ln_pay,
 		"httpgettext": lua_http_gettext,
 		"httpgetjson": lua_http_getjson,
-		"print":       func(args ...interface{}) { log.Print(args...) },
-		"sha256":      lua_sha256,
+		"print": func(args ...interface{}) {
+			actualArgs := make([]interface{}, 1+len(args)*2)
+			actualArgs[0] = "printed from contract: "
+			i := 1
+			for _, arg := range args {
+				actualArgs[i] = "\t"
+				actualArgs[i+1] = arg
+				i += 2
+			}
+			fmt.Fprint(os.Stderr, actualArgs...)
+			fmt.Fprint(os.Stderr, "\n")
+		},
+		"sha256": lua_sha256,
 	})
 
 	code := fmt.Sprintf(`
@@ -251,7 +262,7 @@ func make_lua_ln_pay(
 
 		// check contract funds
 		if float64(get_contract_funds()) < invmsats {
-			err := fmt.Errorf("contract doesn't have enough funds.")
+			err := fmt.Errorf("contract doesn't have enough funds")
 			log.Print(err)
 
 			// this is a lua exception as the contract writer shouldn't have to be handling it
