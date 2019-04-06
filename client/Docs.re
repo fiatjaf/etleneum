@@ -84,6 +84,8 @@ end
   * `http.gettext(url[, headers])` returns the text body of the response to the given URL call or `nil, errormessage`.
   * `http.getjson(url[, headers])` does the same, but returns a table with the decoded JSON instead of raw text.
   * `os.date`, `os.time` are `os.difftime` are the same as [explained here](https://www.lua.org/pil/22.1.html)
+  * `keybase.verify(username, text, signature)` takes a Keybase username, the plaintext and the PGP signature, armored, as produced by https://keybase.io/sign and returns true or false and optionally an error when the check failed for reasons other than mismatched signatures.
+  * `keybase.github(username)`, `keybase.domain(domain)` (and so on) returns the Keybase username for the user associated with the account in the given provider, or an empty string otherwise. Optionally an error will also be returned.
 
 ## Hidden payload fields
 

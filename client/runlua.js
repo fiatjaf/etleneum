@@ -76,6 +76,10 @@ module.exports.runlua = function runlua(
   let fullcall = `
 ${sandbox}
 
+function keybase_lookup ()
+  return "anonymous"
+end
+
 custom_env = {
   print=print,
   http={
@@ -84,6 +88,16 @@ custom_env = {
   },
   util={
     sha256=sha256
+  },
+  keybase={
+    verify=function () return true end,
+    lookup=keybase_lookup,
+    github=keybase_lookup,
+    twitter=keybase_lookup,
+    reddit=keybase_lookup,
+    hackernews=keybase_lookup,
+    key_fingerprint=keybase_lookup,
+    domain=keybase_lookup,
   },
   ln={pay=lnpay},
   payload=payload,
