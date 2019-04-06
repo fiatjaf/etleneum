@@ -115,6 +115,7 @@ func runCall(
 		"state":          currentstate,
 		"payload":        payload,
 		"satoshis":       call.Satoshis,
+		"call":           call.Id,
 		"lnpay":          lua_ln_pay,
 		"httpgettext":    lua_http_gettext,
 		"httpgetjson":    lua_http_getjson,
@@ -160,7 +161,8 @@ custom_env = {
   ln={pay=lnpay},
   payload=payload,
   state=state,
-  satoshis=satoshis
+  satoshis=satoshis,
+  call=call,
 }
 
 for k, v in pairs(custom_env) do

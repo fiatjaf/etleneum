@@ -102,7 +102,8 @@ custom_env = {
   ln={pay=lnpay},
   payload=payload,
   state=state,
-  satoshis=satoshis
+  satoshis=satoshis,
+  call=nil,
 }
 
 for k, v in pairs(custom_env) do

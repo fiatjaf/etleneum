@@ -66,7 +66,7 @@ end
   * A string **method** with the name of the contract method you're calling.
   * A JSON **payload**. It can be anything and will be available as the global
     variable `payload` inside the call.
-  * A integer representing the number of **satoshis** to include in your call. Some
+  * An integer representing the number of **satoshis** to include in your call. Some
     methods may require you to include a certain number of satoshis so they can be
     effective. The invoice you're required to pay to make any call includes this
     number of satoshis plus a small cost. The number of satoshis is available to the
@@ -77,15 +77,20 @@ end
 
 # Contract API
 
-  Contract code have access to the standard [Lua](https://www.lua.org/manual/5.3/manual.html#6) library, excluding potentially harmful stuff. Plus the following special functions:
+  Contract code have access to the standard [Lua](https://www.lua.org/manual/5.3/manual.html#6) library, excluding potentially harmful stuff. Plus the values of
 
-  * `ln.pay(invoice[, filters])` triggers a Lightning payment from the contract to the given `invoice`. `filters` is a table that can contain any combination of `payee`, `hash`, `exact` and `max`. These serve as constraints to invoices that can be paid in that call (`payee` is a Lightning node id, `hash` is the invoice payment hash, `exact` and `max` are integer amounts in satoshis). Returns `msatoshis, nil` if everything is ok or `0, errormessage` if the constraints don't match.
-  * `util.sha256(string)` returns the hash of the given string.
-  * `http.gettext(url[, headers])` returns the text body of the response to the given URL call or `nil, errormessage`.
-  * `http.getjson(url[, headers])` does the same, but returns a table with the decoded JSON instead of raw text.
-  * `os.date`, `os.time` are `os.difftime` are the same as [explained here](https://www.lua.org/pil/22.1.html)
-  * `keybase.verify(username, text, signature)` takes a Keybase username, the plaintext and the PGP signature, armored, as produced by https://keybase.io/sign and returns true or false and optionally an error when the check failed for reasons other than mismatched signatures.
-  * `keybase.github(username)`, `keybase.domain(domain)` (and so on) returns the Keybase username for the user associated with the account in the given provider, or an empty string otherwise. Optionally an error will also be returned.
+  * `satoshis` (see above);
+  * `payload` (see above);
+  * `state`, the current state of the contract, it can be modified in-place;
+  * `call`, the call id; and
+  * the following special functions:
+    * `ln.pay(invoice[, filters])` triggers a Lightning payment from the contract to the given `invoice`. `filters` is a table that can contain any combination of `payee`, `hash`, `exact` and `max`. These serve as constraints to invoices that can be paid in that call (`payee` is a Lightning node id, `hash` is the invoice payment hash, `exact` and `max` are integer amounts in satoshis). Returns `msatoshis, nil` if everything is ok or `0, errormessage` if the constraints don't match.
+    * `util.sha256(string)` returns the hash of the given string.
+    * `http.gettext(url[, headers])` returns the text body of the response to the given URL call or `nil, errormessage`.
+    * `http.getjson(url[, headers])` does the same, but returns a table with the decoded JSON instead of raw text.
+    * `os.date`, `os.time` are `os.difftime` are the same as [explained here](https://www.lua.org/pil/22.1.html)
+    * `keybase.verify(username, text, signature)` takes a Keybase username, the plaintext and the PGP signature, armored, as produced by https://keybase.io/sign and returns true or false and optionally an error when the check failed for reasons other than mismatched signatures.
+    * `keybase.github(username)`, `keybase.domain(domain)` (and so on) returns the Keybase username for the user associated with the account in the given provider, or an empty string otherwise. Optionally an error will also be returned.
 
 ## Hidden payload fields
 
