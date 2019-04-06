@@ -5,17 +5,39 @@ from pathlib import Path
 import pytest
 
 
-def test_http_time_hash(make_contract):
+def test_http_time_hash_keybase(make_contract):
     contract = make_contract(
         name="test",
         readme="test test",
         code="""
 function __init__ ()
   local resp = http.getjson("https://httpbin.org/anything?numbers=1&numbers=2&fruit=banana")
+
+  sig = [[
+-----BEGIN PGP SIGNATURE-----
+Version: Keybase OpenPGP v2.1.0
+Comment: https://keybase.io/crypto
+
+wsBcBAABCgAGBQJcqPiIAAoJEAJs7pbOl+xq3wAH/RdKQspEpZOFpRrurD21dlvj
+2umI4Cu2XBOfVCNZPh++hpacNr2lk5iVvGm7eHgO54ybd11+b9QVcWwEyRLeKQhn
+SbcPlc90POXZ05J3uwjVItLsNVW/Z9HYDDb8Fcf9C8s+ywVZ9oDHz9W4fRaBWKD3
+Cwt2SscEsFFOTenlBJDU/8laX8EAzdqJ9PbUwqmwyrAYXmWqklLC7xOMdGHhLieZ
+ZTlElCj5cSDz8M43sUMeGCzQ9v2MNxgz95GVZZwpTNI/Mut6d6d7UvQ/6bnvL65A
+hG89/FmpOuSJgmxSoQgCsgPYuwqvcUpXx6sACJE1Zn4lyrDbi4zRH97cDKVhfjI=
+=jha+
+-----END PGP SIGNATURE-----
+  ]]
+
   return {
     args=resp.args,
     today=os.date("%Y-%m-%d", os.time()),
     hash=util.sha256("hash"),
+    kb_github=keybase.github("fiatjaf"),
+    kb_domain=keybase.domain("fiatjaf.alhur.es"),
+    sigok=keybase.verify("fiatjaf", "abc", sig),
+    sigokt=keybase.verify(keybase.twitter("fiatjaf"), "abc", sig),
+    signotok=keybase.verify("fiatjaf", "xyz", sig),
+    signotokt=keybase.verify(keybase.twitter("qkwublakjbdaskjdb"), "abc", sig),
   }
 end
     """,
@@ -25,6 +47,12 @@ end
         "args": {"numbers": ["1", "2"], "fruit": "banana"},
         "today": datetime.date.today().isoformat(),
         "hash": hashlib.sha256(b"hash").hexdigest(),
+        "kb_github": "fiatjaf",
+        "kb_domain": "fiatjaf",
+        "sigok": True,
+        "sigokt": True,
+        "signotok": False,
+        "signotokt": False,
     }
 
 
