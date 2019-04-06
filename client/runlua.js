@@ -4,6 +4,7 @@ const fengari = require('fengari')
 const flua = require('flua')
 const invoice = require('lightnode-invoice')
 const sha256 = require('js-sha256').sha256
+const cuid = require('cuid')
 const fs = require('fs')
 
 const sandbox = fs.readFileSync('./runlua/assets/sandbox.lua', 'utf-8')
@@ -68,6 +69,9 @@ module.exports.runlua = function runlua(
     sha256: function(preimage) {
       return sha256(preimage)
     },
+    cuid: function() {
+      return cuid()
+    },
     state: stateBefore,
     satoshis: satoshis,
     payload: payload
@@ -87,7 +91,8 @@ custom_env = {
     getjson=httpgetjson
   },
   util={
-    sha256=sha256
+    sha256=sha256,
+    cuid=cuid
   },
   keybase={
     verify=function () return true end,

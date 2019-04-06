@@ -37,6 +37,7 @@
     "@glennsl/rebase": "^0.2.1",
     "browserify-incremental": "^3.1.1",
     "bs-fetch": "^0.3.1",
+    "cuid": "^2.1.6",
     "flua": "^0.2.2",
     "js-sha256": "^0.9.0",
     "lightnode-invoice": "^0.3.0",

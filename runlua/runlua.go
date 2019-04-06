@@ -19,6 +19,7 @@ import (
 	"github.com/aarzilli/golua/lua"
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/lunatico"
+	"github.com/lucsky/cuid"
 	"github.com/rs/zerolog"
 	"github.com/tidwall/gjson"
 	openpgp "golang.org/x/crypto/openpgp"
@@ -134,6 +135,7 @@ func runCall(
 			fmt.Fprint(os.Stderr, "\n")
 		},
 		"sha256": lua_sha256,
+		"cuid":   cuid.New,
 	})
 
 	code := fmt.Sprintf(`
@@ -146,7 +148,8 @@ custom_env = {
     getjson=httpgetjson
   },
   util={
-    sha256=sha256
+    sha256=sha256,
+    cuid=cuid
   },
   keybase={
     verify=keybase_verify,

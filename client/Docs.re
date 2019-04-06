@@ -86,6 +86,7 @@ end
   * the following special functions:
     * `ln.pay(invoice[, filters])` triggers a Lightning payment from the contract to the given `invoice`. `filters` is a table that can contain any combination of `payee`, `hash`, `exact` and `max`. These serve as constraints to invoices that can be paid in that call (`payee` is a Lightning node id, `hash` is the invoice payment hash, `exact` and `max` are integer amounts in satoshis). Returns `msatoshis, nil` if everything is ok or `0, errormessage` if the constraints don't match.
     * `util.sha256(string)` returns the hash of the given string.
+    * `util.cuid()` returns a [cuid](http://usecuid.org/), useful for identifying objects.
     * `http.gettext(url[, headers])` returns the text body of the response to the given URL call or `nil, errormessage`.
     * `http.getjson(url[, headers])` does the same, but returns a table with the decoded JSON instead of raw text.
     * `os.date`, `os.time` are `os.difftime` are the same as [explained here](https://www.lua.org/pil/22.1.html)
