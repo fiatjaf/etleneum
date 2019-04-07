@@ -119,6 +119,7 @@ func main() {
 				Funds: c.Int("funds"),
 			},
 			types.Call{
+				Id:       "callid",
 				Satoshis: c.Int("satoshis"),
 				Method:   c.String("method"),
 				Payload:  sqlxtypes.JSONText([]byte(c.String("payload"))),
