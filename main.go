@@ -116,6 +116,7 @@ func main() {
 	srv := &http.Server{
 		Handler: cors.New(cors.Options{
 			AllowedOrigins:   []string{"*"},
+			AllowedMethods:   []string{"GET", "HEAD", "POST", "PATCH", "DELETE", "PUT"},
 			AllowCredentials: false,
 		}).Handler(router),
 		Addr:         "0.0.0.0:" + s.Port,
