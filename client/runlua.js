@@ -96,6 +96,7 @@ custom_env = {
   },
   keybase={
     verify=function () return true end,
+    exists=function () return true end,
     lookup=keybase_lookup,
     github=keybase_lookup,
     twitter=keybase_lookup,

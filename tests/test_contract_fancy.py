@@ -38,6 +38,8 @@ hG89/FmpOuSJgmxSoQgCsgPYuwqvcUpXx6sACJE1Zn4lyrDbi4zRH97cDKVhfjI=
     sigokt=keybase.verify(keybase.twitter("fiatjaf"), "abc", sig),
     signotok=keybase.verify("fiatjaf", "xyz", sig),
     signotokt=keybase.verify(keybase.twitter("qkwublakjbdaskjdb"), "abc", sig),
+    userexists=keybase.exists('fiatjaf'),
+    userdoesntexist=keybase.exists('qwkbqwelikqbeqw'),
     cuid=util.cuid()
   }
 end
@@ -59,6 +61,8 @@ end
         "sigokt": True,
         "signotok": False,
         "signotokt": False,
+        "userexists": True,
+        "userdoesntexist": False,
     }
 
 
