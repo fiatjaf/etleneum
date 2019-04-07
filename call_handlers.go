@@ -103,6 +103,45 @@ SELECT * FROM calls WHERE id = $1
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: call})
 }
 
+// changes call payload after being prepared
+func patchCall(w http.ResponseWriter, r *http.Request) {
+	callid := mux.Vars(r)["callid"]
+	logger := log.With().Str("callid", callid).Logger()
+
+	call, err := callFromRedis(callid)
+	if err != nil {
+		logger.Warn().Err(err).Msg("failed to fetch call from redis")
+		jsonError(w, "couldn't find call "+callid+", it may have expired.", 404)
+		return
+	}
+
+	patch := make(map[string]interface{})
+	err = json.NewDecoder(r.Body).Decode(&patch)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to parse patch json")
+		jsonError(w, "failed to parse json", 400)
+		return
+	}
+
+	payload := make(map[string]interface{})
+	err = json.Unmarshal(call.Payload, &payload)
+	for k, v := range patch {
+		payload[k] = v
+	}
+	jpayload, _ := json.Marshal(payload)
+	call.Payload.UnmarshalJSON(jpayload)
+
+	_, err = saveCallOnRedis(*call)
+	if err != nil {
+		logger.Warn().Err(err).Interface("call", call).
+			Msg("failed to save patched call on redis")
+		jsonError(w, "failed to save patched call", 500)
+		return
+	}
+
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: call})
+}
+
 func makeCall(w http.ResponseWriter, r *http.Request) {
 	callid := mux.Vars(r)["callid"]
 	logger := log.With().Str("callid", callid).Logger()

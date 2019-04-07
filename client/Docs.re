@@ -124,6 +124,7 @@ end
   * `POST` `/~/contract/<id>/call` prepares a new call, takes `{method: String, payload: Any, satoshis: Int}`, returns `{id: String, invoice: String}`;
   * `POST` `/~/call/<id>` makes a previously prepared call with a paid invoice, returns `Any` (the value returned by the contract, if any);
   * `GET` `/~/call/<id>` returns the full call info, `Call`;
+  * `PATCH` `/~/call/<id>` takes anything passed in the JSON body and patches it to the current prepared call **payload**, returns the full call info, `Call`;
   * `POST` `/~/refill/<contract-id>/<satoshis>` arbitrarily add funds to a contract, returns `{invoice: String}` (payments are acknowledged automatically);
   * `POST` `/~/retry/<invoice>` retries a failed payment from an `ln.pay` call on any contract, takes `{invoice: String}` or nothing, if you want to retry the same invoice.
     ",

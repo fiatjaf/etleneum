@@ -108,6 +108,7 @@ func main() {
 	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
 	router.Path("/~/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
 	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
+	router.Path("/~/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
 	router.Path("/~/call/{callid}").Methods("POST").HandlerFunc(makeCall)
 	router.Path("/~/retry/{bolt11}").Methods("POST").HandlerFunc(retryPayment)
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)

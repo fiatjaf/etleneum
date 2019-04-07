@@ -163,3 +163,22 @@ end
     assert r.json()["value"][1]["paid"] == 0
     assert r.json()["value"][1]["method"] == "buy"
     assert r.json()["value"][1]["satoshis"] == 10
+
+    # prepare a call and then patch it
+    r = requests.post(
+        url + "/~/contract/" + ctid + "/call",
+        json={
+            "method": "buy",
+            "payload": {"amount": 1, "user": "ttt", "x": "t"},
+            "satoshis": 10,
+        },
+    )
+    assert r.ok
+    callid = r.json()["value"]["id"]
+    r = requests.patch(url + "/~/call/" + callid, json={"amount": 2, "user": "uuu"})
+    assert r.ok
+    r = requests.get(url + "/~/call/" + callid)
+    assert r.ok
+    assert r.json()["value"]["id"] == callid
+    assert r.json()["value"]["payload"] == {"amount": 2, "user": "uuu", "x": "t"}
+    assert r.json()["value"]["satoshis"] == 10
