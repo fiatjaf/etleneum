@@ -13,24 +13,24 @@ import (
 )
 
 const (
-	PENDING_QUEUE   = "pending-payments"
-	PROCESSING_POOL = "processing-payments"
-	FAILED_POOL     = "failed-payments"
-	SUCCESS_PREFIX  = "pay-success"
+	MANUAL_CHECK_POOL = "manual-check-queue"
+	PENDING_QUEUE     = "pending-payments"
+	PROCESSING_POOL   = "processing-payments"
+	FAILED_POOL       = "failed-payments"
+	SUCCESS_PREFIX    = "pay-success"
 )
 
 func startQueue() {
 	go func() {
 		for {
+			log.Info().Msg("waiting for an invoice to pay")
 			bolt11 := getNext()
 
 			logger := log.With().Str("bolt11", bolt11).Logger()
 			logger.Debug().Msg("making payment from contract call")
 
-			var res gjson.Result
-			res, err := ln.CallWithCustomTimeout(
-				time.Second*time.Duration(s.PaymentRetrySeconds)+5,
-				"pay", map[string]interface{}{
+			success, pay, err := ln.PayAndWaitUntilResolution(
+				map[string]interface{}{
 					"bolt11":        bolt11,
 					"riskfactor":    3,
 					"maxfeepercent": 0.7,
@@ -39,12 +39,52 @@ func startQueue() {
 				},
 			)
 
+			logger.Debug().Err(err).
+				Str("bolt11", bolt11).
+				Bool("success", success).
+				Msg("payment result")
+
 			if err != nil {
-				// timeout
-				go checkPaymentStatus(bolt11)
+				// error, should never happen
+				logger.Warn().Str("bolt11", bolt11).Msg("payment failed")
+				err = rds.SMove(PROCESSING_POOL, MANUAL_CHECK_POOL, bolt11).Err()
+				if err != nil {
+					logger.Error().Err(err).
+						Msg("error moving from processing-payments to manual-check-queue")
+				}
+			} else if success {
+				// payment succeeded
+				bolt11 := pay.Get("bolt11").String()
+				preimage := pay.Get("pay_preimage").String()
+				logger := log.With().Str("bolt11", bolt11).Str("preimage", preimage).Logger()
+
+				logger.Info().Msg("pay succeeded")
+				err = rds.Watch(func(rtx *redis.Tx) error {
+					if err := rtx.SRem(PROCESSING_POOL, bolt11).Err(); err != nil {
+						logger.Warn().Err(err).Msg("failed to remove pending pay")
+						return err
+					}
+
+					err := rtx.Set(SUCCESS_PREFIX+":"+bolt11, preimage, time.Hour*24*30).Err()
+					if err != nil {
+						logger.Warn().Err(err).Msg("failed to save a pay as success")
+						return err
+					}
+
+					return nil
+				})
+				if err != nil {
+					logger.Error().Err(err).Str("bolt11", bolt11).Str("preimage", preimage).
+						Msg("error moving from processing-pays to sent-pays")
+				}
 			} else {
-				// success
-				paymentSuccess(res)
+				// payment failed
+				logger.Warn().Str("bolt11", bolt11).Msg("payment failed")
+				err = rds.SMove(PROCESSING_POOL, FAILED_POOL, bolt11).Err()
+				if err != nil {
+					logger.Error().Err(err).
+						Msg("error moving from processing-payments to failed-payments")
+				}
 			}
 		}
 	}()
@@ -81,59 +121,6 @@ func getNext() (bolt11 string) {
 	}
 
 	return next
-}
-
-func checkPaymentStatus(bolt11 string) {
-	time.Sleep(time.Second * 60)
-	logger := log.With().Str("bolt11", bolt11).Logger()
-
-	res, err := ln.Call("listpayments", bolt11)
-	if err != nil {
-		logger.Warn().Err(err).Msg("failed to check payment status after the fact")
-		return
-	}
-
-	payment := res.Get("payments.0")
-	if payment.Exists() {
-		switch payment.Get("status").String() {
-		case "complete":
-			paymentSuccess(payment)
-		case "failed":
-			logger.Warn().Str("bolt11", bolt11).Msg("payment failed")
-			err = rds.SMove(PROCESSING_POOL, FAILED_POOL, bolt11).Err()
-			if err != nil {
-				logger.Error().Err(err).
-					Msg("error moving from processing-payments to failed-payments")
-			}
-		case "pending":
-			checkPaymentStatus(bolt11)
-		}
-	}
-}
-
-func paymentSuccess(payment gjson.Result) {
-	bolt11 := payment.Get("bolt11").String()
-	preimage := payment.Get("payment_preimage").String()
-	logger := log.With().Str("bolt11", bolt11).Str("preimage", preimage).Logger()
-
-	logger.Info().Msg("payment succeeded")
-	err = rds.Watch(func(rtx *redis.Tx) error {
-		if err := rtx.SRem(PROCESSING_POOL, bolt11).Err(); err != nil {
-			logger.Warn().Err(err).Msg("failed to remove pending payment")
-			return err
-		}
-
-		if err := rtx.Set(SUCCESS_PREFIX+":"+bolt11, preimage, time.Hour*24*30).Err(); err != nil {
-			logger.Warn().Err(err).Msg("failed to save a payment as success")
-			return err
-		}
-
-		return nil
-	})
-	if err != nil {
-		logger.Error().Err(err).Str("bolt11", bolt11).Str("preimage", preimage).
-			Msg("error moving from processing-payments to sent-payments")
-	}
 }
 
 func queuePayment(bolt11, contractId, callId string) error {
