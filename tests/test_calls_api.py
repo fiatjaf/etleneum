@@ -55,14 +55,14 @@ end
     assert len(r.json()["value"]) == 1
     call = r.json()["value"][0]
     assert call["method"] == "__init__"
-    assert call["cost"] == payment["msatoshi"] - 1000  # -1 satoshi
+    assert call["cost"] == payment["msatoshi"]
     assert call["payload"] == {}
     assert call["paid"] == 0
-    assert call["satoshis"] == 1
+    assert call["satoshis"] == 0
 
     # prepare calls and send them
     current_state = {"balances": {"dummy": 0}}
-    current_funds = 1000
+    current_funds = 0
     current_call_n = 1
     for buyer, amount, satoshis, succeed in [
         ("x", 2, 9, False),

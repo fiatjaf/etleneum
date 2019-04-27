@@ -65,9 +65,8 @@ def test_contract_creation(etleneum, lightnings):
     assert r.json()["value"]["name"] == ctdata["name"]
     assert r.json()["value"]["readme"] == ctdata["readme"]
     assert r.json()["value"]["state"] == {"x": 23}
-    assert r.json()["value"]["funds"] == 1000
+    assert r.json()["value"]["funds"] == 0
     assert r.json()["value"]["refilled"] == 0
-    assert r.json()["value"]["storage_costs"] == 0
 
     # contract list should show this
     r = requests.get(url + "/~/contracts")
@@ -77,7 +76,7 @@ def test_contract_creation(etleneum, lightnings):
     assert contracts[0]["name"] == ctdata["name"]
     assert contracts[0]["readme"] == ctdata["readme"]
     assert contracts[0]["id"] == ctid
-    assert contracts[0]["funds"] == 1000
+    assert contracts[0]["funds"] == 0
     assert contracts[0]["ncalls"] == 1
 
     # get contract calls (should contain the initial call)
@@ -100,8 +99,7 @@ def test_contract_creation(etleneum, lightnings):
     assert r.json()["value"]["readme"] == ctdata["readme"]
     assert r.json()["value"]["state"] == {"x": 23}
     assert r.json()["value"]["refilled"] == 18000
-    assert r.json()["value"]["funds"] == 19000
-    assert r.json()["value"]["storage_costs"] == 0
+    assert r.json()["value"]["funds"] == 18000
 
 
 def test_refill(make_contract):
@@ -116,4 +114,4 @@ end
     )
 
     contract.refill(10)
-    assert contract.funds == 11000
+    assert contract.funds == 10000

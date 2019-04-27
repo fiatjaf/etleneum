@@ -109,7 +109,7 @@ end
     }
 
     ret = contract.call("deposit", {}, 23)
-    assert contract.funds == 24000
+    assert contract.funds == 23000
     assert ret == {"x": 23}
     assert contract.state == {
         "deposited": 23,
@@ -119,10 +119,10 @@ end
     }
 
     invalid_payee = rpc_b.invoice(
-        label="invalid_payee", description="", msatoshi=24000
+        label="invalid_payee", description="", msatoshi=23000
     )["bolt11"]
     invalid_amount = rpc_c.invoice(
-        label="invalid_amount", description="", msatoshi=24001
+        label="invalid_amount", description="", msatoshi=23001
     )["bolt11"]
     valid_invoice = rpc_c.invoice(label="valid", description="", msatoshi=23000)[
         "bolt11"
@@ -137,7 +137,7 @@ end
         "conditionok": False,
         "didwithdraw": False,
     }
-    assert contract.funds == 24000
+    assert contract.funds == 23000
 
     # if condition doesn't match
     paid = contract.call("withdraw", {"x": 12, "invoice": valid_invoice}, 0)
@@ -148,7 +148,7 @@ end
         "didwithdraw": False,
     }
     assert paid == 0
-    assert contract.funds == 24000
+    assert contract.funds == 23000
 
     # condition matches, but payments fails
     paid = contract.call("withdraw", {"x": 23, "invoice": invalid_payee}, 0)
@@ -159,7 +159,7 @@ end
         "didwithdraw": False,
     }
     assert paid == 0
-    assert contract.funds == 24000
+    assert contract.funds == 23000
 
     # payment succeeds
     paid = contract.call("withdraw", {"x": 23, "invoice": valid_invoice}, 0)
@@ -170,7 +170,7 @@ end
         "didwithdraw": True,
     }
     assert paid == 23000
-    assert contract.funds == 1000
+    assert contract.funds == 0
 
     inv = rpc_c.waitinvoice("valid")
     assert inv["msatoshi_received"] == 23000
@@ -195,7 +195,7 @@ end
 
     contract.refill(100)
 
-    invoice = rpc_c.invoice(label="inv", description="", msatoshi=101000)["bolt11"]
+    invoice = rpc_c.invoice(label="inv", description="", msatoshi=100000)["bolt11"]
 
     try:
         contract.call("withdraw", {"invoice": invoice}, 0)
