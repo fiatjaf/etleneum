@@ -244,7 +244,7 @@ let make = (~contract: API.contract, _children) => {
                                    {ReasonReact.string(
                                       "included "
                                       ++ string_of_int(call.satoshis)
-                                      ++ " satoshis and withdrew "
+                                      ++ " sat and withdrew "
                                       ++ string_of_float(
                                            float_of_int(call.paid) /. 1000.0,
                                          ),
@@ -256,7 +256,7 @@ let make = (~contract: API.contract, _children) => {
                                       ++ string_of_int(
                                            call.satoshis * 1000 + call.cost,
                                          )
-                                      ++ " msats",
+                                      ++ " msat",
                                     )}
                                  </p>
                                </div>

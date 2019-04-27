@@ -404,7 +404,7 @@ let make = (~preloadContract=?, ~preloadCall=?, _children) => {
                           {ReasonReact.string(
                              "Payments made ("
                              ++ string_of_int(call_result.total_paid)
-                             ++ " msats): ",
+                             ++ " msat): ",
                            )}
                         </label>
                         <ul>

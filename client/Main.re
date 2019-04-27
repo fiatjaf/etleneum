@@ -337,15 +337,7 @@ let make = _children => {
                              </span>
                              <div>
                                {ReasonReact.string(
-                                  string_of_int(c.funds)
-                                  ++ " msatoshi"
-                                  ++ (
-                                    if (c.funds == 1) {
-                                      "";
-                                    } else {
-                                      "s";
-                                    }
-                                  ),
+                                  string_of_int(c.funds) ++ " msatoshi",
                                 )}
                              </div>
                              <div>

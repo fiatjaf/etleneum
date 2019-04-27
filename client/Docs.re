@@ -47,7 +47,7 @@ function cashout ()
 end
 ```
 
-  All what that contract does is to accept satoshis in the `buytoken` method and assign balances of an unnamed mysterious token to the payer. Each token costs 5 satoshis and the method checks if the quantity the buyer wants matchs the amount of satoshis he has included in the call. Note that, because this is just an example, there aren't any considerations of identification or authentication, users are just arbitrary names defined by the buyer.
+  All what that contract does is to accept satoshis in the `buytoken` method and assign balances of an unnamed mysterious token to the payer. Each token costs 5 sat and the method checks if the quantity the buyer wants matchs the amount of satoshis he has included in the call. Note that, because this is just an example, there aren't any considerations of identification or authentication, users are just arbitrary names defined by the buyer.
 
   The other method, `cashout` is used by the token issuer to grab the money it has secured in the ICO and go away. As the contract is just an example, the method it uses to cash out is to send an invoice with a predefined hash (to which he must know the preimage beforehand). Since a preimage can be only used once this contract will only be able to be cashed-out once.
 
@@ -84,7 +84,7 @@ end
   * `state`, the current state of the contract, it can be modified in-place;
   * `call`, the call id; and
   * the following special functions:
-    * `ln.pay(invoice[, filters])` triggers a Lightning payment from the contract to the given `invoice`. `filters` is a table that can contain any combination of `payee`, `hash`, `exact` and `max`. These serve as constraints to invoices that can be paid in that call (`payee` is a Lightning node id, `hash` is the invoice payment hash, `exact` and `max` are integer amounts in satoshis). Returns `msatoshis, nil` if everything is ok or `0, errormessage` if the constraints don't match.
+    * `ln.pay(invoice[, filters])` triggers a Lightning payment from the contract to the given `invoice`. `filters` is a table that can contain any combination of `payee`, `hash`, `exact` and `max`. These serve as constraints to invoices that can be paid in that call (`payee` is a Lightning node id, `hash` is the invoice payment hash, `exact` and `max` are integer amounts in satoshi). Returns `msatoshi, nil` if everything is ok or `0, errormessage` if the constraints don't match.
     * `util.sha256(string)` returns the hash of the given string.
     * `util.cuid()` returns a [cuid](http://usecuid.org/), useful for identifying objects.
     * `http.gettext(url[, headers])` returns the text body of the response to the given URL call or `nil, errormessage`.
@@ -120,13 +120,13 @@ end
   * `POST` `/~/contract/<id>` activates a previously prepared contract with a paid invoice, returns `true`;
   * `GET` `/~/contract/<id>` returns the full contract info, `Contract`;
   * `GET` `/~/contract/<id>/state` returns just the contract state, `Any`;
-  * `GET` `/~/contract/<id>/funds` returns just the contract funds, in millisatoshis, `Int`;
+  * `GET` `/~/contract/<id>/funds` returns just the contract funds, in msat, `Int`;
   * `GET` `/~/contract/<id>/calls` lists all contract calls, sorted by most recent first, returns `[Call]`;
   * `POST` `/~/contract/<id>/call` prepares a new call, takes `{method: String, payload: Any, satoshis: Int}`, returns `{id: String, invoice: String}`;
   * `POST` `/~/call/<id>` makes a previously prepared call with a paid invoice, returns `Any` (the value returned by the contract, if any);
   * `GET` `/~/call/<id>` returns the full call info, `Call`;
   * `PATCH` `/~/call/<id>` takes anything passed in the JSON body and patches it to the current prepared call **payload**, returns the full call info, `Call`;
-  * `POST` `/~/refill/<contract-id>/<satoshis>` arbitrarily add funds to a contract, returns `{invoice: String}` (payments are acknowledged automatically);
+  * `POST` `/~/refill/<contract-id>/<sat>` arbitrarily add funds to a contract, returns `{invoice: String}` (payments are acknowledged automatically);
   * `POST` `/~/retry/<invoice>` retries a failed payment from an `ln.pay` call on any contract, takes `{invoice: String}` or nothing, if you want to retry the same invoice.
     ",
             ),
