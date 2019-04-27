@@ -7,14 +7,13 @@ import (
 )
 
 type Contract struct {
-	Id           string         `db:"id" json:"id"` // used in the invoice label
-	Code         string         `db:"code" json:"code"`
-	Name         string         `db:"name" json:"name"`
-	Readme       string         `db:"readme" json:"readme"`
-	State        types.JSONText `db:"state" json:"state"`
-	CreatedAt    time.Time      `db:"created_at" json:"created_at"`
-	StorageCosts int            `db:"storage_costs" json:"storage_costs"` // sum of all daily storage costs, in msats
-	Refilled     int            `db:"refilled" json:"refilled"`           // msats refilled without use of a normal call
+	Id        string         `db:"id" json:"id"` // used in the invoice label
+	Code      string         `db:"code" json:"code"`
+	Name      string         `db:"name" json:"name"`
+	Readme    string         `db:"readme" json:"readme"`
+	State     types.JSONText `db:"state" json:"state"`
+	CreatedAt time.Time      `db:"created_at" json:"created_at"`
+	Refilled  int            `db:"refilled" json:"refilled"` // msats refilled without use of a normal call
 
 	Funds       int    `db:"funds" json:"funds"` // contract balance in msats
 	NCalls      int    `db:"ncalls" json:"ncalls,omitempty"`

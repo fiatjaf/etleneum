@@ -96,11 +96,15 @@ Probably.
 
 8. How do you plan on funding the platform?
 
-We charge for making contracts and calls. It's cheap, but maybe we'll increase that later. We also are going to be charging a storage cost for idle contracts. All contracts start with 1 satoshi in their balance and for a normal contract that should last for at least one year (you can always refill at any time you want), that's just to keep the system clear. Maybe we'll increase that if we start to get a lot of spammy or broken contracts, or maybe we'll just delete these.
+We charge for making contracts and calls. It's cheap, but maybe we'll increase that later.
 
-9. Where can I talk about Etleneum?
+9. Do contracts last forever?
 
-Try [our Telegram group](https://t.me/etleneum) or [our Twitter](https://twitter.com/etleneum).
+No. If they're inactive for a lot of time we may delete them. We will also delete spammy or malicious stuff. Actually we don't intend to delete anything, but just saying this here just in case we must for some reason.
+
+9. Where can I talk about Etleneum and ask for help?
+
+In [our Telegram group](https://t.me/etleneum).
 
 10. Is this Sam's or ship resistant?
 

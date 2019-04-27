@@ -30,7 +30,6 @@ type Settings struct {
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
 	InitialContractCostSatoshis int `envconfig:"INITIAL_CONTRACT_COST_SATOSHIS" default:"100"`
-	InitialContractFillSatoshis int `envconfig:"INITIAL_CONTRACT_FILL_SATOSHIS" default:"1"`
 	FixedCallCostSatoshis       int `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
 	PaymentRetrySeconds         int `envconfig:"PAYMENT_RETRY_SECONDS" default:"30"`
 

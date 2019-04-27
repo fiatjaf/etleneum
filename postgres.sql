@@ -5,7 +5,6 @@ CREATE TABLE contracts (
   code text NOT NULL,
   state jsonb NOT NULL DEFAULT '{}',
   created_at timestamp NOT NULL DEFAULT now(),
-  storage_costs int NOT NULL DEFAULT 0,
   refilled int NOT NULL DEFAULT 0,
 
   CONSTRAINT state_is_object CHECK (jsonb_typeof(state) = 'object'),

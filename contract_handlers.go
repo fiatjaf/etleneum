@@ -144,7 +144,7 @@ func makeContract(w http.ResponseWriter, r *http.Request) {
 
 	_, err = checkPayment(
 		s.ServiceId+"."+ctid,
-		getContractCost(*ct)+s.InitialContractFillSatoshis*1000,
+		getContractCost(*ct),
 	)
 	if err != nil {
 		logger.Warn().Err(err).Msg("payment check failed")
@@ -180,7 +180,6 @@ VALUES ($1, $2, $3, $4, '{}')
 		Id:         ct.Id, // same
 		Method:     "__init__",
 		Payload:    []byte{},
-		Satoshis:   s.InitialContractFillSatoshis,
 		Cost:       getContractCost(*ct),
 	}
 
