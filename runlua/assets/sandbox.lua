@@ -20,8 +20,8 @@ sandbox_env = {
       fmod = math.fmod, frexp = math.frexp, huge = math.huge,
       ldexp = math.ldexp, log = math.log, log10 = math.log10, max = math.max,
       min = math.min, modf = math.modf, pi = math.pi, pow = math.pow,
-      rad = math.rad, random = math.random, sin = math.sin, sinh = math.sinh,
-      sqrt = math.sqrt, tan = math.tan, tanh = math.tanh },
+      rad = math.rad, random = math.random, randomseed = math.randomseed,
+      sin = math.sin, sinh = math.sinh, sqrt = math.sqrt, tan = math.tan, tanh = math.tanh },
   os = { clock = os.clock, difftime = os.difftime, time = os.time, date = os.date },
 }
 
