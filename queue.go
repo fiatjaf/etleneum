@@ -29,9 +29,9 @@ func startQueue() {
 			logger := log.With().Str("bolt11", bolt11).Logger()
 			logger.Debug().Msg("making payment from contract call")
 
-			success, pay, err := ln.PayAndWaitUntilResolution(
+			success, pay, _, err := ln.PayAndWaitUntilResolution(
+				bolt11,
 				map[string]interface{}{
-					"bolt11":        bolt11,
 					"riskfactor":    3,
 					"maxfeepercent": 0.7,
 					"exemptfee":     1100,
