@@ -162,7 +162,11 @@ func probeLightningd() {
 
 func serveClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	indexf, _ := httpPublic.Open("static/index.html")
+	indexf, err := httpPublic.Open("static/index.html")
+	if err != nil {
+		log.Error().Err(err).Str("file", "static/index.html").Msg("make sure you generated bindata.go without -debug")
+		return
+	}
 	fstat, _ := indexf.Stat()
 	http.ServeContent(w, r, "static/index.html", fstat.ModTime(), indexf)
 	return

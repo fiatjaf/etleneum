@@ -20,21 +20,3 @@ fetch('/~/contract/ew0u7ipyp/state')
     document.documentElement.style.backgroundColor = `hsl(${hue}, 66%, 84%)`
   })
 </script>
-<script>
-(function (d, s) {
-  var x, h, n = Date.now()
-  tc = function (p) {
-    m = s.getItem('_tcx') > n ? s.getItem('_tch') : 'cold-wildflower'
-    x = new XMLHttpRequest()
-    x.addEventListener('load', function () {
-      if (x.status == 200) {
-        s.setItem('_tch', x.responseText)
-        s.setItem('_tcx', n + 14400000)
-      }
-    })
-    x.open('GET', 'https://visitantes.alhur.es/'+m+'.xml?r='+d.referrer+(p?'&p='+p:''))
-    x.send()
-  }
-  tc()
-})(document, localStorage)
-</script>
