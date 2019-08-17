@@ -31,3 +31,16 @@ CREATE FUNCTION funds(contracts) RETURNS bigint AS $$
     FROM calls WHERE calls.contract_id = $1.id
   );
 $$ LANGUAGE SQL;
+
+CREATE TABLE outgoing_payments (
+  id serial PRIMARY KEY,
+  call_id text NOT NULL REFERENCES calls(id),
+  bolt11 text NOT NULL,
+  payee text NOT NULL,
+  hash text NOT NULL,
+  preimage text,
+  msatoshi int NOT NULL,
+  fee int NOT NULL DEFAULT 0,
+  pending bool NOT NULL DEFAULT true,
+  failed bool NOT NULL DEFAULT false
+)

@@ -83,9 +83,6 @@ func main() {
 	// pause here until lightningd works
 	probeLightningd()
 
-	// run queue
-	startQueue()
-
 	// http server
 	router := mux.NewRouter()
 	router.PathPrefix("/static/").Methods("GET").Handler(http.FileServer(httpPublic))

@@ -188,11 +188,7 @@ FROM contracts WHERE id = $1`,
 		// everything is saved and well alright.
 	// queue the payments (calls can't be reversed)
 	for _, bolt11 := range paymentsPending {
-		if err := queuePayment(bolt11, call.ContractId, call.Id); err != nil {
-			log.Error().Err(err).Str("bolt11", bolt11).
-				Str("callid", call.Id).Str("ctid", call.ContractId).
-				Msg("failed to queue payment")
-		}
+		go tryPayment(bolt11, call.Id)
 	}
 
 	return
