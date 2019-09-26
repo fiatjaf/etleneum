@@ -1,3 +1,4 @@
 pytest
 pylightning
 bitcoin-requests
+sseclient-py

@@ -6,8 +6,6 @@ import logging
 import subprocess
 import threading
 
-import requests
-
 TIMEOUT = 5
 
 
@@ -162,58 +160,3 @@ class TailableProc(object):
         Convenience wrapper for the common case of only seeking a single entry.
         """
         return self.wait_for_logs([regex], timeout)
-
-
-class Contract(object):
-    def __init__(self, id, url, payee_rpc, payer_rpc, etleneum_proc):
-        self.id = id
-        self.url = url
-        self.payee_rpc = payee_rpc
-        self.payer_rpc = payer_rpc
-        self.etleneum_proc = etleneum_proc
-
-    def get(self):
-        r = requests.get(self.url + "/~/contract/" + self.id)
-        r.raise_for_status()
-        return r.json()["value"]
-
-    @property
-    def funds(self):
-        r = requests.get(self.url + "/~/contract/" + self.id + "/funds")
-        r.raise_for_status()
-        return r.json()["value"]
-
-    @property
-    def state(self):
-        r = requests.get(self.url + "/~/contract/" + self.id + "/state")
-        r.raise_for_status()
-        return r.json()["value"]
-
-    @property
-    def calls(self):
-        r = requests.get(self.url + "/~/contract/" + self.id + "/calls")
-        r.raise_for_status()
-        return r.json()["value"]
-
-    def refill(self, satoshis):
-        r = requests.get(
-            self.url + "/~/contract/" + self.id + "/refill/" + str(satoshis)
-        )
-        r.raise_for_status()
-        self.payer_rpc.pay(r.json()["value"])
-        self.etleneum_proc.wait_for_log("contract refill")
-
-    def call(self, method, payload, satoshis):
-        r = requests.post(
-            self.url + "/~/contract/" + self.id + "/call",
-            json={"method": method, "payload": payload, "satoshis": satoshis},
-        )
-        callid = r.json()["value"]["id"]
-        self.payer_rpc.pay(r.json()["value"]["invoice"])
-        self.payee_rpc.waitinvoice(
-            "{}.{}.{}".format(os.getenv("SERVICE_ID"), self.id, callid)
-        )
-
-        r = requests.post(self.url + "/~/call/" + callid)
-        r.raise_for_status()
-        return r.json()["value"]

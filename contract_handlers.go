@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -16,7 +15,7 @@ func listContracts(w http.ResponseWriter, r *http.Request) {
 	contracts := make([]types.Contract, 0)
 	err = pg.Select(&contracts, `
 SELECT id, name, readme, funds, ncalls FROM (
-  SELECT id, name, readme, created_at, c.funds,
+  SELECT `+types.CONTRACTFIELDS+`, c.funds,
     (SELECT max(time) FROM calls WHERE contract_id = c.id) AS lastcalltime,
     (SELECT count(*) FROM calls WHERE contract_id = c.id) AS ncalls
   FROM contracts AS c
@@ -46,7 +45,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to parse json", 400)
 		return
 	}
-	ct.Id = cuid.Slug()
+	ct.Id = "c" + cuid.Slug()
 
 	if ok := checkContractCode(ct.Code); !ok {
 		log.Warn().Err(err).Msg("invalid contract code")
@@ -54,7 +53,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = getContractInvoice(ct)
+	err = setContractInvoice(ct)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "failed to make invoice", 500)
@@ -76,7 +75,7 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 
 	ct := &types.Contract{}
 	err = pg.Get(ct, `
-SELECT *, contracts.funds
+SELECT `+types.CONTRACTFIELDS+`, contracts.funds
 FROM contracts
 WHERE id = $1`,
 		ctid)
@@ -89,7 +88,7 @@ WHERE id = $1`,
 			jsonError(w, "failed to fetch prepared contract", 404)
 			return
 		}
-		err = getContractInvoice(ct)
+		err = setContractInvoice(ct)
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to get/make invoice")
@@ -127,91 +126,4 @@ func getContractFunds(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: funds})
-}
-
-func makeContract(w http.ResponseWriter, r *http.Request) {
-	// init is a special call that enables a contract.
-	// it has a fixed cost and its payload is the initial state of the contract.
-	ctid := mux.Vars(r)["ctid"]
-	logger := log.With().Str("ctid", ctid).Logger()
-
-	ct, err := contractFromRedis(ctid)
-	if err != nil {
-		logger.Warn().Err(err).Msg("failed to fetch contract from redis")
-		jsonError(w, "couldn't find contract "+ctid+", it may have expired", 404)
-		return
-	}
-
-	_, err = checkPayment(
-		s.ServiceId+"."+ctid,
-		getContractCost(*ct),
-	)
-	if err != nil {
-		logger.Warn().Err(err).Msg("payment check failed")
-		jsonError(w, "Payment check failed.", 402)
-		return
-	}
-
-	// initiate transaction
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		logger.Warn().Err(err).Msg("transaction start failed")
-		jsonError(w, "database error", 500)
-		return
-	}
-	defer txn.Rollback()
-
-	// create initial contract
-	_, err = txn.Exec(`
-INSERT INTO contracts (id, name, readme, code, state)
-VALUES ($1, $2, $3, $4, '{}')
-    `, ct.Id, ct.Name, ct.Readme, ct.Code)
-	if err != nil {
-		log.Warn().Err(err).Str("ctid", ctid).
-			Msg("failed to save contract on database")
-		jsonError(w, "database error", 500)
-		return
-	}
-
-	// instantiate call
-	call := &types.Call{
-		ContractId: ct.Id,
-		Id:         ct.Id, // same
-		Method:     "__init__",
-		Payload:    []byte{},
-		Cost:       getContractCost(*ct),
-	}
-
-	_, err = runCall(call, txn)
-	if err != nil {
-		logger.Warn().Err(err).Msg("failed to run call")
-		jsonError(w, "failed to run call", 500)
-		return
-	}
-
-	// saved. delete from redis.
-	rds.Del("contract:" + ctid)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: nil})
-}
-
-func refillContract(w http.ResponseWriter, r *http.Request) {
-	ctid := mux.Vars(r)["ctid"]
-	sats := mux.Vars(r)["sats"]
-	logger := log.With().Str("sats", sats).Str("ctid", ctid).Logger()
-
-	label := s.ServiceId + ".refill." + ctid + "." + cuid.Slug()
-	desc := s.ServiceId + " contract refill [" + ctid + "]"
-
-	inv, err := ln.Call("invoice", sats+"000", label, desc, "36000")
-	if err != nil {
-		logger.Warn().Err(err).Msg("failed to generate invoice")
-		jsonError(w, "failed to generate invoice", 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: inv.Get("bolt11").String()})
 }

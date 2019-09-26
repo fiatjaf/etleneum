@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -19,6 +18,17 @@ type Result struct {
 }
 
 func getInvoice(label, desc string, msats int) (string, bool, error) {
+	if s.FreeMode {
+		// wait 5 seconds and notify this payment was received
+		go func() {
+			time.Sleep(5 * time.Second)
+			handlePaymentReceived(label, int64(msats))
+		}()
+
+		// return a bogus invoice
+		return "lnbcrt1231230p1pwccq4app53nrqyuwmhkcsqqq8qnqvka0njqt0q0w9ujjlu565yumcgjya7m7qdp8vakx7cnpdss8wctjd45kueeqd9ejqcfqdphkz7qxqgzay8dellcqp2r34dm702mtt9luaeuqfza47ltalrwk8jrwalwf5ncrkgm6v6kmm3cuwuhyhtkpyzzmxun8qz9qtx6hvwfltqnd6wvpkch2u3acculmqpk4d20k", true, nil
+	}
+
 	res, err := ln.Call("listinvoices", label)
 	if err != nil {
 		return "", false, err
@@ -55,34 +65,6 @@ func getInvoice(label, desc string, msats int) (string, bool, error) {
 			Msg("what's up with this invoice?")
 		return "", false, errors.New("bad wrong invoice")
 	}
-}
-
-func checkPayment(label string, pricemsats int) (msats int, err error) {
-	if pricemsats == 0 {
-		return 0, errors.New("tried to check a payment with price zero")
-	}
-
-	if s.Development {
-		return pricemsats, nil
-	}
-
-	res, err := ln.Call("listinvoices", label)
-	if err != nil {
-		return
-	}
-
-	if res.Get("invoices.0.status").String() != "paid" {
-		err = errors.New("invoice not paid")
-		return
-	}
-
-	totalpaid := int(res.Get("invoices.0.msatoshi_received").Int())
-	if totalpaid < pricemsats {
-		err = fmt.Errorf("paid %d, needed %d", totalpaid, pricemsats)
-		return
-	}
-
-	return int(res.Get("invoices.0.msatoshi_received").Int()), nil
 }
 
 func jsonError(w http.ResponseWriter, message string, code int) {

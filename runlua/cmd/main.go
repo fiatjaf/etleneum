@@ -11,9 +11,7 @@ import (
 	"github.com/fiatjaf/etleneum/runlua"
 	"github.com/fiatjaf/etleneum/runlua/assets"
 	"github.com/fiatjaf/etleneum/types"
-	"github.com/fiatjaf/ln-decodepay"
 	sqlxtypes "github.com/jmoiron/sqlx/types"
-	"github.com/tidwall/gjson"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -35,7 +33,11 @@ func main() {
 		},
 		cli.IntFlag{
 			Name:  "funds",
-			Usage: "Contract will have this amount of funds.",
+			Usage: "Contract will have this amount of funds (in satoshi).",
+		},
+		cli.StringFlag{
+			Name:  "caller",
+			Usage: "Id of the account that is making the call.",
 		},
 		cli.StringFlag{
 			Name:  "method",
@@ -97,32 +99,29 @@ func main() {
 			return http.DefaultClient.Do(r)
 		}
 
-		state, paid, payments, returned, err := runlua.RunCall(
+		contractFunds := c.Int("funds") * 1000
+
+		state, err := runlua.RunCall(
 			sandboxCode,
-			func(bolt11 string) (gjson.Result, error) {
-				d, err := decodepay.Decodepay(bolt11)
-				if err != nil {
-					return gjson.Result{}, err
-				}
-
-				jsonb, err := json.Marshal(d)
-				if err != nil {
-					return gjson.Result{}, err
-				}
-
-				return gjson.ParseBytes(jsonb), nil
-			},
 			returnHttp,
+			func() (contractFunds int, err error) { return contractFunds, nil },
+			func(target string, msat int) (msatoshiSent int, err error) {
+				contractFunds -= msat
+				return msat, nil
+			},
+			func() (userBalance int, err error) { return 99999, nil },
+			func(target string, msat int) (msatoshiSent int, err error) { return msat, nil },
 			types.Contract{
 				Code:  string(bcontractCode),
 				State: sqlxtypes.JSONText([]byte(c.String("state"))),
-				Funds: c.Int("funds"),
+				Funds: contractFunds,
 			},
 			types.Call{
 				Id:       "callid",
-				Satoshis: c.Int("satoshis"),
+				Msatoshi: 1000 * c.Int("satoshis"),
 				Method:   c.String("method"),
 				Payload:  sqlxtypes.JSONText([]byte(c.String("payload"))),
+				Caller:   c.String("caller"),
 			},
 		)
 		if err != nil {
@@ -130,12 +129,7 @@ func main() {
 			os.Exit(3)
 		}
 
-		json.NewEncoder(app.Writer).Encode(struct {
-			Paid          int
-			Payments      []string
-			ReturnedValue interface{}
-			State         interface{}
-		}{paid, payments, returned, state})
+		json.NewEncoder(app.Writer).Encode(state)
 
 		return nil
 	}

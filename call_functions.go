@@ -1,16 +1,17 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/fiatjaf/etleneum/runlua"
 	runlua_assets "github.com/fiatjaf/etleneum/runlua/assets"
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/jmoiron/sqlx"
-	"github.com/tidwall/gjson"
 )
 
 func calcCallCosts(c *types.Call) {
@@ -18,18 +19,18 @@ func calcCallCosts(c *types.Call) {
 	c.Cost += int(float64(len(c.Payload)) * 0.1) // a negligible amount of msats, just to prevent abuse by enormous payloads
 
 	words := len(wordMatcher.FindAllString(string(c.Payload), -1))
-	c.Cost += 50 * words // 0.05 satoshi for each word in the payload
+	c.Cost += 50 * words // 50 msatoshi for each word in the payload
 
-	if c.Satoshis > 500 {
+	if c.Msatoshi > 500000 {
 		// to help cover withdraw fees later we charge a percent of the amount of satoshis included
-		c.Cost += int(float64(c.Satoshis) / 200)
+		c.Cost += int(float64(c.Msatoshi) / 100)
 	}
 }
 
 func getCallInvoice(c *types.Call) error {
 	label := s.ServiceId + "." + c.ContractId + "." + c.Id
 	desc := s.ServiceId + " " + c.Method + " [" + c.ContractId + "][" + c.Id + "]"
-	msats := c.Cost + 1000*c.Satoshis
+	msats := c.Cost + c.Msatoshi
 	bolt11, paid, err := getInvoice(label, desc, msats)
 	c.Bolt11 = bolt11
 	c.InvoicePaid = &paid
@@ -67,33 +68,11 @@ func saveCallOnRedis(call types.Call) (jcall []byte, err error) {
 	return
 }
 
-func deletePayloadHiddenFields(call *types.Call) error {
-	// fields starting with _ are not saved in the contract log
-	if len(call.Payload) == 0 {
-		return nil
-	}
-
-	payload := make(map[string]interface{})
-	err := json.Unmarshal([]byte(call.Payload), &payload)
-	if err != nil {
-		return err
-	}
-
-	for k := range payload {
-		if strings.HasPrefix(k, "_") {
-			delete(payload, k)
-		}
-	}
-
-	call.Payload, err = json.Marshal(payload)
-	return err
-}
-
-func runCall(call *types.Call, txn *sqlx.Tx) (ret interface{}, err error) {
+func runCall(call *types.Call, txn *sqlx.Tx) (err error) {
 	// get contract data
 	var ct types.Contract
 	err = txn.Get(&ct, `
-SELECT *, contracts.funds
+SELECT `+types.CONTRACTFIELDS+`, contracts.funds
 FROM contracts
 WHERE id = $1`,
 		call.ContractId)
@@ -103,14 +82,97 @@ WHERE id = $1`,
 		return
 	}
 
+	// caller can be either an account id or null
+	caller := sql.NullString{Valid: call.Caller != "", String: call.Caller}
+	log.Print("CALLER ", call.Caller, " ", caller)
+
+	// save call data even though we don't know if it will succeed or not (this is a transaction anyway)
+	_, err = txn.Exec(`
+INSERT INTO calls (id, contract_id, method, payload, cost, msatoshi, caller)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, call.Id, call.ContractId, call.Method, call.Payload, call.Cost, call.Msatoshi, caller)
+	if err != nil {
+		log.Warn().Err(err).Str("callid", call.Id).Msg("database error")
+		return
+	}
+
 	// actually run the call
 	bsandboxCode, _ := runlua_assets.Asset("runlua/assets/sandbox.lua")
 	sandboxCode := string(bsandboxCode)
-	newStateO, totalPaid, paymentsPending, returnedValue, err := runlua.RunCall(
+	newStateO, err := runlua.RunCall(
 		sandboxCode,
-		func(inv string) (gjson.Result, error) { return ln.Call("decodepay", inv) },
-		func(r *http.Request) (*http.Response, error) {
-			return http.DefaultClient.Do(r)
+		func(r *http.Request) (*http.Response, error) { return http.DefaultClient.Do(r) },
+
+		// get contract balance
+		func() (contractFunds int, err error) {
+			err = txn.Get(&contractFunds, "SELECT contracts.funds FROM contracts WHERE id = $1", ct.Id)
+			return
+		},
+
+		// send from contract
+		func(target string, msat int) (msatoshiSent int, err error) {
+			var totype string
+			if target[0] == 'c' {
+				totype = "contract"
+			} else if target[0] == 'a' {
+				totype = "account"
+			}
+
+			log.Print("target ", target, " amt ", msat)
+			_, err = txn.Exec(`
+INSERT INTO internal_transfers (call_id, msatoshi, from_contract, to_`+totype+`)
+VALUES ($1, $2, $3, $4)
+            `, call.Id, msat, ct.Id, target)
+			if err != nil {
+				return
+			}
+
+			var funds int
+			err = txn.Get(&funds, "SELECT contracts.funds FROM contracts WHERE id = $1", ct.Id)
+			if err != nil {
+				return
+			}
+			if funds < 0 {
+				return 0, fmt.Errorf("insufficient contract funds, needed %d msat more", -funds)
+			}
+			return msat, nil
+		},
+
+		// get account balance
+		func() (userBalance int, err error) {
+			if call.Caller == "" {
+				return 0, errors.New("no account")
+			}
+
+			err = txn.Get(&userBalance, "SELECT accounts.balance FROM accounts WHERE id = $1", call.Caller)
+			return
+		},
+
+		// send from current account
+		func(target string, msat int) (msatoshiSent int, err error) {
+			var totype string
+			if target[0] == 'c' {
+				totype = "contract"
+			} else if target[0] == 'a' {
+				totype = "account"
+			}
+			_, err = txn.Exec(`
+INSERT INTO internal_transfers (call_id, msatoshi, from_account, to_`+totype+`)
+VALUES ($1, $2, $3, $4)
+            `, call.Id, msat, call.Caller, target)
+			if err != nil {
+				return
+			}
+
+			var balance int
+			err = txn.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", ct.Id)
+			if err != nil {
+				return
+			}
+			if balance < 0 {
+				return 0, fmt.Errorf("insufficient account balance, needed %d msat more", -balance)
+			}
+			return msat, nil
 		},
 		ct,
 		*call,
@@ -120,7 +182,6 @@ WHERE id = $1`,
 		return
 	}
 
-	ret = returnedValue
 	newState, err := json.Marshal(newStateO)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to marshal new state")
@@ -138,24 +199,6 @@ WHERE id = $1
 		return
 	}
 
-	err = deletePayloadHiddenFields(call)
-	if err != nil {
-		log.Warn().Err(err).Str("callid", call.Id).Str("payload", string(call.Payload)).
-			Msg("failed to delete payload hidden fields")
-		return
-	}
-
-	// save call (including all the transactions, even though they weren't paid yet)
-	_, err = txn.Exec(`
-INSERT INTO calls (id, contract_id, method, payload, cost, satoshis, paid)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, call.Id, call.ContractId,
-		call.Method, call.Payload, call.Cost, call.Satoshis, totalPaid)
-	if err != nil {
-		log.Warn().Err(err).Str("callid", call.Id).Msg("database error")
-		return
-	}
-
 	// get contract balance (if balance is negative after the call all will fail)
 	var contractFunds int
 	err = txn.Get(&contractFunds, `
@@ -169,6 +212,7 @@ FROM contracts WHERE id = $1`,
 
 	if contractFunds < 0 {
 		log.Warn().Err(err).Str("callid", call.Id).Msg("contract out of funds")
+		err = errors.New("contract out of funds")
 		return
 	}
 
@@ -179,17 +223,6 @@ FROM contracts WHERE id = $1`,
 		return
 	}
 
-	// delete from redis to prevent double-calls (will fail in __init__ calls)
-	rds.Del("call:" + call.Id)
-
-	log.Info().Str("callid", call.Id).Interface("payments", paymentsPending).
-		Msg("call done")
-
-		// everything is saved and well alright.
-	// queue the payments (calls can't be reversed)
-	for _, bolt11 := range paymentsPending {
-		go tryPayment(bolt11, call.Id)
-	}
-
+	log.Info().Str("callid", call.Id).Msg("call done")
 	return
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
+	"github.com/orcaman/concurrent-map"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"gopkg.in/redis.v5"
@@ -33,7 +34,7 @@ type Settings struct {
 	FixedCallCostSatoshis       int `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
 	PaymentRetrySeconds         int `envconfig:"PAYMENT_RETRY_SECONDS" default:"30"`
 
-	Development bool `envconfig:"DEV" default:"false"`
+	FreeMode bool `envconfig:"FREE_MODE" default:"false"`
 }
 
 var err error
@@ -43,6 +44,8 @@ var ln *lightning.Client
 var rds *redis.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 var httpPublic = &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""}
+var userstreams = cmap.New()
+var contractstreams = cmap.New()
 
 func main() {
 	err = envconfig.Process("", &s)
@@ -72,16 +75,16 @@ func main() {
 	}
 
 	// lightningd connection
-	lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
-	ln = &lightning.Client{
-		Path:             s.SocketPath,
-		LastInvoiceIndex: int(lastinvoiceindex),
-		PaymentHandler:   handleInvoicePaid,
+	if !s.FreeMode {
+		lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
+		ln = &lightning.Client{
+			Path:             s.SocketPath,
+			LastInvoiceIndex: int(lastinvoiceindex),
+			PaymentHandler:   handleInvoicePaid,
+		}
+		log.Debug().Int64("index", lastinvoiceindex).Msg("listening for invoices")
+		ln.ListenForInvoices()
 	}
-	ln.ListenForInvoices()
-
-	// pause here until lightningd works
-	probeLightningd()
 
 	// http server
 	router := mux.NewRouter()
@@ -96,17 +99,18 @@ func main() {
 		})
 	router.Path("/~/contracts").Methods("GET").HandlerFunc(listContracts)
 	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
-	router.Path("/~/contract/{ctid}/refill/{sats}").Methods("GET").HandlerFunc(refillContract)
 	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
 	router.Path("/~/contract/{ctid}/state").Methods("GET").HandlerFunc(getContractState)
 	router.Path("/~/contract/{ctid}/funds").Methods("GET").HandlerFunc(getContractFunds)
-	router.Path("/~/contract/{ctid}").Methods("POST").HandlerFunc(makeContract)
 	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
 	router.Path("/~/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
+	router.Path("/~/contract/{ctid}/stream").Methods("GET").HandlerFunc(contractStream)
 	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
 	router.Path("/~/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
-	router.Path("/~/call/{callid}").Methods("POST").HandlerFunc(makeCall)
-	router.Path("/~/retry/{bolt11}").Methods("POST").HandlerFunc(retryPayment)
+	router.Path("/lnurl/session").Methods("GET").HandlerFunc(lnurlSession)
+	router.Path("/lnurl/auth").Methods("GET").HandlerFunc(lnurlAuth)
+	router.Path("/lnurl/withdraw").Methods("GET").HandlerFunc(lnurlWithdraw)
+	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{
@@ -141,23 +145,6 @@ func main() {
 	}
 
 	<-idleConnsClosed
-}
-
-func probeLightningd() {
-	nodeinfo, err := ln.Call("getinfo")
-	if err != nil {
-		log.Warn().Err(err).Msg("can't talk to lightningd. retrying.")
-		time.Sleep(time.Second * 5)
-		probeLightningd()
-		return
-	}
-	log.Info().
-		Str("id", nodeinfo.Get("id").String()).
-		Str("alias", nodeinfo.Get("alias").String()).
-		Int64("channels", nodeinfo.Get("num_active_channels").Int()).
-		Int64("blockheight", nodeinfo.Get("blockheight").Int()).
-		Str("version", nodeinfo.Get("version").String()).
-		Msg("lightning node connected")
 }
 
 func serveClient(w http.ResponseWriter, r *http.Request) {

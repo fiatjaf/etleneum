@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -17,7 +16,7 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 
 	var calls []types.Call
 	err = pg.Select(&calls, `
-SELECT *
+SELECT `+types.CALLFIELDS+`
 FROM calls
 WHERE contract_id = $1
 ORDER BY time DESC
@@ -47,8 +46,19 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	call.ContractId = ctid
-	call.Id = cuid.Slug()
+	call.Id = "r" + cuid.Slug()
 	logger = logger.With().Str("callid", call.Id).Logger()
+
+	// if the user has authorized and want to make an authenticated call
+	if session := r.URL.Query().Get("session"); session != "" {
+		if accountId, err := rds.Get("auth-session:" + session).Result(); err != nil {
+			log.Warn().Err(err).Str("session", session).Msg("failed to get account for authenticated session")
+			jsonError(w, "failed to get account for authenticated session", 400)
+			return
+		} else {
+			call.Caller = accountId
+		}
+	}
 
 	// verify call is valid as best as possible
 	if len(call.Method) == 0 || call.Method[0] == '_' {
@@ -83,7 +93,8 @@ func getCall(w http.ResponseWriter, r *http.Request) {
 
 	call := &types.Call{}
 	err = pg.Get(call, `
-SELECT * FROM calls WHERE id = $1
+SELECT `+types.CALLFIELDS+`
+FROM calls WHERE id = $1
     `, callid)
 	if err == sql.ErrNoRows {
 		call, err = callFromRedis(callid)
@@ -140,44 +151,4 @@ func patchCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: call})
-}
-
-func makeCall(w http.ResponseWriter, r *http.Request) {
-	callid := mux.Vars(r)["callid"]
-	logger := log.With().Str("callid", callid).Logger()
-
-	call, err := callFromRedis(callid)
-	if err != nil {
-		logger.Warn().Err(err).Msg("failed to fetch call from redis")
-		jsonError(w, "couldn't find call "+callid+", it may have expired.", 404)
-		return
-	}
-
-	logger.Info().Interface("call", call).Msg("call being made")
-	label := s.ServiceId + "." + call.ContractId + "." + callid
-	_, err = checkPayment(label, call.Cost+call.Satoshis*1000)
-	if err != nil {
-		logger.Warn().Err(err).Msg("payment check failed")
-		jsonError(w, "Payment check failed.", 402)
-		return
-	}
-
-	// proceed to run the call
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		logger.Warn().Err(err).Msg("transaction start failed")
-		jsonError(w, "database error", 500)
-		return
-	}
-	defer txn.Rollback()
-	returnedValue, err := runCall(call, txn)
-	if err != nil {
-		logger.Warn().Err(err).Str("ctid", call.ContractId).Msg("failed to run call")
-		jsonError(w, "failed to run call: "+err.Error(), 500)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: returnedValue})
 }

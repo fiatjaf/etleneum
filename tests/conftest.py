@@ -3,12 +3,11 @@ import shutil
 import tempfile
 import subprocess
 
-import requests
 import pytest
 from lightning import LightningRpc
 from bitcoin import BitcoinRPC
 
-from .utils import TailableProc, wait_for, Contract
+from .utils import TailableProc, wait_for
 
 bitcoind_bin = os.getenv("BITCOIND")
 lightningd_bin = os.getenv("LIGHTNINGD")
@@ -26,11 +25,9 @@ def bitcoin_dir():
 def lightning_dirs():
     lightning_a = tempfile.mkdtemp(prefix="lightning-a.")
     lightning_b = tempfile.mkdtemp(prefix="lightning-b.")
-    lightning_c = tempfile.mkdtemp(prefix="lightning-c.")
-    yield [lightning_a, lightning_b, lightning_c]
+    yield [lightning_a, lightning_b]
     shutil.rmtree(lightning_a)
     shutil.rmtree(lightning_b)
-    shutil.rmtree(lightning_c)
 
 
 @pytest.fixture
@@ -88,18 +85,17 @@ def lightnings(bitcoin_dir, bitcoind, lightning_dirs):
     for rpc in rpcs:
         wait_for(lambda: len(rpc.listfunds()["outputs"]) == 1, timeout=60)
 
-    # make a ring of channels
-    for i in range(len(rpcs)):
-        f = rpcs[(i + 1) % len(rpcs)]  # from
-        t = rpcs[i]  # to
-        tinfo = t.getinfo()
-        f.connect(
-            tinfo["id"], tinfo["binding"][0]["address"], tinfo["binding"][0]["port"]
-        )
-        num_tx = len(bitcoin_rpc.getrawmempool())
-        f.fundchannel(tinfo["id"], 10000000)
-        wait_for(lambda: len(bitcoin_rpc.getrawmempool()) == num_tx + 1)
-        bitcoin_rpc.generate(1)
+    # make a channel between the two
+    t = rpcs[0]
+    f = rpcs[1]
+    tinfo = t.getinfo()
+    f.connect(
+        tinfo["id"], tinfo["binding"][0]["address"], tinfo["binding"][0]["port"]
+    )
+    num_tx = len(bitcoin_rpc.getrawmempool())
+    f.fundchannel(tinfo["id"], 10000000)
+    wait_for(lambda: len(bitcoin_rpc.getrawmempool()) == num_tx + 1)
+    bitcoin_rpc.generate(1)
 
     # wait for channels
     for proc in procs:
@@ -128,7 +124,7 @@ def init_db():
 
     # destroy db
     end = subprocess.run(
-        "psql {url} -c 'drop table contracts cascade; drop table calls;'".format(
+        "psql {url} -c 'drop table if exists withdrawals; drop table if exists internal_transfers; drop table if exists calls; drop table if exists contracts cascade; drop table if exists accounts cascade;'".format(
             url=db
         ),
         shell=True,
@@ -143,6 +139,12 @@ def init_db():
     )
     print("db creation stdout: " + end.stdout.decode("utf-8"))
     print("db creation stderr: " + end.stderr.decode("utf-8"))
+
+    # create an account
+    subprocess.run(
+        """psql {url} -c "insert into accounts values ('account1', 'xxx')"
+        """.format(url=db), shell=True, capture_output=True
+    )
 
 
 @pytest.fixture
@@ -169,20 +171,3 @@ def etleneum(init_db, flush_redis, lightning_dirs, lightnings):
     yield proc, env["SERVICE_URL"]
 
     proc.stop()
-
-
-@pytest.fixture
-def make_contract(etleneum, lightnings):
-    etleneum_proc, url = etleneum
-    _, [rpc_a, rpc_b, *_] = lightnings
-
-    def make(**ctdata):
-        r = requests.post(url + "/~/contract", json=ctdata)
-        ctid = r.json()["value"]["id"]
-        rpc_b.pay(r.json()["value"]["invoice"])
-        rpc_a.waitinvoice("{}.{}".format(os.getenv("SERVICE_ID"), ctid))
-        r = requests.post(url + "/~/contract/" + ctid)
-        r.raise_for_status()
-        return Contract(ctid, url, rpc_a, rpc_b, etleneum_proc)
-
-    return make
