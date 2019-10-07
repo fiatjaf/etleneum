@@ -127,3 +127,19 @@ func getContractFunds(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: funds})
 }
+
+func deleteContract(w http.ResponseWriter, r *http.Request) {
+	var funds int
+	err = pg.Get(&funds, `
+DELETE FROM contracts
+WHERE id = $1
+  AND contract.funds = 0
+  AND created_at + '7 days'::interval > now()
+    `, mux.Vars(r)["ctid"])
+	if err != nil {
+		jsonError(w, "can't delete contract", 404)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Result{Ok: true})
+}
