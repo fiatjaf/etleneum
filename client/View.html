@@ -1,7 +1,7 @@
 <!-- @format -->
 
 <script>
-  import {onMount} from 'svelte'
+  import {onMount, onDestroy} from 'svelte'
   import {replace} from 'svelte-spa-router'
 
   import QR from './QR.html'
@@ -16,7 +16,11 @@
   let methods = []
   let payloadfields = []
 
-  onMount(async () => {
+  onMount(() => {
+    loadContract()
+  })
+
+  async function loadContract() {
     let r = await fetch('/~/contract/' + params.ctid)
     if (r.status == 404) replace('/notfound')
     contract = (await r.json()).value
@@ -24,11 +28,11 @@
     let parsed = parseCode(contract.code)
     methods = parsed.methods
     payloadfields = parsed.payloadfields
-    nextcall.method = methods[0]
+    nextcall.method = methods.length ? methods[0] : null
 
     r = await fetch('/~/contract/' + params.ctid + '/calls')
     calls = (await r.json()).value
-  })
+  }
 
   function parseCode(code) {
     var methods = []
@@ -38,6 +42,14 @@
     var payloadfields = []
     code.replace(/\bpayload\.([\w_]+)/, (_, pf) => payloadfields.push(pf))
     return {methods, payloadfields}
+  }
+
+  function resetNextCall() {
+    nextcall = {
+      msatoshi: 0,
+      payload: {},
+      method: methods.length ? methods[0] : null
+    }
   }
 
   async function prepareCall(e) {
@@ -80,6 +92,36 @@
 
     nextcall.payload[pf] = jsonvalue
   }
+
+  let es = null
+  onMount(() => {
+    es = new EventSource('/~/contract/' + params.ctid + '/stream')
+    es.addEventListener('contract-created', e => {
+      let data = JSON.parse(e.data)
+      toast.success(`contract ${data.id} created!`)
+      loadContract()
+    })
+    es.addEventListener('contract-error', e => {
+      let data = JSON.parse(e.data)
+      toast.warning(`${data.kind} error creating contract: ${data.error}`)
+    })
+    es.addEventListener('call-made', e => {
+      let data = JSON.parse(e.data)
+      toast.success(`call ${data.id} made!`)
+      resetNextCall()
+      loadContract()
+    })
+    es.addEventListener('call-error', e => {
+      let data = JSON.parse(e.data)
+      toast.warning(`${data.kind} error making call: ${data.error}`)
+      resetNextCall()
+    })
+  })
+  onDestroy(() => {
+    setTimeout(() => {
+      es.close()
+    }, 1000)
+  })
 </script>
 
 <style>
@@ -166,8 +208,9 @@
           value="{nextcall.payload[pf] || ''}"
           on:input="{setPayloadField}"
       /></label>
-      {/each}
-      <label>payload: <Json value="{nextcall.payload}"/></label>
+      {/each} {#if Object.keys(nextcall.payload).length > 0}
+      <label>payload: <Json value="{nextcall.payload}" /> </label>
+      {/if}
       <button>prepare call</button>
     </form>
     {/if}{/if}

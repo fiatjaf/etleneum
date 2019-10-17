@@ -76,7 +76,7 @@ VALUES ($1, $2, $3, $4, '{}')
 			err = runCall(call, txn)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to run call")
-				dispatchContractEvent(contractId, ctevent{contractId, "", err.Error(), "run"}, "contract-error")
+				dispatchContractEvent(contractId, ctevent{contractId, "", err.Error(), "runtime"}, "contract-error")
 				return
 			}
 			dispatchContractEvent(contractId, ctevent{contractId, "", "", ""}, "contract-created")
@@ -110,7 +110,7 @@ VALUES ($1, $2, $3, $4, '{}')
 			err = runCall(call, txn)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to run call")
-				dispatchContractEvent(contractId, ctevent{callId, call.ContractId, err.Error(), "run"}, "call-error")
+				dispatchContractEvent(contractId, ctevent{callId, call.ContractId, err.Error(), "runtime"}, "call-error")
 				return
 			}
 

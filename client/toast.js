@@ -5,7 +5,7 @@ import Toastify from 'toastify-js'
 function toast(type, html) {
   Toastify({
     text: html,
-    duration: 5000,
+    duration: 7000,
     close: false,
     gravity: 'top',
     positionLeft: false,
