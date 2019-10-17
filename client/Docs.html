@@ -1,0 +1,226 @@
+<!-- @format -->
+
+<script>
+  import LuaCode from './LuaCode.html'
+</script>
+
+<style>
+  pre {
+    padding: 5px;
+  }
+  code {
+    padding: 1px;
+    background-color: var(--lightgrey);
+  }
+</style>
+
+<h1 id="writing-a-contract">Writing a contract</h1>
+<p>
+  A contract consists of a <strong>state</strong>, some
+  <strong>funds</strong> and multiple <strong>methods</strong>, which can be
+  called by anyone and may affect the contract state, make GET requests to other
+  places on the internet and pay Lightning Network invoices. What we call
+  methods are just Lua functions.<br />
+  See the following example of a simple ICO contract code:
+</p>
+<LuaCode code={`function __init__ () return &#123; name=&#39;my ico&#39;,
+balances=&#123;&#125; &#125; end function buytoken () local price = 5 local
+amount = payload.amount local user = payload.user if satoshis == amount * price
+then current = state.balances[user] if current == nil then current = 0 end
+state.balances[user] = current + amount else error(&#39;insufficient
+payment&#39;) end end function cashout () local invoice = payload._invoice
+ln.pay(invoice,
+&#123;hash=&#39;fe713e5392f149bc15f8fc94f81b5c86a0a1cae886a7e1b7d1fa3b80827aef88&#39;&#125;)
+end`} />
+<p>
+  All what that contract does is to accept satoshis in the
+  <code>buytoken</code> method and assign balances of an unnamed mysterious
+  token to the payer. Each token costs 5 sat and the method checks if the
+  quantity the buyer wants matchs the amount of satoshis he has included in the
+  call. Note that, because this is just an example, there aren't any
+  considerations of identification or authentication, users are just arbitrary
+  names defined by the buyer.<br />
+  The other method, <code>cashout</code> is used by the token issuer to grab the
+  money it has secured in the ICO and go away. As the contract is just an
+  example, the method it uses to cash out is to send an invoice with a
+  predefined hash (to which he must know the preimage beforehand). Since a
+  preimage can be only used once this contract will only be able to be
+  cashed-out once.<br />
+  Other things you must know:
+</p>
+<ul>
+  <li>
+    Each contract must have an <code>__init__</code> method. That is a special
+    method that is called only when the contract is created, it must return a
+    Lua table that will server as the initial contract state.
+  </li>
+  <li>
+    All other top level functions are methods callable from the external world.
+  </li>
+  <li>
+    Even if an HTTP request or an <code>ln.pay</code> call fail, the call will
+    still be ok and the contract state will still be updated and so on. If you
+    want the call to fail completely you must call the Lua function
+    <code>error()</code>.
+  </li>
+  <li>
+    <p>
+      No one is able to change a contract's code after it has been activated,
+      not even the contract creator.
+    </p>
+    <h1 id="calling-a-contract">Calling a contract</h1>
+    When you make a call, you send 3 things to the contract:
+  </li>
+  <li>
+    A string <strong>method</strong> with the name of the contract method you're
+    calling.
+  </li>
+  <li>
+    A JSON <strong>payload</strong>. It can be anything and will be available as
+    the global<br />
+    variable <code>payload</code> inside the call.
+  </li>
+  <li>
+    <p>
+      An integer representing the number of <strong>satoshis</strong> to include
+      in your call. Some<br />
+      methods may require you to include a certain number of satoshis so they
+      can be<br />
+      effective. The invoice you're required to pay to make any call includes
+      this<br />
+      number of satoshis plus a small cost. The number of satoshis is available
+      to the<br />
+      call as the global variable <code>satoshis</code>. Regardless of what the
+      contract code does<br />
+      with it, the satoshis are added to the contract funds.<br />
+      After sending these you'll receive an invoice. Pay that invoice and
+      proceed to make the call. It will run the contract's given
+      <strong>method</strong> and update it accordingly. That's all.
+    </p>
+    <h1 id="contract-api">Contract API</h1>
+    Contract code have access to the standard
+    <a href="https://www.lua.org/manual/5.3/manual.html#6">Lua</a> library,
+    excluding potentially harmful stuff. Plus the values of
+  </li>
+  <li><code>satoshis</code> (see above);</li>
+  <li><code>payload</code> (see above);</li>
+  <li>
+    <code>state</code>, the current state of the contract, it can be modified
+    in-place;
+  </li>
+  <li><code>call</code>, the call id; and</li>
+  <li>
+    the following special functions:
+    <ul>
+      <li>
+        <code>util.sha256(string)</code> returns the hash of the given string.
+      </li>
+      <li>
+        <code>util.cuid()</code> returns a
+        <a href="http://usecuid.org/">cuid</a>, useful for identifying objects.
+      </li>
+      <li>
+        <code>http.gettext(url[, headers])</code> returns the text body of the
+        response to the given URL call or <code>nil, errormessage</code>.
+      </li>
+      <li>
+        <code>http.getjson(url[, headers])</code> does the same, but returns a
+        table with the decoded JSON instead of raw text.
+      </li>
+      <li>
+        <code>os.date</code>, <code>os.time</code> are
+        <code>os.difftime</code> are the same as
+        <a href="https://www.lua.org/pil/22.1.html">explained here</a>
+      </li>
+      <li>
+        <code>keybase.verify(username, text, signature)</code> takes a Keybase
+        username, the plaintext and the PGP signature, armored, as produced by
+        <a href="https://keybase.io/sign" class="uri"
+          >https://keybase.io/sign</a
+        >
+        and returns true or false and optionally an error when the check failed
+        for reasons other than mismatched signatures.
+      </li>
+      <li>
+        <code>keybase.exists(username)</code> checks if the given Keybase
+        username exists and returns true or false.
+      </li>
+      <li>
+        <p>
+          <code>keybase.github(username)</code>,
+          <code>keybase.domain(domain)</code> (and so on) returns the Keybase
+          username for the user associated with the account in the given
+          provider, or an empty string otherwise. Optionally an error will also
+          be returned.
+        </p>
+      </li>
+    </ul>
+  </li>
+  <h1 id="json-api">JSON API</h1>
+  Anything you can do on this website you can also do through Etleneum's public
+  JSON API.
+  <li>
+    <code>Contract</code>:
+    <code
+      >&#123;id: String, code: String, name: String, readme: String, funds:
+      Int&#125;</code
+    >
+  </li>
+  <li>
+    <code>Call</code>:
+    <code
+      >&#123;id: String, time: String, method: String, payload: Any, satoshis:
+      Int, cost: Int, paid: Int&#125;</code
+    ><br />
+    All paths start at <code>https://etleneum.com</code> and must be called with
+    <code>Content-Type: application/json</code>. All methods are
+    <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a
+    >-enabled and no authorization mechanism is required or supported.<br />
+    All calls return an object of type
+    <code>&#123;ok: Bool, error: String, value: Any&#125;</code>. The relevant
+    data is always in the <code>value</code> key and <code>error</code> is only
+    present when the call has failed. In the following endpoint descriptions we
+    omit the <code>ok/value</code> envelope and show just what should be inside
+    <code>value</code>.
+  </li>
+  <li>
+    <code>GET</code> <code>/~/contracts</code> lists all the contracts, sorted
+    by the most recent activity, returns <code>[Contract]</code>;
+  </li>
+  <li>
+    <code>POST</code> <code>/~/contract</code> prepares a new contract, takes
+    <code>&#123;name: String, code: String, readme: String&#125;</code>, returns
+    <code>&#123;id: String, invoice: String&#125;</code>;
+  </li>
+  <li>
+    <code>GET</code> <code>/~/contract/&lt;id&gt;</code> returns the full
+    contract info, <code>Contract</code>;
+  </li>
+  <li>
+    <code>GET</code> <code>/~/contract/&lt;id&gt;/state</code> returns just the
+    contract state, <code>Any</code>;
+  </li>
+  <li>
+    <code>GET</code> <code>/~/contract/&lt;id&gt;/funds</code> returns just the
+    contract funds, in msat, <code>Int</code>;
+  </li>
+  <li>
+    <code>GET</code> <code>/~/contract/&lt;id&gt;/calls</code> lists all
+    contract calls, sorted by most recent first, returns <code>[Call]</code>;
+  </li>
+  <li>
+    <code>POST</code> <code>/~/contract/&lt;id&gt;/call</code> prepares a new
+    call, takes
+    <code>&#123;method: String, payload: Any, satoshis: Int&#125;</code>,
+    returns <code>&#123;id: String, invoice: String&#125;</code>;
+  </li>
+  <li>
+    <code>GET</code> <code>/~/call/&lt;id&gt;</code> returns the full call info,
+    <code>Call</code>;
+  </li>
+  <li>
+    <code>PATCH</code> <code>/~/call/&lt;id&gt;</code> takes anything passed in
+    the JSON body and patches it to the current prepared call
+    <strong>payload</strong>, returns the full call info, <code>Call</code>;
+  </li>
+</ul>

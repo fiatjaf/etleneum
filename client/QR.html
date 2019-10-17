@@ -1,0 +1,26 @@
+<!-- @format -->
+
+<script>
+  import {onMount} from 'svelte'
+  import kjua from 'kjua'
+
+  export var value
+  export var color
+  export var label
+
+  let id = parseInt(Math.random() * 100000)
+
+  onMount(() => {
+    let el = kjua({
+      text: value,
+      label,
+      fontcolor: color,
+      back: 'transparent',
+      size: 300
+    })
+
+    document.getElementById('c-' + id).appendChild(el)
+  })
+</script>
+
+<div id="c-{id}"></div>

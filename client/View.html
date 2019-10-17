@@ -1,0 +1,179 @@
+<!-- @format -->
+
+<script>
+  import {onMount} from 'svelte'
+  import {replace} from 'svelte-spa-router'
+
+  import QR from './QR.html'
+  import Json from './Json.html'
+  import LuaCode from './LuaCode.html'
+
+  export let params
+  let contract
+  let calls = []
+  let nextcall = {msatoshi: 0, payload: {}}
+  let methods = []
+  let payloadfields = []
+
+  onMount(async () => {
+    let r = await fetch('/~/contract/' + params.ctid)
+    if (r.status == 404) replace('/notfound')
+    contract = (await r.json()).value
+
+    let parsed = parseCode(contract.code)
+    methods = parsed.methods
+    payloadfields = parsed.payloadfields
+
+    r = await fetch('/~/contract/' + params.ctid + '/calls')
+    calls = (await r.json()).value
+  })
+
+  function parseCode(code) {
+    var methods = []
+    code.replace(/[\n^]function +([^_][\w_]+) *\(/g, (_, methodName) =>
+      methods.push(methodName)
+    )
+    var payloadfields = []
+    code.replace(/\bpayload\.([\w_]+)/, (_, pf) => payloadfields.push(pf))
+    return {methods, payloadfields}
+  }
+
+  async function prepareCall(e) {
+    e.preventDefault()
+
+    let r = await fetch('/~/contract/' + params.ctid + '/call', {
+      method: 'post',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(nextcall)
+    })
+    let {invoice} = (await r.json()).value
+    nextcall.invoice = invoice
+  }
+
+  function setMsatoshi(e) {
+    nextcall.msatoshi = parseInt(e.target.value) * 1000
+  }
+
+  function setPayloadField(e) {
+    let pf = e.currentTarget.dataset.field
+
+    var jsonvalue
+    if (e.target.value === '') {
+      jsonvalue = undefined
+    } else {
+      try {
+        jsonvalue = JSON.parse(e.target.value)
+      } catch (e) {
+        jsonvalue = e.target.value
+      }
+    }
+
+    nextcall.payload[pf] = jsonvalue
+  }
+</script>
+
+<style>
+  main {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  #status {
+    width: 58%;
+  }
+  #action {
+    margin-left: 2%;
+    width: 40%;
+  }
+  #action label {
+    display: block;
+  }
+  #action input,
+  #action select #action textarea {
+    display: block;
+    width: 100%;
+  }
+  button {
+    cursor: pointer;
+    margin: 12px;
+    padding: 12px;
+    font-size: 1.2rem;
+    background-color: var(--yellow);
+  }
+  #calls {
+    margin-top: 2%;
+    width: 100%;
+  }
+  .call {
+    display: flex;
+  }
+  .call > * {
+    border: 1px solid var(--softblue);
+    padding: 1px;
+    margin: 2px;
+  }
+</style>
+
+{#if !contract} loading {:else if contract.invoice && !contract.invoice_paid}
+<QR
+  value="{contract.invoice}"
+  label="activate contract {contract.id}"
+  color="#333"
+/>
+{:else}
+<main>
+  <div id="status">
+    <h1>{contract.name}</h1>
+    <div>{(contract.funds/1000).toString(3)} sat</div>
+    <h4>state</h4>
+    <Json value="{contract.state}" />
+    <h4>readme</h4>
+    <div>{contract.readme}</div>
+    <h4>code</h4>
+    <LuaCode code="{contract.code}" />
+  </div>
+  <div id="action">
+    <h2>make a call</h2>
+    {#if nextcall.invoice}
+    <QR value="{nextcall.invoice}" />
+    {:else}
+    <form on:submit="{prepareCall}">
+      <label
+        >method:
+        <select bind:value="{nextcall.method}"
+          >{#each methods as method}<option>{method}</option>{/each}</select
+        ></label
+      >
+      <label
+        >satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
+        on:input="{setMsatoshi}" /></label
+      >
+      {#each payloadfields as pf}
+      <label
+        >{pf}:
+        <input
+          data-field="{pf}"
+          value="{nextcall.payload[pf] || ''}"
+          on:input="{setPayloadField}"
+      /></label>
+      {/each}
+      <label>payload: <Json value="{nextcall.payload}"/></label>
+      <button>prepare call</button>
+    </form>
+    {/if}
+  </div>
+  <div id="calls">
+    <h2>call history</h2>
+    {#each calls as call}
+    <div class="call">
+      <div>{call.id}</div>
+      <div>{call.method}</div>
+      <div>{call.time}</div>
+      <div>{parseInt(call.msatoshi/1000)} sat</div>
+      <div>{call.caller ? call.caller : 'anonymous'}</div>
+      <div>{JSON.stringify(call.payload)}</div>
+    </div>
+    {/each}
+  </div>
+</main>
+{/if}

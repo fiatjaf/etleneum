@@ -19,19 +19,8 @@ watch:
 bindata.go: $(shell find static)
 	go-bindata -debug -o bindata.go static/...
 
-runlua/assets/bindata.go: $(shell find runlua/assets)
+runlua/assets/bindata.go: $(shell find runlua/assets ! -name "bindata.go")
 	go-bindata -pkg assets -o runlua/assets/bindata.go -ignore=.*\.go runlua/assets/...
 
-static/bundle.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
-	bsb -make-world
-	./node_modules/.bin/browserifyinc client/App.bs.js -dv --outfile static/bundle.js
-
-static/bundle.min.js: $(shell find client -name "*.re" -o -name "*.js" ! -name "*.bs.js")
-	bsb -make-world
-	./node_modules/.bin/browserify client/App.bs.js -g [ envify --NODE_ENV production ] -g uglifyify | ./node_modules/.bin/terser --compress --mangle > static/bundle.min.js
-
-static/style.css: client/style.styl
-	./node_modules/.bin/stylus < client/style.styl > static/style.css
-
-static/style.min.css: client/style.styl
-	./node_modules/.bin/stylus -c < client/style.styl > static/style.min.css
+static/bundle.js: $(shell find client)
+	./node_modules/.bin/rollup -c

@@ -1,0 +1,31 @@
+<!-- @format -->
+
+<script>
+  import {onMount} from 'svelte'
+
+  import hljs from 'highlight.js/lib/highlight'
+  import lua from 'highlight.js/lib/languages/lua'
+  hljs.registerLanguage('lua', lua)
+
+  export var code
+
+  let id = parseInt(Math.random() * 100000)
+
+  onMount(() => {
+    let container = document.getElementById('c-' + id)
+    hljs.highlightBlock(container)
+  })
+</script>
+
+<style>
+  code {
+    font-size: 0.8rem;
+  }
+</style>
+
+<svelte:head>
+  <link rel=stylesheet
+  href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.10/styles/github.min.css
+  />
+</svelte:head>
+<pre><code id="c-{id}" class="lua">{code}</code></pre>

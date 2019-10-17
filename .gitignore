@@ -9,8 +9,8 @@ bindata.go
 static/*.js
 static/*.js.*
 static/*.css
-client/*.bs.js
 venv
 __pycache__
 browserify-cache.json
 runcall
+static/*bundle*

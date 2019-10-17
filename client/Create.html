@@ -1,0 +1,53 @@
+<!-- @format -->
+
+<script>
+  import {push} from 'svelte-spa-router'
+
+  const emptyContract = {
+    name: '',
+    readme: '',
+    code: ''
+  }
+
+  let contract = {...emptyContract}
+
+  async function prepare(e) {
+    // when the invoice is paid the contract will be created
+    e.preventDefault()
+
+    let r = await fetch('/~/contract', {
+      method: 'post',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(contract)
+    })
+    let {id} = (await r.json()).value
+    push('/contract/' + id)
+  }
+</script>
+
+<style>
+  label {
+    display: block;
+    margin: 12px;
+  }
+  input,
+  textarea {
+    display: block;
+    width: 100%;
+    font-size: 1.3rem;
+  }
+  button {
+    cursor: pointer;
+    margin: 12px;
+    padding: 12px;
+    font-size: 1.4rem;
+    background-color: var(--yellow);
+  }
+</style>
+
+<form on:submit="{prepare}">
+  <label>name:<input bind:value="{contract.name}"/></label>
+  <label>readme: <textarea bind:value="{contract.readme}"/></label>
+  <label>code:<textarea bind:value="{contract.code}"/></label>
+  <button>prepare contract</button>
+</form>

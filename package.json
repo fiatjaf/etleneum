@@ -1,54 +1,18 @@
 {
-  "browserify": {
-    "transform": [
-      "browserify-global-shim",
-      [
-        "babelify",
-        {
-          "sourceMaps": true,
-          "sourceMapsAbsolute": true
-        }
-      ],
-      "envify",
-      "brfs"
-    ]
-  },
-  "browserify-global-shim": {
-    "fengari": "fengari"
-  },
   "devDependencies": {
-    "@babel/core": "7.0.0-rc.1",
-    "@babel/preset-env": "7.0.0-rc.1",
-    "@babel/preset-react": "7.0.0-rc.1",
-    "babelify": "^9.0.0",
-    "brfs": "^2.0.1",
-    "browserify": "^16.2.2",
-    "browserify-global-shim": "^1.0.3",
-    "envify": "^4.1.0",
-    "glua": "^1.0.2",
-    "prettier": "1.14.2",
-    "stylus": "^0.54.5",
-    "terser": "^3.16.1",
-    "uglifyify": "^5.0.1"
+    "npm-run-all": "^4.1.5",
+    "prettier-plugin-svelte": "^0.7.0",
+    "rollup": "^1.12.0",
+    "rollup-plugin-commonjs": "^10.0.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-svelte": "^5.0.3",
+    "rollup-plugin-terser": "^4.0.4",
+    "svelte": "^3.0.0"
   },
   "dependencies": {
-    "@glennsl/bs-json": "^3.0.0",
-    "@glennsl/bs-revamp": "^0.1.1",
-    "@glennsl/rebase": "^0.2.1",
-    "browserify-incremental": "^3.1.1",
-    "bs-fetch": "^0.3.1",
-    "cuid": "^2.1.6",
-    "flua": "^0.2.2",
-    "js-sha256": "^0.9.0",
-    "lightnode-invoice": "^0.3.0",
-    "markdown-it": "^8.4.2",
-    "markdown-it-anchor": "^5.0.2",
-    "markdown-it-container": "^2.0.0",
-    "markdown-it-link-attributes": "^2.1.0",
-    "react": "^16.7.0",
-    "react-dom": "^16.7.0",
-    "react-json-view": "^1.19.1",
-    "react-qr-svg": "^2.1.0",
-    "reason-react": "^0.5.3"
+    "dom-json-tree": "^1.0.6",
+    "highlight.js": "^9.15.10",
+    "kjua": "^0.6.0",
+    "svelte-spa-router": "^1.2.1"
   }
 }
