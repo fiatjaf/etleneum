@@ -3,6 +3,8 @@
 <script>
   import {push} from 'svelte-spa-router'
 
+  import * as toast from './toast'
+
   const emptyContract = {
     name: '',
     readme: '',
@@ -20,7 +22,14 @@
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(contract)
     })
-    let {id} = (await r.json()).value
+    let resp = await r.json()
+
+    if (!resp.ok) {
+      toast.warning(resp.error)
+      return
+    }
+
+    let {id} = resp.value
     push('/contract/' + id)
   }
 </script>

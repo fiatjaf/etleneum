@@ -5,16 +5,15 @@
   import kjua from 'kjua'
 
   export var value
-  export var color
-  export var label
+  export var color = '#333'
 
   let id = parseInt(Math.random() * 100000)
 
   onMount(() => {
     let el = kjua({
+      rounded: 100,
       text: value,
-      label,
-      fontcolor: color,
+      fill: color,
       back: 'transparent',
       size: 300
     })

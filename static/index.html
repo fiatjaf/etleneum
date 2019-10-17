@@ -1,11 +1,21 @@
-<!doctype html>
+<!-- @format -->
 
-<meta charset=utf-8>
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<!DOCTYPE html>
+
+<meta charset="utf-8" />
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, shrink-to-fit=no"
+/>
 <title>etleneum - the centralized smart contract platform</title>
-<meta name="description" content="open lapps without infrastructure">
-<link rel="stylesheet" href="/static/global.css">
-<link rel="stylesheet" href="/static/bundle.css">
+<meta name="description" content="open lapps without infrastructure" />
+<link
+  rel="stylesheet"
+  type="text/css"
+  href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+/>
+<link rel="stylesheet" href="/static/global.css" />
+<link rel="stylesheet" href="/static/bundle.css" />
 
 <body>
   <div id="app"></div>
@@ -13,10 +23,10 @@
 
 <script src="/static/bundle.js"></script>
 <script>
-fetch('/~/contract/ew0u7ipyp/state')
-  .then(r => r.json())
-  .then(r => r.value.hue)
-  .then(hue => {
-    document.documentElement.style.backgroundColor = `hsl(${hue}, 66%, 84%)`
-  })
+  fetch('/~/contract/ew0u7ipyp/state')
+    .then(r => r.json())
+    .then(r => r.value.hue)
+    .then(hue => {
+      document.documentElement.style.backgroundColor = `hsl(${hue}, 66%, 84%)`
+    })
 </script>

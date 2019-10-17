@@ -28,4 +28,8 @@
   href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.10/styles/github.min.css
   />
 </svelte:head>
-<pre><code id="c-{id}" class="lua">{code}</code></pre>
+<pre>
+  <code id="c-{id}" class="lua">
+    <slot></slot>
+  </code>
+</pre>

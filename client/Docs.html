@@ -19,33 +19,19 @@
   A contract consists of a <strong>state</strong>, some
   <strong>funds</strong> and multiple <strong>methods</strong>, which can be
   called by anyone and may affect the contract state, make GET requests to other
-  places on the internet and pay Lightning Network invoices. What we call
-  methods are just Lua functions.<br />
+  places on the internet and manage the contract funds. What we call
+  <em>methods</em> are just Lua functions.
+</p>
+<p>
   See the following example of a simple ICO contract code:
 </p>
-<LuaCode code={`function __init__ () return &#123; name=&#39;my ico&#39;,
-balances=&#123;&#125; &#125; end function buytoken () local price = 5 local
-amount = payload.amount local user = payload.user if satoshis == amount * price
-then current = state.balances[user] if current == nil then current = 0 end
-state.balances[user] = current + amount else error(&#39;insufficient
-payment&#39;) end end function cashout () local invoice = payload._invoice
-ln.pay(invoice,
-&#123;hash=&#39;fe713e5392f149bc15f8fc94f81b5c86a0a1cae886a7e1b7d1fa3b80827aef88&#39;&#125;)
-end`} />
+<LuaCode>
+  function __init__ () end function
+</LuaCode>
 <p>
-  All what that contract does is to accept satoshis in the
-  <code>buytoken</code> method and assign balances of an unnamed mysterious
-  token to the payer. Each token costs 5 sat and the method checks if the
-  quantity the buyer wants matchs the amount of satoshis he has included in the
-  call. Note that, because this is just an example, there aren't any
-  considerations of identification or authentication, users are just arbitrary
-  names defined by the buyer.<br />
-  The other method, <code>cashout</code> is used by the token issuer to grab the
-  money it has secured in the ICO and go away. As the contract is just an
-  example, the method it uses to cash out is to send an invoice with a
-  predefined hash (to which he must know the preimage beforehand). Since a
-  preimage can be only used once this contract will only be able to be
-  cashed-out once.<br />
+  The contract above does ...
+</p>
+<p>
   Other things you must know:
 </p>
 <ul>
@@ -58,15 +44,17 @@ end`} />
     All other top level functions are methods callable from the external world.
   </li>
   <li>
-    Even if an HTTP request or an <code>ln.pay</code> call fail, the call will
-    still be ok and the contract state will still be updated and so on. If you
-    want the call to fail completely you must call the Lua function
-    <code>error()</code>.
+    Even if an HTTP request or some other contract internal calls fail, the call
+    will still be ok and the contract state will still be updated and so on. If
+    you want the call to fail completely you must check for errors on function
+    calls and call the Lua function <code>error()</code>.
   </li>
   <li>
     <p>
       No one is able to change a contract's code after it has been activated,
-      not even the contract creator.
+      not even the contract creator (but contracts can be deleted if you made a
+      mistake when creating them, provided they're new and don't have any
+      funds).
     </p>
     <h1 id="calling-a-contract">Calling a contract</h1>
     When you make a call, you send 3 things to the contract:
@@ -82,8 +70,8 @@ end`} />
   </li>
   <li>
     <p>
-      An integer representing the number of <strong>satoshis</strong> to include
-      in your call. Some<br />
+      An integer representing the number of <strong>msatoshis</strong> to
+      include in your call. Some<br />
       methods may require you to include a certain number of satoshis so they
       can be<br />
       effective. The invoice you're required to pay to make any call includes

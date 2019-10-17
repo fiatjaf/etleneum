@@ -43,11 +43,11 @@
 <div id="contract-list">
   {#each contracts as ct}
   <div class="ct-list-item" on:click="{goToContract}" data-ctid="{ct.id}">
-    <h1><a href="#/contract/{ct.id}">{ct.id}</a></h1>
+    <h1><a href="#/contract/{ct.id}">{ct.name}</a></h1>
     <table>
       <tr>
-        <td>name</td>
-        <td><b>{ct.name}</b></td>
+        <td>id</td>
+        <td><b>{ct.id}</b></td>
       </tr>
       <tr>
         <td>satoshi</td>

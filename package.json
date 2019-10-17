@@ -13,6 +13,7 @@
     "dom-json-tree": "^1.0.6",
     "highlight.js": "^9.15.10",
     "kjua": "^0.6.0",
-    "svelte-spa-router": "^1.2.1"
+    "svelte-spa-router": "^1.2.1",
+    "toastify-js": "^1.6.1"
   }
 }

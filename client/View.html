@@ -7,6 +7,7 @@
   import QR from './QR.html'
   import Json from './Json.html'
   import LuaCode from './LuaCode.html'
+  import * as toast from './toast'
 
   export let params
   let contract
@@ -23,6 +24,7 @@
     let parsed = parseCode(contract.code)
     methods = parsed.methods
     payloadfields = parsed.payloadfields
+    nextcall.method = methods[0]
 
     r = await fetch('/~/contract/' + params.ctid + '/calls')
     calls = (await r.json()).value
@@ -46,8 +48,16 @@
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(nextcall)
     })
-    let {invoice} = (await r.json()).value
+    let resp = await r.json()
+
+    if (!resp.ok) {
+      toast.warning(resp.error)
+      return
+    }
+
+    let {id, invoice} = resp.value
     nextcall.invoice = invoice
+    nextcall.id = id
   }
 
   function setMsatoshi(e) {
@@ -115,27 +125,27 @@
 </style>
 
 {#if !contract} loading {:else if contract.invoice && !contract.invoice_paid}
-<QR
-  value="{contract.invoice}"
-  label="activate contract {contract.id}"
-  color="#333"
-/>
+<QR value="{contract.invoice}" />
+<p>pay to enable the contract</p>
 {:else}
 <main>
   <div id="status">
     <h1>{contract.name}</h1>
-    <div>{(contract.funds/1000).toString(3)} sat</div>
+    <div>{(contract.funds/1000).toFixed(3)} sat</div>
     <h4>state</h4>
     <Json value="{contract.state}" />
     <h4>readme</h4>
     <div>{contract.readme}</div>
     <h4>code</h4>
-    <LuaCode code="{contract.code}" />
+    <LuaCode>{contract.code}</LuaCode>
   </div>
   <div id="action">
     <h2>make a call</h2>
-    {#if nextcall.invoice}
+    {#if methods.length == 0 }
+    <p>apparently this contract has no callable methods</p>
+    {:else} {#if nextcall.invoice}
     <QR value="{nextcall.invoice}" />
+    <p>pay to make the call</p>
     {:else}
     <form on:submit="{prepareCall}">
       <label
@@ -160,7 +170,7 @@
       <label>payload: <Json value="{nextcall.payload}"/></label>
       <button>prepare call</button>
     </form>
-    {/if}
+    {/if}{/if}
   </div>
   <div id="calls">
     <h2>call history</h2>
