@@ -87,7 +87,6 @@ WHERE id = $1`,
 
 	// caller can be either an account id or null
 	caller := sql.NullString{Valid: call.Caller != "", String: call.Caller}
-	log.Print("CALLER ", call.Caller, " ", caller)
 
 	// save call data even though we don't know if it will succeed or not (this is a transaction anyway)
 	_, err = txn.Exec(`

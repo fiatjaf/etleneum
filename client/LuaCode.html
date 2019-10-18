@@ -16,7 +16,7 @@
     target = document.getElementById('c-' + id + '-target')
 
     let highlighted = hljs.highlight('lua', source.innerHTML)
-    target.innerHTML = highlighted.value
+    target.innerHTML = highlighted.value.replace(/\&amp;/g, '&')
     source.style.display = 'none'
   })
 
@@ -30,6 +30,11 @@
   code {
     font-size: 0.8rem;
   }
+
+  .lua {
+    padding: 3px 7px;
+    background-color: rgba(208, 215, 237, 0.3);
+  }
 </style>
 
 <svelte:head>
@@ -42,7 +47,7 @@
     <slot></slot>
   </code>
 </pre>
-<pre>
-  <code id="c-{id}-target">
+<pre class="lua">
+ <code id="c-{id}-target">
   </code>
 </pre>

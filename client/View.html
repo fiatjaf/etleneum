@@ -7,14 +7,17 @@
   import QR from './QR.html'
   import Json from './Json.html'
   import LuaCode from './LuaCode.html'
+  import account from './accountStore'
   import * as toast from './toast'
 
   export let params
   let contract
   let calls = []
-  let nextcall = {msatoshi: 0, payload: {}}
   let methods = []
   let payloadfields = []
+
+  var nextcall
+  resetNextCall()
 
   onMount(() => {
     loadContract()
@@ -48,17 +51,28 @@
     nextcall = {
       msatoshi: 0,
       payload: {},
-      method: methods.length ? methods[0] : null
+      method: methods.length ? methods[0] : null,
+      includeCallerSession: false
     }
   }
 
   async function prepareCall(e) {
     e.preventDefault()
 
-    let r = await fetch('/~/contract/' + params.ctid + '/call', {
+    let {method, msatoshi, payload, includeCallerSession} = nextcall
+    let qr =
+      $account.session && includeCallerSession
+        ? `?session=${$account.session}`
+        : ''
+
+    let r = await fetch('/~/contract/' + params.ctid + '/call' + qr, {
       method: 'post',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(nextcall)
+      body: JSON.stringify({
+        method,
+        msatoshi,
+        payload
+      })
     })
     let resp = await r.json()
 
@@ -138,11 +152,13 @@
   }
   #action label {
     display: block;
+    margin: 8px 2px;
   }
-  #action input,
-  #action select #action textarea {
-    display: block;
-    width: 100%;
+  #action input:not([type='checkbox']),
+  #action select {
+    padding: 4px;
+    font-size: 1.2rem;
+    background-color: var(--lightgrey);
   }
   button {
     cursor: pointer;
@@ -214,9 +230,16 @@
       {/each} {#if Object.keys(nextcall.payload).length > 0}
       <label>payload: <Json value="{nextcall.payload}" /> </label>
       {/if}
+      <label
+        >make this call authenticated with your account:
+        <input
+          type="checkbox"
+          bind:checked="{nextcall.includeCallerSession}"
+          disabled="{!$account.session}"
+      /></label>
       <button>prepare call</button>
     </form>
-    {/if}{/if}
+    {/if} {/if}
   </div>
   <div id="calls">
     <h2>call history</h2>
