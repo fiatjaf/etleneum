@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/lucsky/cuid"
 	"gopkg.in/antage/eventsource.v1"
@@ -18,7 +19,9 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	var es eventsource.EventSource
 	session := r.URL.Query().Get("session")
 
-	if session != "" {
+	if session == "" {
+		session = lnurl.RandomK1()
+	} else {
 		ies, ok := userstreams.Get(session)
 		if ok {
 			es = ies.(eventsource.EventSource)
@@ -41,9 +44,12 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 		userstreams.Set(session, es)
 
 		// when first starting a session, return lnurls for auth and withdraw
-		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + lnurl.RandomK1())
-		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw")
-		es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
+		go func() {
+			time.Sleep(2 * time.Second)
+			auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
+			withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw")
+			es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
+		}()
 	}
 
 	es.ServeHTTP(w, r)
@@ -71,26 +77,27 @@ func lnurlAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get the account id from the pubkey
-	var accountId string
-	err = pg.Get(&accountId, `
+	var account types.Account
+	err = pg.Get(&account, `
 INSERT INTO accounts (id, lnurl_key) VALUES ($1, $2)
 ON CONFLICT (lnurl_key)
   DO UPDATE SET lnurl_key = $2
-  RETURNING id
+  RETURNING `+types.ACCOUNTFIELDS+`
     `, "a"+cuid.Slug(), key)
 	if err != nil {
+		log.Error().Err(err).Str("key", key).Msg("failed to ensure account")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to ensure account with key " + key + "."))
 		return
 	}
 
 	// assign the account id to this session on redis
-	if rds.Set("auth-session:"+session, accountId, time.Hour*24).Err() != nil {
+	if rds.Set("auth-session:"+session, account.Id, time.Hour*24).Err() != nil {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to save session."))
 		return
 	}
 
 	// notify browser
-	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+accountId+`"}`, "auth", "")
+	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+account.Id+`", "balance": "`+strconv.Itoa(account.Balance)+`"}`, "auth", "")
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }

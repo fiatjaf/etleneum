@@ -93,13 +93,13 @@
     nextcall.payload[pf] = jsonvalue
   }
 
-  let es = null
+  let es
   onMount(() => {
     es = new EventSource('/~/contract/' + params.ctid + '/stream')
     es.addEventListener('contract-created', e => {
       let data = JSON.parse(e.data)
       toast.success(`contract ${data.id} created!`)
-      loadContract()
+      setTimeout(loadContract, 2300)
     })
     es.addEventListener('contract-error', e => {
       let data = JSON.parse(e.data)
@@ -129,7 +129,6 @@
     display: flex;
     flex-wrap: wrap;
   }
-
   #status {
     width: 58%;
   }
@@ -166,9 +165,13 @@
   }
 </style>
 
-{#if !contract} loading {:else if contract.invoice && !contract.invoice_paid}
-<QR value="{contract.invoice}" />
-<p>pay to enable the contract</p>
+{#if !contract}
+<div class="center">loading</div>
+{:else if contract.invoice && !contract.invoice_paid}
+<div class="center">
+  <QR value="{contract.invoice}" />
+  <p>pay to enable the contract</p>
+</div>
 {:else}
 <main>
   <div id="status">

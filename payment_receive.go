@@ -25,6 +25,8 @@ func handleInvoicePaid(res gjson.Result) {
 }
 
 func handlePaymentReceived(label string, msats int64) {
+	log.Debug().Str("label", label).Int64("msats", msats).Msg("handling payment")
+
 	switch {
 	case strings.HasPrefix(label, s.ServiceId+"."):
 		// a contract or call invoice was paid
@@ -37,7 +39,7 @@ func handlePaymentReceived(label string, msats int64) {
 
 			ct, err := contractFromRedis(contractId)
 			if err != nil {
-				logger.Warn().Err(err).Msg("failed to fetch contract from redis")
+				logger.Warn().Err(err).Msg("failed to fetch contract from redis to activate")
 				if ies, ok := contractstreams.Get(contractId); ok {
 					ies.(eventsource.EventSource).SendEventMessage(`{"id": "`+contractId+`", "error": "`+err.Error()+`", "kind": "internal"}`, "contract-error", "")
 				}

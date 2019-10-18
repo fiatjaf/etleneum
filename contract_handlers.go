@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/gorilla/mux"
@@ -53,11 +54,19 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = setContractInvoice(ct)
+	label, msats, err := setContractInvoice(ct)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "failed to make invoice", 500)
 		return
+	}
+
+	if s.FreeMode {
+		// wait 10 seconds and notify this payment was received
+		go func() {
+			time.Sleep(10 * time.Second)
+			handlePaymentReceived(label, int64(msats))
+		}()
 	}
 
 	_, err = saveContractOnRedis(*ct)
@@ -84,11 +93,11 @@ WHERE id = $1`,
 		ct, err = contractFromRedis(ctid)
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
-				Msg("failed to fetch fetch contract from redis")
+				Msg("failed to fetch fetch prepared contract from redis")
 			jsonError(w, "failed to fetch prepared contract", 404)
 			return
 		}
-		err = setContractInvoice(ct)
+		_, _, err = setContractInvoice(ct)
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to get/make invoice")

@@ -1,14 +1,18 @@
 <!-- @format -->
 
 <script>
+  import {onMount, setContext} from 'svelte'
   import Router, {link} from 'svelte-spa-router'
 
   import Home from './Home.html'
   import List from './List.html'
   import View from './View.html'
   import Create from './Create.html'
+  import Account from './Account.html'
   import Docs from './Docs.html'
   import NotFound from './NotFound.html'
+
+  import account from './accountStore'
 
   const routes = {
     '/': Home,
@@ -16,6 +20,7 @@
     '/contracts': List,
     '/create': Create,
     '/contract/:ctid': View,
+    '/account': Account,
     '*': NotFound
   }
 </script>
@@ -24,11 +29,9 @@
   nav img {
     height: 3rem;
   }
-
   nav a {
     color: inherit;
   }
-
   main {
     margin: 23px auto;
   }
@@ -38,6 +41,9 @@
   <a href="#/"> <img alt="etleneum logo" src=/static/icon.png></a>
   <a href="#/contracts">list contracts</a>
   <a href="#/create">create</a>
+  <a href="#/account">
+    {#if $account.id}acct:{$account.id}{:else}login{/if}
+  </a>
   <a href="#/docs">docs</a>
 </nav>
 <main><Router {routes} /></main>

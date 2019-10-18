@@ -19,14 +19,8 @@ type Result struct {
 
 func getInvoice(label, desc string, msats int) (string, bool, error) {
 	if s.FreeMode {
-		// wait 5 seconds and notify this payment was received
-		go func() {
-			time.Sleep(5 * time.Second)
-			handlePaymentReceived(label, int64(msats))
-		}()
-
 		// return a bogus invoice
-		return "lnbcrt1231230p1pwccq4app53nrqyuwmhkcsqqq8qnqvka0njqt0q0w9ujjlu565yumcgjya7m7qdp8vakx7cnpdss8wctjd45kueeqd9ejqcfqdphkz7qxqgzay8dellcqp2r34dm702mtt9luaeuqfza47ltalrwk8jrwalwf5ncrkgm6v6kmm3cuwuhyhtkpyzzmxun8qz9qtx6hvwfltqnd6wvpkch2u3acculmqpk4d20k", true, nil
+		return "lnbcrt1231230p1pwccq4app53nrqyuwmhkcsqqq8qnqvka0njqt0q0w9ujjlu565yumcgjya7m7qdp8vakx7cnpdss8wctjd45kueeqd9ejqcfqdphkz7qxqgzay8dellcqp2r34dm702mtt9luaeuqfza47ltalrwk8jrwalwf5ncrkgm6v6kmm3cuwuhyhtkpyzzmxun8qz9qtx6hvwfltqnd6wvpkch2u3acculmqpk4d20k", false, nil
 	}
 
 	res, err := ln.Call("listinvoices", label)

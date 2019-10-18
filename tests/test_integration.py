@@ -361,7 +361,7 @@ end
     rpc_b.pay(r.json()["value"]["invoice"])
     ev = next(sse)
     assert ev.event == 'call-error'
-    assert json.loads(ev.data)['kind'] == 'run'
+    assert json.loads(ev.data)['kind'] == 'runtime'
 
     # call a method that should break out of the sandbox
     Path("file").touch()
@@ -372,7 +372,7 @@ end
     rpc_b.pay(r.json()["value"]["invoice"])
     ev = next(sse)
     assert ev.event == 'call-error'
-    assert json.loads(ev.data)['kind'] == 'run'
+    assert json.loads(ev.data)['kind'] == 'runtime'
     assert 'home' not in requests.get(url + "/~/contract/" + ctid + "/state").json()["value"]
     assert not Path("nofile").exists()
     assert Path("file").exists()

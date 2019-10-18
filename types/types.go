@@ -37,3 +37,10 @@ type Call struct {
 }
 
 const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller"
+
+type Account struct {
+	Id      string `db:"id" json:"id"`
+	Balance int    `db:"balance" json:"balance"`
+}
+
+const ACCOUNTFIELDS = "id, accounts.balance"

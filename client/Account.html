@@ -1,0 +1,39 @@
+<!-- @format -->
+
+<script>
+  import {onMount, onDestroy} from 'svelte'
+
+  import QR from './QR.html'
+  import account from './accountStore'
+
+  let unsubscribe = () => {}
+  onMount(() => {
+    unsubscribe = account.subscribe(({session}) => {
+      if (session) {
+        let es = new EventSource('/lnurl/session?session=' + session)
+        es.addEventListener('withdraw', e => {
+          let data = JSON.parse(e.data)
+          toast.info(`successfully withdrawn ${data.amount} msatoshi`)
+          toast.info(`balance is now ${data.new_balance} msatoshi`)
+        })
+      }
+    })
+  })
+
+  onDestroy(() => {
+    unsubscribe()
+  })
+</script>
+
+<div class="center">
+  {#if $account.id}
+  <p>Logged as <b>{$account.id}</b>.</p>
+  <p>Your balance is <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.</p>
+  {#if $account.balance > 0 && $account.lnurl.withdraw}
+  <QR value="{$account.lnurl.withdraw}" />
+  <p>Scan to withdraw.</p>
+  {/if} {:else if $account.lnurl.auth}
+  <QR value="{$account.lnurl.auth}" />
+  <p>scan to login</p>
+  {/if}
+</div>

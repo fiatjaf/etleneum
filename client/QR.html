@@ -12,7 +12,7 @@
   onMount(() => {
     let el = kjua({
       rounded: 100,
-      text: value,
+      text: value.toUpperCase(),
       fill: color,
       back: 'transparent',
       size: 300
@@ -22,4 +22,10 @@
   })
 </script>
 
-<div id="c-{id}"></div>
+<style>
+  a {
+    display: block;
+  }
+</style>
+
+<div><a href="lightning:{value}" id="c-{id}"></a></div>

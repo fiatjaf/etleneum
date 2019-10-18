@@ -1,5 +1,10 @@
 <!-- @format -->
 
+<script>
+  import QR from './QR.html'
+  import account from './accountStore'
+</script>
+
 <div>
   <h1>Etleneum</h1>
   <h2>A programmable digital ledger that runs fast and scales</h2>
@@ -7,4 +12,17 @@
     On Etleneum you can write code that controls digital value, runs exactly as
     programmed, and is accessible anywhere in the world.
   </p>
+  <p><a href="#/docs">Read more</a>.</p>
+
+  <div class="center">
+    {#if $account.id}
+    <p>
+      Logged as <b><a href="#/account">{$account.id}</a></b
+      >.
+    </p>
+    {:else if $account.lnurl.auth}
+    <QR value="{$account.lnurl.auth}" />
+    <p>scan to login</p>
+    {/if}
+  </div>
 </div>

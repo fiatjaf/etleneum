@@ -8,7 +8,18 @@
   const emptyContract = {
     name: '',
     readme: '',
-    code: ''
+    code: `function __init__ ()
+  return {}
+end
+
+function dosomething ()
+  if call.msatoshi < 10000 then
+    error('pay more!')
+  end
+
+  contract.state.something = call.payload.something
+end
+    `
   }
 
   let contract = {...emptyContract}
@@ -45,6 +56,9 @@
     width: 100%;
     font-size: 1.3rem;
   }
+  textarea.code {
+    font-size: 1rem;
+  }
   button {
     cursor: pointer;
     margin: 12px;
@@ -57,6 +71,6 @@
 <form on:submit="{prepare}">
   <label>name:<input bind:value="{contract.name}"/></label>
   <label>readme: <textarea bind:value="{contract.readme}"/></label>
-  <label>code:<textarea bind:value="{contract.code}"/></label>
+  <label>code:<textarea class="code" bind:value="{contract.code}"/></label>
   <button>prepare contract</button>
 </form>

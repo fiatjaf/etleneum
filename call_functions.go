@@ -14,27 +14,30 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func calcCallCosts(c *types.Call) {
-	c.Cost = s.FixedCallCostSatoshis * 1000      // a fixed cost of 1 satoshi by default
-	c.Cost += int(float64(len(c.Payload)) * 0.1) // a negligible amount of msats, just to prevent abuse by enormous payloads
+func getCallCosts(c types.Call) int {
+	cost := s.FixedCallCostSatoshis * 1000     // a fixed cost of 1 satoshi by default
+	cost += int(float64(len(c.Payload)) * 0.1) // a negligible amount of msats, just to prevent abuse by enormous payloads
 
 	words := len(wordMatcher.FindAllString(string(c.Payload), -1))
-	c.Cost += 50 * words // 50 msatoshi for each word in the payload
+	cost += 50 * words // 50 msatoshi for each word in the payload
 
 	if c.Msatoshi > 500000 {
 		// to help cover withdraw fees later we charge a percent of the amount of satoshis included
-		c.Cost += int(float64(c.Msatoshi) / 100)
+		cost += int(float64(c.Msatoshi) / 100)
 	}
+
+	return cost
 }
 
-func getCallInvoice(c *types.Call) error {
-	label := s.ServiceId + "." + c.ContractId + "." + c.Id
+func setCallInvoice(c *types.Call) (label string, msats int, err error) {
+	label = s.ServiceId + "." + c.ContractId + "." + c.Id
 	desc := s.ServiceId + " " + c.Method + " [" + c.ContractId + "][" + c.Id + "]"
-	msats := c.Cost + c.Msatoshi
+	c.Cost = getCallCosts(*c)
+	msats = c.Cost + c.Msatoshi
 	bolt11, paid, err := getInvoice(label, desc, msats)
 	c.Bolt11 = bolt11
 	c.InvoicePaid = &paid
-	return err
+	return
 }
 
 func callFromRedis(callid string) (call *types.Call, err error) {

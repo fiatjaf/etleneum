@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/gorilla/mux"
@@ -14,7 +15,7 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 	logger := log.With().Str("ctid", ctid).Logger()
 
-	var calls []types.Call
+	calls := make([]types.Call, 0)
 	err = pg.Select(&calls, `
 SELECT `+types.CALLFIELDS+`
 FROM calls
@@ -67,12 +68,19 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	calcCallCosts(call)
-	err = getCallInvoice(call)
+	label, msats, err := setCallInvoice(call)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "failed to make invoice, please try again", 500)
 		return
+	}
+
+	if s.FreeMode {
+		// wait 10 seconds and notify this payment was received
+		go func() {
+			time.Sleep(10 * time.Second)
+			handlePaymentReceived(label, int64(msats))
+		}()
 	}
 
 	_, err = saveCallOnRedis(*call)
