@@ -3,14 +3,17 @@
 <script>
   import {onMount, onDestroy} from 'svelte'
 
+  import * as toast from './toast'
   import QR from './QR.html'
   import account from './accountStore'
 
-  let unsubscribe = () => {}
+  var unsubscribe = () => {}
+  var es
+
   onMount(() => {
     unsubscribe = account.subscribe(({session}) => {
       if (session) {
-        let es = new EventSource('/lnurl/session?session=' + session)
+        es = new EventSource('/lnurl/session?session=' + session)
         es.addEventListener('withdraw', e => {
           let data = JSON.parse(e.data)
           toast.info(`successfully withdrawn ${data.amount} msatoshi`)
@@ -21,9 +24,26 @@
   })
 
   onDestroy(() => {
+    es.close()
     unsubscribe()
   })
+
+  async function logout() {
+    account.reset()
+    await fetch('/lnurl/logout')
+    toast.info('logged out!')
+  }
 </script>
+
+<style>
+  button {
+    cursor: pointer;
+    margin: 12px;
+    padding: 12px;
+    background-color: var(--yellow);
+    float: right;
+  }
+</style>
 
 <div class="center">
   {#if $account.id}
@@ -32,8 +52,10 @@
   {#if $account.balance > 0 && $account.lnurl.withdraw}
   <QR value="{$account.lnurl.withdraw}" />
   <p>Scan to withdraw.</p>
-  {/if} {:else if $account.lnurl.auth}
+  {/if}
+  <div><button on:click="{logout}">logout</button></div>
+  {:else if $account.lnurl.auth}
   <QR value="{$account.lnurl.auth}" />
-  <p>scan to login</p>
+  <p>Scan to login.</p>
   {/if}
 </div>

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -22,9 +23,16 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	if session == "" {
 		session = lnurl.RandomK1()
 	} else {
-		ies, ok := userstreams.Get(session)
-		if ok {
-			es = ies.(eventsource.EventSource)
+		// check session validity as k1
+		b, err := hex.DecodeString(session)
+		if err != nil || len(b) != 16 {
+			session = lnurl.RandomK1()
+		} else {
+			// finally try to fetch an existing stream
+			ies, ok := userstreams.Get(session)
+			if ok {
+				es = ies.(eventsource.EventSource)
+			}
 		}
 	}
 
@@ -42,15 +50,31 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 		userstreams.Set(session, es)
+	}
 
-		// when first starting a session, return lnurls for auth and withdraw
+	accountId := rds.Get("auth-session:" + session).Val()
+	if accountId != "" {
+		// we're logged already, so send our login information
 		go func() {
 			time.Sleep(2 * time.Second)
-			auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
-			withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw")
-			es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
+			var acct types.Account
+			err := pg.Get(&acct, `SELECT `+types.ACCOUNTFIELDS+` FROM accounts WHERE id = $1`, accountId)
+			if err != nil {
+				log.Error().Err(err).Str("session", session).Str("id", accountId).
+					Msg("failed to load account from session")
+				return
+			}
+			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
 		}()
 	}
+
+	// always send lnurls because we need lnurl-withdraw even if we're logged already, obviously
+	go func() {
+		time.Sleep(2 * time.Second)
+		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
+		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw")
+		es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
+	}()
 
 	es.ServeHTTP(w, r)
 }
@@ -77,8 +101,8 @@ func lnurlAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get the account id from the pubkey
-	var account types.Account
-	err = pg.Get(&account, `
+	var acct types.Account
+	err = pg.Get(&acct, `
 INSERT INTO accounts (id, lnurl_key) VALUES ($1, $2)
 ON CONFLICT (lnurl_key)
   DO UPDATE SET lnurl_key = $2
@@ -91,13 +115,13 @@ ON CONFLICT (lnurl_key)
 	}
 
 	// assign the account id to this session on redis
-	if rds.Set("auth-session:"+session, account.Id, time.Hour*24).Err() != nil {
+	if rds.Set("auth-session:"+session, acct.Id, time.Hour*24*120).Err() != nil {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to save session."))
 		return
 	}
 
 	// notify browser
-	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+account.Id+`", "balance": "`+strconv.Itoa(account.Balance)+`"}`, "auth", "")
+	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
@@ -191,4 +215,11 @@ VALUES ($1, $2, false, $3)
 	if ies, ok := userstreams.Get(session); ok {
 		ies.(eventsource.EventSource).SendEventMessage(`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`, "withdraw", "")
 	}
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	session := r.URL.Query().Get("session")
+	rds.Del("auth-session:" + session)
+	userstreams.Remove(session)
+	w.WriteHeader(200)
 }

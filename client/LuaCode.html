@@ -1,17 +1,28 @@
 <!-- @format -->
 
 <script>
-  import {onMount} from 'svelte'
+  import {onMount, onDestroy} from 'svelte'
 
   import hljs from 'highlight.js/lib/highlight'
   import lua from 'highlight.js/lib/languages/lua'
   hljs.registerLanguage('lua', lua)
 
   let id = parseInt(Math.random() * 100000)
+  var source
+  var target
 
   onMount(() => {
-    let container = document.getElementById('c-' + id)
-    hljs.highlightBlock(container)
+    source = document.getElementById('c-' + id + '-source')
+    target = document.getElementById('c-' + id + '-target')
+
+    let highlighted = hljs.highlight('lua', source.innerHTML)
+    target.innerHTML = highlighted.value
+    source.style.display = 'none'
+  })
+
+  onDestroy(() => {
+    target.innerHTML = ''
+    source.style.display = ''
   })
 </script>
 
@@ -27,7 +38,11 @@
   />
 </svelte:head>
 <pre>
-  <code id="c-{id}" class="lua">
+  <code id="c-{id}-source">
     <slot></slot>
+  </code>
+</pre>
+<pre>
+  <code id="c-{id}-target">
   </code>
 </pre>

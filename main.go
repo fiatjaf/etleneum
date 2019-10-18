@@ -112,6 +112,7 @@ func main() {
 	router.Path("/lnurl/auth").Methods("GET").HandlerFunc(lnurlAuth)
 	router.Path("/lnurl/withdraw").Methods("GET").HandlerFunc(lnurlWithdraw)
 	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
+	router.Path("/lnurl/logout").Methods("POST").HandlerFunc(logout)
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{
