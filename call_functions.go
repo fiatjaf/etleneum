@@ -101,8 +101,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 	// actually run the call
 	bsandboxCode, _ := runlua_assets.Asset("runlua/assets/sandbox.lua")
 	sandboxCode := string(bsandboxCode)
+	dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, "", "start"}, "call-run-event")
 	newStateO, err := runlua.RunCall(
 		sandboxCode,
+		&callPrinter{call.ContractId, call.Id},
 		func(r *http.Request) (*http.Response, error) { return http.DefaultClient.Do(r) },
 
 		// get contract balance
@@ -137,6 +139,8 @@ VALUES ($1, $2, $3, $4)
 			if funds < 0 {
 				return 0, fmt.Errorf("insufficient contract funds, needed %d msat more", -funds)
 			}
+
+			dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, fmt.Sprintf("contract.send(%s, %d)", target, msat), "function"}, "call-run-event")
 			return msat, nil
 		},
 
@@ -174,6 +178,8 @@ VALUES ($1, $2, $3, $4)
 			if balance < 0 {
 				return 0, fmt.Errorf("insufficient account balance, needed %d msat more", -balance)
 			}
+
+			dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, fmt.Sprintf("account.send(%s, %d)", target, msat), "function"}, "call-run-event")
 			return msat, nil
 		},
 		ct,

@@ -3,6 +3,7 @@ package runlua
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -18,6 +19,7 @@ var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 func RunCall(
 	sandboxCode string,
+	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
@@ -32,6 +34,7 @@ func RunCall(
 	go func() {
 		stateAfter, err = runCall(
 			sandboxCode,
+			printToDestination,
 			makeRequest,
 			getContractFunds,
 			sendFromContract,
@@ -62,6 +65,7 @@ func RunCall(
 
 func runCall(
 	sandboxCode string,
+	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
@@ -121,16 +125,7 @@ func runCall(
 		"keybase_verify":              lua_keybase_verify_signature,
 		"keybase_lookup":              lua_keybase_lookup,
 		"print": func(args ...interface{}) {
-			actualArgs := make([]interface{}, 1+len(args)*2)
-			actualArgs[0] = "printed from contract: "
-			i := 1
-			for _, arg := range args {
-				actualArgs[i] = "\t"
-				actualArgs[i+1] = arg
-				i += 2
-			}
-			fmt.Fprint(os.Stderr, actualArgs...)
-			fmt.Fprint(os.Stderr, "\n")
+			fmt.Fprint(printToDestination, args)
 		},
 		"sha256": lua_sha256,
 		"cuid":   cuid.New,

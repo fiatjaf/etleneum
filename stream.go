@@ -11,7 +11,7 @@ import (
 type ctevent struct {
 	Id         string `json:"id"`
 	ContractId string `json:"contract_id,omitempty"`
-	Error      string `json:"error,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Kind       string `json:"kind,omitempty"`
 }
 
@@ -50,4 +50,14 @@ func contractStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	es.ServeHTTP(w, r)
+}
+
+type callPrinter struct {
+	ContractId string
+	CallId     string
+}
+
+func (cp *callPrinter) Write(data []byte) (n int, err error) {
+	dispatchContractEvent(cp.ContractId, ctevent{cp.CallId, cp.ContractId, string(data), "print"}, "call-run-event")
+	return len(data), nil
 }

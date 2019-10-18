@@ -103,6 +103,7 @@ func main() {
 
 		state, err := runlua.RunCall(
 			sandboxCode,
+			os.Stderr,
 			returnHttp,
 			func() (contractFunds int, err error) { return contractFunds, nil },
 			func(target string, msat int) (msatoshiSent int, err error) {

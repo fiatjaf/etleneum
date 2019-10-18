@@ -99,7 +99,7 @@
     } else {
       try {
         jsonvalue = JSON.parse(e.target.value)
-      } catch (e) {
+      } catch (err) {
         jsonvalue = e.target.value
       }
     }
@@ -107,7 +107,7 @@
     nextcall.payload[pf] = jsonvalue
   }
 
-  let es
+  var es
   onMount(() => {
     es = new EventSource('/~/contract/' + params.ctid + '/stream')
     es.addEventListener('contract-created', e => {
@@ -117,24 +117,41 @@
     })
     es.addEventListener('contract-error', e => {
       let data = JSON.parse(e.data)
-      toast.warning(`${data.kind} error creating contract: ${data.error}`)
+      toast.warning(`${data.kind} error creating contract: ${data.message}`)
+    })
+    es.addEventListener('call-run-event', e => {
+      let data = JSON.parse(e.data)
+      switch (data.kind) {
+        case 'start':
+          toast.info(`call ${data.id} started...`)
+          break
+        case 'print':
+          toast.info(`call ${data.id} printed: <code>${data.message}</code>`)
+          break
+        case 'function':
+          toast.info(
+            `call ${data.id} used a function: <code>${data.message}</code>`
+          )
+          break
+      }
     })
     es.addEventListener('call-made', e => {
       let data = JSON.parse(e.data)
-      toast.success(`call ${data.id} made!`)
-      resetNextCall()
-      loadContract()
+      setTimeout(() => {
+        toast.success(`call ${data.id} made!`)
+        resetNextCall()
+        loadContract()
+      }, 1000)
     })
     es.addEventListener('call-error', e => {
       let data = JSON.parse(e.data)
-      toast.warning(`${data.kind} error making call: ${data.error}`)
+      toast.warning(`${data.kind} error making call: ${data.message}`)
       resetNextCall()
     })
   })
+
   onDestroy(() => {
-    setTimeout(() => {
-      es.close()
-    }, 1000)
+    es.close()
   })
 </script>
 
@@ -152,7 +169,7 @@
   }
   #action label {
     display: block;
-    margin: 8px 2px;
+    margin: 12px 2px;
   }
   #action input:not([type='checkbox']),
   #action select {
