@@ -164,6 +164,7 @@ end
     payment = rpc_b.pay(bolt11)
 
     # it should get created and we should get a notification
+    assert next(sse).event == 'call-run-event'
     ev = next(sse)
     assert ev.event == 'contract-created'
     assert json.loads(ev.data)['id'] == ctid
@@ -225,6 +226,7 @@ end
         json={"method": "setowner", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-error'
 
     ## create a fake session, then succeed
@@ -234,6 +236,7 @@ end
         json={"method": "setowner", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-made'
 
     ## fail because no logged account
@@ -242,6 +245,7 @@ end
         json={"method": "setowner", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-error'
 
     # prepare calls and send them
@@ -272,6 +276,7 @@ end
             == r.json()["value"]["cost"] + r.json()["value"]["msatoshi"]
         )
 
+        assert next(sse).event == 'call-run-event'
         ev = next(sse)
         assert json.loads(ev.data)['id'] == callid
 
@@ -309,6 +314,7 @@ end
         json={"method": "cashout", "payload": {"amt_to_cashout": current_funds+1}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-error'
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
@@ -319,6 +325,7 @@ end
         json={"method": "cashout", "payload": {"amt_to_cashout": current_funds-1}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-error'
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
@@ -329,6 +336,7 @@ end
         json={"method": "cashout_wrong", "payload": {"amt_to_cashout": current_funds}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-error'
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
@@ -339,6 +347,8 @@ end
         json={"method": "cashout", "payload": {"amt_to_cashout": current_funds}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-made'
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == 0
@@ -359,6 +369,7 @@ end
         json={"method": "infiniteloop", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     ev = next(sse)
     assert ev.event == 'call-error'
     assert json.loads(ev.data)['kind'] == 'runtime'
@@ -370,6 +381,7 @@ end
         json={"method": "dangerous", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     ev = next(sse)
     assert ev.event == 'call-error'
     assert json.loads(ev.data)['kind'] == 'runtime'
@@ -385,6 +397,7 @@ end
         json={"method": "apitest", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-made'
 
     data = requests.get(url + "/~/contract/" + ctid + "/state").json()["value"]['apitest']
@@ -414,6 +427,7 @@ end
         json={"method": "losemoney", "payload": {}, 'msatoshi': 444444444},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
+    assert next(sse).event == 'call-run-event'
     assert next(sse).event == 'call-made'
 
     # finally withdraw our scammer balance
