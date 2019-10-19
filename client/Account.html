@@ -12,7 +12,7 @@
 
   onMount(() => {
     unsubscribe = account.subscribe(({session}) => {
-      if (session) {
+      if (session && !es) {
         es = new EventSource('/lnurl/session?src=comp&session=' + session)
         es.addEventListener('withdraw', e => {
           let data = JSON.parse(e.data)
@@ -24,7 +24,9 @@
   })
 
   onDestroy(() => {
-    es.close()
+    if (es) {
+      es.close()
+    }
     unsubscribe()
   })
 

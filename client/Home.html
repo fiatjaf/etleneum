@@ -77,7 +77,11 @@
     On Etleneum you can write code that controls digital value, runs exactly as
     programmed, and is accessible anywhere in the world.
   </p>
-  <p><a href="#/docs">Read more</a>.</p>
+  <p>
+    <a href="#/docs">Read more</a>{#if location.host !== 'test.etleneum.com'}
+    and start creating some <em>free</em> contracts in the
+    <a href="https://test.etleneum.com">test website</a>{/if}.
+  </p>
 
   <div class="center">
     {#if $account.id}
