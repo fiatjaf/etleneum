@@ -2,7 +2,7 @@
 
 <script>
   import {onMount, onDestroy} from 'svelte'
-  import {replace} from 'svelte-spa-router'
+  import {replace, push} from 'svelte-spa-router'
 
   import QR from './QR.html'
   import Json from './Json.html'
@@ -12,6 +12,7 @@
 
   export let params
   let contract
+  let deletable = false
   let calls = []
   let methods = []
   let payloadfields = []
@@ -35,6 +36,11 @@
 
     r = await fetch('/~/contract/' + params.ctid + '/calls')
     calls = (await r.json()).value
+
+    deletable =
+      contract.funds === 0 &&
+      calls.length < 4 &&
+      new Date() - new Date(Date.parse(contract.created_at)) < 3600000
   }
 
   function parseCode(code) {
@@ -84,6 +90,19 @@
     let {id, invoice} = resp.value
     nextcall.invoice = invoice
     nextcall.id = id
+  }
+
+  async function deleteContract(e) {
+    e.preventDefault()
+
+    let r = await fetch('/~/contract/' + params.ctid, {method: 'delete'})
+    let resp = await r.json()
+    if (resp.ok) {
+      toast.success('contract deleted!')
+      push('/')
+    } else {
+      toast.warning(resp.error)
+    }
   }
 
   function setMsatoshi(e) {
@@ -226,7 +245,10 @@
 {:else}
 <main>
   <div id="status">
-    <h1>{contract.name}</h1>
+    <h1>
+      {contract.name} {#if deletable}
+      <button on:click="{deleteContract}">delete</button>{/if}
+    </h1>
     <div>{(contract.funds/1000).toFixed(3)} sat</div>
     <h4>state</h4>
     <Json value="{contract.state}" />
@@ -240,8 +262,10 @@
     {#if methods.length == 0 }
     <p>apparently this contract has no callable methods</p>
     {:else} {#if nextcall.invoice}
-    <QR value="{nextcall.invoice}" />
-    <p>pay to make the call</p>
+    <div class="center">
+      <QR value="{nextcall.invoice}" />
+      <p>pay to make the call</p>
+    </div>
     {:else}
     <form on:submit="{prepareCall}">
       <label

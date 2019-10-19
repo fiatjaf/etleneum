@@ -18,7 +18,7 @@ CREATE TABLE contracts (
 CREATE TABLE calls (
   id text PRIMARY KEY,
   time timestamp NOT NULL DEFAULT now(),
-  contract_id text NOT NULL REFERENCES contracts (id),
+  contract_id text NOT NULL REFERENCES contracts (id) ON DELETE CASCADE,
   method text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}',
   msatoshi int NOT NULL DEFAULT 0,
