@@ -81,7 +81,7 @@ func runCall(
 
 	initialFunds := contract.Funds + call.Msatoshi
 
-	lua_http_gettext, lua_http_getjson, _ := make_lua_http(makeRequest)
+	lua_http_gettext, lua_http_getjson, lua_http_postjson, _ := make_lua_http(makeRequest)
 	var lua_current_account interface{}
 	if call.Caller != "" {
 		lua_current_account = call.Caller
@@ -122,6 +122,7 @@ func runCall(
 		"send_from_contract":          sendFromContract,
 		"httpgettext":                 lua_http_gettext,
 		"httpgetjson":                 lua_http_getjson,
+		"httppostjson":                lua_http_postjson,
 		"keybase_verify":              lua_keybase_verify_signature,
 		"keybase_lookup":              lua_keybase_lookup,
 		"print": func(args ...interface{}) {
@@ -151,7 +152,8 @@ end
 custom_env = {
   http={
     gettext=httpgettext,
-    getjson=httpgetjson
+    getjson=httpgetjson,
+    postjson=httppostjson
   },
   util={
     sha256=sha256,

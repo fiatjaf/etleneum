@@ -2,6 +2,36 @@
 
 <script>
   import LuaCode from './LuaCode.html'
+
+  let faucetcode = `function __init__ ()
+  return {}
+end
+
+function fundfaucet ()
+  -- don't need to do anything here, any money you send will just be added
+  -- to the total contract funds.
+end
+
+function getmoney ()
+  -- here we require the user to be authenticated.
+  if not account.id then
+    -- this terminates the call execution and
+    -- invalidates anything that might have happened before.
+    error('you must be authenticated')
+  end
+
+  -- we let the user specify how much he's going to take from the faucet
+  local money_to_get = call.payload.money_to_get
+  if not money_to_get then
+    money_to_get = 10000 -- default to 10 sat
+  end
+  if money_to_get > 10000 then
+    money_to_get = 10000 -- the amount is limited to 100 sat
+  end
+
+  -- this sends the money to the account balance of the caller
+  contract.send(money_to_get, account.id)
+end`
 </script>
 
 <style>
@@ -24,132 +54,257 @@
     <em>methods</em> are just Lua functions.
   </p>
   <p>
-    See the following example of a simple ICO contract code:
+    See the following example of a simple "community faucet" contract code:
   </p>
   <LuaCode>
-    function __init__ () end function
+    {faucetcode}
   </LuaCode>
   <p>
-    The contract above does ...
+    The contract above allows generous rich people to put money in (by calling
+    <code>fundfaucet</code> and including some satoshis in the call) and poor
+    people to get the money out (by calling <code>getmoney</code> and specifying
+    how much they want to withdraw in the call payload).
   </p>
   <p>
-    Other things you must know:
+    However, it is very naïve and could easily be exploited. Although it limits
+    withdrawals to 100 sat, someone could easily call the
+    <code>getmoney</code> method multiple times and get all the money to itself.
+    A less naïve approach would use the global <code>contract.state</code> to
+    store a list of accounts who have already called <code>getmoney</code> and
+    disallow them from calling it again. Another approach would be to use
+    <code>os.time()</code> to keep track of the time of the withdrawals and
+    force people to wait some time until they can call
+    <code>getmoney</code> again. The possibilities are endless.
+  </p>
+  <p>
+    Now that you've seen a contract, here are other things you must know about
+    them:
   </p>
   <ul>
     <li>
       Each contract must have an <code>__init__</code> method. That is a special
       method that is called only when the contract is created, it must return a
-      Lua table that will server as the initial contract state.
+      Lua table that will serve as the initial contract state.
     </li>
     <li>
       All other top level functions are methods callable from the external
-      world.
+      world, except methods with names beginning in an underscore:
+      <code>_</code>.
     </li>
     <li>
-      Even if an HTTP request or some other contract internal calls fail, the
-      call will still be ok and the contract state will still be updated and so
-      on. If you want the call to fail completely you must check for errors on
-      function calls and call the Lua function <code>error()</code>.
+      Some internal functions called from within a contract may fail and these
+      may call the call execution to terminate, like
+      <code>contract.send()</code>. Others, like <code>http</code> calls, can
+      fail without causing the contract to terminate, instead they return an
+      error, If you want the call to fail completely you must check for these
+      errors and call the Lua function <code>error()</code> directly.
     </li>
     <li>
-      <p>
-        No one is able to change a contract's code after it has been activated,
-        not even the contract creator (but contracts can be deleted if you made
-        a mistake when creating them, provided they're new and don't have any
-        funds).
-      </p>
-      <h1 id="calling-a-contract">Calling a contract</h1>
-      When you make a call, you send 3 things to the contract:
+      All calls and payloads will be stored publicly in the contract history,
+      except for errored calls.
     </li>
+    <li>
+      For your contracts to be easily integrated into the contract explorer and
+      method caller interface in this website, make sure to follow these
+      guidelines:
+      <ul>
+        <li>
+          Write top-level methods with 0 indentation, both the
+          <code>function</code> and the <code>end</code> keywords.
+        </li>
+        <li>
+          When referring to payload fields, use the full object path, like
+          <code>call.payload.fieldname</code> at least once, in other words,
+          don't assign <code>call.payload</code> to another variable or you'll
+          break our naïve regex-based parser.
+        </li>
+        <li>
+          If you intend to use helper functions from inside the main methods,
+          don't rely on <code>call</code> and <code>contract</code> globals,
+          instead pass them as arguments.
+        </li>
+      </ul>
+      These are just soft requirements and they may be dropped once we get a
+      better Lua parser on our UI (but that will probably never happen).
+    </li>
+    <li>
+      No one is able to change a contract's code after it has been activated,
+      not even the contract creator (but contracts can be deleted if you made a
+      mistake when creating them, provided they're new and don't have any
+      funds). But of course this is a centralized system and the Etleneum team
+      may delete contracts if they consider them wrong or harmful in any way.
+    </li>
+  </ul>
+  <h1 id="calling-a-contract">Calling a contract</h1>
+  <p>When you make a call, you send 4 things to the contract:</p>
+  <ul>
     <li>
       A string <strong>method</strong> with the name of the contract method
       you're calling.
     </li>
+    <li>A JSON <strong>payload</strong>.</li>
     <li>
-      A JSON <strong>payload</strong>. It can be anything and will be available
-      as the global<br />
-      variable <code>payload</code> inside the call.
+      An integer representing the number of <strong>msatoshis</strong> to
+      include in your call. Some methods may require you to include a certain
+      number of msatoshis so they can be effective. The invoice you're required
+      to pay to make any call includes this number of msatoshis plus a small
+      antispam cost.
+      <br />
+      Regardless of what the contract code does with them, the msatoshis are
+      always added to the contract funds.
     </li>
     <li>
-      <p>
-        An integer representing the number of <strong>msatoshis</strong> to
-        include in your call. Some<br />
-        methods may require you to include a certain number of satoshis so they
-        can be<br />
-        effective. The invoice you're required to pay to make any call includes
-        this<br />
-        number of satoshis plus a small cost. The number of satoshis is
-        available to the<br />
-        call as the global variable <code>satoshis</code>. Regardless of what
-        the contract code does<br />
-        with it, the satoshis are added to the contract funds.<br />
-        After sending these you'll receive an invoice. Pay that invoice and
-        proceed to make the call. It will run the contract's given
-        <strong>method</strong> and update it accordingly. That's all.
-      </p>
-      <h1 id="contract-api">Contract API</h1>
-      Contract code have access to the standard
-      <a href="https://www.lua.org/manual/5.3/manual.html#6">Lua</a> library,
-      excluding potentially harmful stuff. Plus the values of
+      Optionally, a <code>?session=&lt;String&gt;</code> query string
+      identifying the current authenticated user,
     </li>
-    <li><code>satoshis</code> (see above);</li>
-    <li><code>payload</code> (see above);</li>
+  </ul>
+  <h1 id="contract-api">Contract API</h1>
+  <p>
+    Contract code has access to the following globals:
+  </p>
+  <ul>
     <li>
-      <code>state</code>, the current state of the contract, it can be modified
-      in-place;
+      <code>call</code> table with fields:
+      <ul>
+        <li><code>id: String</code>, the call id, mostly useless;</li>
+        <li>
+          <code>payload: Any</code>, the payload submitted along with the call;
+        </li>
+        <li><code>msatoshi: Int</code>, the funds included in the call;</li>
+      </ul>
     </li>
-    <li><code>call</code>, the call id; and</li>
     <li>
-      the following special functions:
+      <code>contract</code> table with fields:
+      <ul>
+        <li><code>id: String</code>, the contract id, mostly useless;</li>
+        <li>
+          <code>state: Any</code>, the contract current state, should be mutated
+          in-place;
+        </li>
+        <li>
+          <code>get_funds: () => Int</code>, a function that returns the
+          contract's current funds, in msatoshi;
+        </li>
+        <li>
+          <code>send: (target: String, msatoshi: Int) => ()</code>, a function
+          that sends from the contract funds to an user/contract;
+        </li>
+      </ul>
+    </li>
+    <li>
+      <code>account</code> table with fields:
       <ul>
         <li>
-          <code>util.sha256(string)</code> returns the hash of the given string.
+          <code>id: String</code>, the account id of the caller,
+          <code>nil</code> when the call is not authenticated;
         </li>
         <li>
-          <code>util.cuid()</code> returns a
-          <a href="http://usecuid.org/">cuid</a>, useful for identifying
-          objects.
+          <code>get_balance: () => Int</code>, a function that returns the
+          caller's full balance;
         </li>
         <li>
-          <code>http.gettext(url[, headers])</code> returns the text body of the
-          response to the given URL call or <code>nil, errormessage</code>.
+          <code>send: (target: String, msatoshi: Int) => ()</code>, a function
+          that sends from the caller's balance to another user/contract;
+        </li>
+      </ul>
+    </li>
+    <li>
+      <code>util</code> table with functions:
+      <ul>
+        <li>
+          <code>print: (...Any) => ()</code>, shows a notification to the caller
+          if he is listening to the server stream when making the call;
         </li>
         <li>
-          <code>http.getjson(url[, headers])</code> does the same, but returns a
-          table with the decoded JSON instead of raw text.
+          <code>sha256: (any: String) => String</code>, takes any string and
+          returns it's SHA256, hex-encoded.
+        </li>
+        <li><code>cuid: () => String</code>, generates a random id;</li>
+      </ul>
+    </li>
+    <li>
+      <code>http</code> table with functions:
+      <ul>
+        <li>
+          <code
+            >gettext: (url: String, headers: Map) => (body: String, error)</code
+          >, calls an URL and returns the body response as text;
         </li>
         <li>
-          <code>os.date</code>, <code>os.time</code> are
-          <code>os.difftime</code> are the same as
-          <a href="https://www.lua.org/pil/22.1.html">explained here</a>
+          <code>getjson: (url: String, headers: Map) => (body: Any, error)</code
+          >, calls an URL and returns the body response JSON as a table;
         </li>
         <li>
-          <code>keybase.verify(username, text, signature)</code> takes a Keybase
-          username, the plaintext and the PGP signature, armored, as produced by
-          <a href="https://keybase.io/sign" class="uri"
-            >https://keybase.io/sign</a
-          >
+          <code
+            >postjson: (url: String, data: Any, headers: Map) => (body: Any,
+            error)</code
+          >, calls an URL and returns the body response JSON as a table;
+        </li>
+      </ul>
+    </li>
+    <li>
+      <code>keybase</code> table with functions:
+      <ul>
+        <li>
+          <code
+            >verify: (username: String, text: String, signature: String) => (ok:
+            Bool, error)</code
+          >, takes a Keybase username, the plaintext and the PGP signature,
+          armored, as produced by
+          <a href="https://keybase.io/sign">https://keybase.io/sign</a>
           and returns true or false and optionally an error when the check
           failed for reasons other than mismatched signatures.
         </li>
         <li>
-          <code>keybase.exists(username)</code> checks if the given Keybase
-          username exists and returns true or false.
+          <code
+            >lookup: (provider: String, name: String) => (username: String,
+            error)</code
+          >, searches the Keybase username associated with the given
+          <code>name</code> at <code>provider</code>;
         </li>
         <li>
-          <p>
-            <code>keybase.github(username)</code>,
-            <code>keybase.domain(domain)</code> (and so on) returns the Keybase
-            username for the user associated with the account in the given
-            provider, or an empty string otherwise. Optionally an error will
-            also be returned.
-          </p>
+          <code>github</code
+          >/<code>twitter</code>/<code>reddit</code>/<code>hackernews</code>/<code>domain</code>/<code>domain</code>/<code
+            >key_fingerprint</code
+          >
+          are all wrappers over <code>lookup</code> for each specific
+          <code>provider</code>;
+        </li>
+        <li>
+          <code>exists: (username: String) => Bool</code>, checks if the given
+          Keybase user exists;
         </li>
       </ul>
     </li>
-    <h1 id="json-api">JSON API</h1>
+    <li>
+      Then there are the following modules and functions from Lua's standard
+      library, all pre-imported and available:
+      <ul>
+        <li><code>pairs</code>;</li>
+        <li><code>ipairs</code>;</li>
+        <li><code>next</code>;</li>
+        <li><code>error</code>;</li>
+        <li><code>tonumber</code>;</li>
+        <li><code>tostring</code>;</li>
+        <li><code>type</code>;</li>
+        <li><code>unpack</code>;</li>
+        <li><code>string</code> with most its functions;</li>
+        <li><code>table</code> with most its functions;</li>
+        <li><code>math</code> with most its functions;</li>
+        <li>
+          <code>os</code> with <code>time</code>, <code>clock</code>,
+          <code>difftime</code> and <code>date</code> functions;
+        </li>
+      </ul>
+    </li>
+  </ul>
+  <h1 id="json-api">JSON API</h1>
+  <p>
     Anything you can do on this website you can also do through Etleneum's
     public JSON API.
+  </p>
+  <h2>Types</h2>
+  <ul>
     <li>
       <code>Contract</code>:
       <code
@@ -160,7 +315,7 @@
     <li>
       <code>Call</code>:
       <code
-        >&#123;id: String, time: String, method: String, payload: Any, satoshis:
+        >&#123;id: String, time: String, method: String, payload: Any, matoshi:
         Int, cost: Int, paid: Int&#125;</code
       ><br />
       All paths start at <code>https://etleneum.com</code> and must be called
@@ -174,6 +329,9 @@
       descriptions we omit the <code>ok/value</code> envelope and show just what
       should be inside <code>value</code>.
     </li>
+  </ul>
+  <h2>Endpoints</h2>
+  <ul>
     <li>
       <code>GET</code> <code>/~/contracts</code> lists all the contracts, sorted
       by the most recent activity, returns <code>[Contract]</code>;
@@ -181,7 +339,9 @@
     <li>
       <code>POST</code> <code>/~/contract</code> prepares a new contract, takes
       <code>&#123;name: String, code: String, readme: String&#125;</code>,
-      returns <code>&#123;id: String, invoice: String&#125;</code>;
+      returns <code>&#123;id: String, invoice: String&#125;</code>, when the
+      invoice is paid the <code>__init__</code> call is executed and the
+      contract is created;
     </li>
     <li>
       <code>GET</code> <code>/~/contract/&lt;id&gt;</code> returns the full
@@ -200,10 +360,39 @@
       contract calls, sorted by most recent first, returns <code>[Call]</code>;
     </li>
     <li>
+      <code>SSE</code> <code>/~/contract/&lt;id&gt;/stream</code> returns a
+      <code>text/event-stream</code> that emits the following events:
+      <ul>
+        <li><code>contract-created: &#123;id: String&#125;</code>;</li>
+        <li>
+          <code
+            >contract-error: &#123;id: String, kind: "internal" | "runtime",
+            message: String&#125;</code
+          >;
+        </li>
+        <li>
+          <code
+            >call-run-event: &#123;id: String, contract_id: String, kind:
+            "start" | "print" | "run" String, message: String&#125;</code
+          >;
+        </li>
+        <li>
+          <code>call-made: &#123;id: String, contract_id: String&#125;</code>;
+        </li>
+        <li>
+          <code
+            >call-error: &#123;id: String, contract_id: String, kind: "internal"
+            | "runtime", message: String&#125;</code
+          >;
+        </li>
+      </ul>
+    </li>
+    <li>
       <code>POST</code> <code>/~/contract/&lt;id&gt;/call</code> prepares a new
       call, takes
       <code>&#123;method: String, payload: Any, satoshis: Int&#125;</code>,
-      returns <code>&#123;id: String, invoice: String&#125;</code>;
+      returns <code>&#123;id: String, invoice: String&#125;</code>, when the
+      invoice is paid the call is executed;
     </li>
     <li>
       <code>GET</code> <code>/~/call/&lt;id&gt;</code> returns the full call
@@ -213,6 +402,32 @@
       <code>PATCH</code> <code>/~/call/&lt;id&gt;</code> takes anything passed
       in the JSON body and patches it to the current prepared call
       <strong>payload</strong>, returns the full call info, <code>Call</code>;
+    </li>
+    <li>
+      <code>GET</code> <code>/lnurl/auth</code> performs
+      <a
+        href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#2-lnurl-auth"
+        >lnurl-auth</a
+      >
+      and creates a session;
+    </li>
+    <li>
+      <code>SSE</code> <code>/lnurl/session[?session=...]</code> returns a
+      <code>text/event-stream</code> that emits the following events:
+      <ul>
+        <li>
+          <code>lnurls: &#123;auth: String, withdraw: String&#125;</code>;
+        </li>
+        <li>
+          <code
+            >auth: &#123;account: String, balance: Int, [session:
+            String]&#125;</code
+          >;
+        </li>
+        <li>
+          <code>withdraw: &#123;amount: Int, new_balance: Int&#125;</code>;
+        </li>
+      </ul>
     </li>
   </ul>
 </main>

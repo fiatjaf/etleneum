@@ -1,6 +1,7 @@
 package runlua
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -21,15 +22,25 @@ import (
 func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 	lua_http_gettext func(string, ...map[string]interface{}) (string, error),
 	lua_http_getjson func(string, ...map[string]interface{}) (interface{}, error),
+	lua_http_postjson func(string, interface{}, ...map[string]interface{}) (interface{}, error),
 	calls_p *int,
 ) {
 	calls := 0
 	calls_p = &calls
 
-	http_get := func(url string, headers ...map[string]interface{}) (b []byte, err error) {
-		log.Debug().Str("url", url).Msg("http call from contract")
+	http_call := func(method, url string, body interface{}, headers ...map[string]interface{}) (b []byte, err error) {
+		log.Debug().Str("method", method).Interface("body", body).Str("url", url).Msg("http call from contract")
 
-		req, err := http.NewRequest("GET", url, nil)
+		bodyjson := new(bytes.Buffer)
+		if body != nil {
+			err = json.NewEncoder(bodyjson).Encode(body)
+			if err != nil {
+				return
+			}
+			headers = append([]map[string]interface{}{{"Content-Type": "application/json"}}, headers...)
+		}
+
+		req, err := http.NewRequest(method, url, bodyjson)
 		if err != nil {
 			return
 		}
@@ -61,7 +72,7 @@ func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 	}
 
 	lua_http_gettext = func(url string, headers ...map[string]interface{}) (t string, err error) {
-		respbytes, err := http_get(url, headers...)
+		respbytes, err := http_call("GET", url, nil, headers...)
 		if err != nil {
 			return "", err
 		}
@@ -69,7 +80,22 @@ func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 	}
 
 	lua_http_getjson = func(url string, headers ...map[string]interface{}) (j interface{}, err error) {
-		respbytes, err := http_get(url, headers...)
+		respbytes, err := http_call("GET", url, nil, headers...)
+		if err != nil {
+			return nil, err
+		}
+
+		var value interface{}
+		err = json.Unmarshal(respbytes, &value)
+		if err != nil {
+			return nil, err
+		}
+
+		return value, nil
+	}
+
+	lua_http_postjson = func(url string, body interface{}, headers ...map[string]interface{}) (j interface{}, err error) {
+		respbytes, err := http_call("POST", url, body, headers...)
 		if err != nil {
 			return nil, err
 		}
