@@ -11,11 +11,12 @@
   import * as toast from './toast'
 
   export let params
-  let contract
-  let deletable = false
-  let calls = []
-  let methods = []
-  let payloadfields = []
+  var contract
+  var deletable = false
+  var usesauth = {}
+  var calls = []
+  var methods = []
+  var payloadfields = []
 
   var nextcall
   resetNextCall()
@@ -29,9 +30,7 @@
     if (r.status == 404) replace('/notfound')
     contract = (await r.json()).value
 
-    let parsed = parseCode(contract.code)
-    methods = parsed.methods
-    payloadfields = parsed.payloadfields
+    parseCode(contract.code)
     nextcall.method = methods.length ? methods[0] : null
 
     r = await fetch('/~/contract/' + params.ctid + '/calls')
@@ -44,13 +43,36 @@
   }
 
   function parseCode(code) {
-    var methods = []
+    methods = []
     code.replace(/[\n^]function +([^_][\w_]+) *\(/g, (_, methodName) =>
       methods.push(methodName)
     )
-    var payloadfields = []
+
+    payloadfields = []
     code.replace(/\bpayload\.([\w_]+)/, (_, pf) => payloadfields.push(pf))
-    return {methods, payloadfields}
+
+    usesauth = {}
+    var infunction = null
+    code.split('\n').forEach(line => {
+      let start_function = line.match(/^function ([^_][_\w]+) *\( *\)/)
+      if (start_function) {
+        infunction = start_function[1]
+        return
+      }
+
+      if (
+        infunction &&
+        line.match(/\b(account.send|account.id|account.get_balance)\b/)
+      ) {
+        usesauth[infunction] = true
+        return
+      }
+
+      if (line.match(/^end\b/)) {
+        infunction = null
+        return
+      }
+    })
   }
 
   function resetNextCall() {
@@ -270,10 +292,12 @@
     <form on:submit="{prepareCall}">
       <label
         >method:
-        <select bind:value="{nextcall.method}"
-          >{#each methods as method}<option>{method}</option>{/each}</select
-        ></label
-      >
+        <select bind:value="{nextcall.method}">
+          {#each methods as method}<option>{method}</option>{/each}
+        </select>
+        {#if usesauth[nextcall.method]}apparently this method requires you to be
+        authenticated{/if}
+      </label>
       <label
         >satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
         on:input="{setMsatoshi}" /></label
