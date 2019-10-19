@@ -5,6 +5,7 @@
   import DomJsonTree from 'dom-json-tree/src/index.js'
 
   export var value
+  export var closed = false
 
   let id = parseInt(Math.random() * 100000)
 
@@ -28,6 +29,13 @@
     await tick()
 
     djt.render()
+
+    await tick()
+
+    let properties = document.querySelectorAll(`#j-${id} .djt-Property`)
+    for (let i = 0; i < properties.length; i++) {
+      properties[i].click()
+    }
   })
 </script>
 

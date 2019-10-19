@@ -197,12 +197,22 @@
     width: 100%;
   }
   .call {
-    display: flex;
+    display: grid;
+    grid-template-columns: 123px 1fr 123px 54px 113px 2fr;
   }
   .call > * {
     border: 1px solid var(--softblue);
-    padding: 1px;
+    padding: 1px 4px;
     margin: 2px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    display: flex;
+    justify-items: center;
+    align-items: center;
+    text-align: center;
+  }
+  .call:hover > * {
+    background-color: var(--lightgrey);
   }
 </style>
 
@@ -272,10 +282,10 @@
     <div class="call">
       <div>{call.id}</div>
       <div>{call.method}</div>
-      <div>{call.time}</div>
+      <div>{call.time.split('T').join(' ').replace(/\..*/, '')}</div>
       <div>{parseInt(call.msatoshi/1000)} sat</div>
       <div>{call.caller ? call.caller : 'anonymous'}</div>
-      <div>{JSON.stringify(call.payload)}</div>
+      <div><Json value="{call.payload}" closed /></div>
     </div>
     {/each}
   </div>
