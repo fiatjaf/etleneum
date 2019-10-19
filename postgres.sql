@@ -30,7 +30,7 @@ CREATE TABLE calls (
   CONSTRAINT caller_not_blank CHECK (caller != '')
 );
 
-CREATE INDEX ON calls (contract_id, time);
+CREATE INDEX IF NOT EXISTS idx_calls_by_contract ON calls (contract_id, time);
 
 CREATE TABLE internal_transfers (
   call_id text NOT NULL REFERENCES calls (id),
@@ -51,10 +51,10 @@ CREATE TABLE internal_transfers (
   )
 );
 
-CREATE INDEX ON internal_transfers (from_contract);
-CREATE INDEX ON internal_transfers (to_contract);
-CREATE INDEX ON internal_transfers (from_account);
-CREATE INDEX ON internal_transfers (to_account);
+CREATE INDEX IF NOT EXISTS idx_internal_transfers_from_contract ON internal_transfers (from_contract);
+CREATE INDEX IF NOT EXISTS idx_internal_transfers_to_contract ON internal_transfers (to_contract);
+CREATE INDEX IF NOT EXISTS idx_internal_transfers_from_account ON internal_transfers (from_account);
+CREATE INDEX IF NOT EXISTS idx_internal_transfers_to_account ON internal_transfers (to_account);
 
 CREATE TABLE withdrawals (
   account_id text REFERENCES accounts(id),
