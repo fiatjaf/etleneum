@@ -6,9 +6,6 @@ node_modules
 lib
 bindata.go
 .merlin
-static/*.js
-static/*.js.*
-static/*.css
 venv
 __pycache__
 browserify-cache.json
