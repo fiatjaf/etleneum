@@ -107,6 +107,14 @@
     nextcall.payload[pf] = jsonvalue
   }
 
+  function renderPayloadField(pf) {
+    return nextcall.payload[pf] === undefined
+      ? ''
+      : typeof nextcall.payload[pf] === 'string'
+      ? nextcall.payload[pf]
+      : JSON.stringify(nextcall.payload[pf])
+  }
+
   var es
   onMount(() => {
     es = new EventSource('/~/contract/' + params.ctid + '/stream')
@@ -241,7 +249,7 @@
         >{pf}:
         <input
           data-field="{pf}"
-          value="{nextcall.payload[pf] || ''}"
+          value="{renderPayloadField(pf)}"
           on:input="{setPayloadField}"
       /></label>
       {/each} {#if Object.keys(nextcall.payload).length > 0}

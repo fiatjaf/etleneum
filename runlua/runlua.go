@@ -125,7 +125,15 @@ func runCall(
 		"keybase_verify":              lua_keybase_verify_signature,
 		"keybase_lookup":              lua_keybase_lookup,
 		"print": func(args ...interface{}) {
-			fmt.Fprint(printToDestination, args)
+			actualArgs := make([]interface{}, len(args)*2+1)
+			i := 0
+			for _, arg := range args {
+				actualArgs[i] = arg
+				actualArgs[i+1] = "\t"
+				i += 2
+			}
+			actualArgs[i] = "\n"
+			fmt.Fprint(printToDestination, actualArgs...)
 		},
 		"sha256": lua_sha256,
 		"cuid":   cuid.New,
