@@ -25,7 +25,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// check session validity as k1
 		b, err := hex.DecodeString(session)
-		if err != nil || len(b) != 16 {
+		if err != nil || len(b) != 32 {
 			session = lnurl.RandomK1()
 		} else {
 			// finally try to fetch an existing stream
@@ -65,7 +65,12 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
+			log.Debug().Str("account", accountId).Str("session", session).Str("type", "auth").
+				Msg("dispatched session message")
 		}()
+
+		// also renew his session
+		rds.Expire("auth-session:"+session, time.Hour*24*30)
 	}
 
 	// always send lnurls because we need lnurl-withdraw even if we're logged already, obviously
@@ -74,6 +79,8 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
 		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw?session=" + session)
 		es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
+		log.Debug().Str("account", accountId).Str("session", session).Str("type", "lnurls").
+			Msg("dispatched session message")
 	}()
 
 	es.ServeHTTP(w, r)
@@ -117,13 +124,15 @@ ON CONFLICT (lnurl_key)
 	}
 
 	// assign the account id to this session on redis
-	if rds.Set("auth-session:"+session, acct.Id, time.Hour*24*120).Err() != nil {
+	if rds.Set("auth-session:"+session, acct.Id, time.Hour*24*30).Err() != nil {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to save session."))
 		return
 	}
 
 	// notify browser
 	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
+	log.Debug().Str("account", acct.Id).Str("session", k1).Str("type", "auth").
+		Msg("dispatched session message")
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
@@ -239,6 +248,8 @@ VALUES ($1, $2, false, $3)
 	// notify browser
 	if ies, ok := userstreams.Get(session); ok {
 		ies.(eventsource.EventSource).SendEventMessage(`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`, "withdraw", "")
+		log.Debug().Str("account", accountId).Str("session", session).Str("type", "withdraw").
+			Msg("dispatched session message")
 	}
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
