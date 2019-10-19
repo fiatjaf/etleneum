@@ -28,32 +28,6 @@ a {
 a:hover {
   text-decoration: underline;
 }
-article a {
-  color: #25aa7b;
-  text-decoration: underline;
-}
-article h1:not(:hover) a.header-anchor,
-article h2:not(:hover) a.header-anchor,
-article h3:not(:hover) a.header-anchor,
-article h4:not(:hover) a.header-anchor,
-article h5:not(:hover) a.header-anchor,
-article h6:not(:hover) a.header-anchor {
-  color: transparent;
-}
-article a.header-anchor {
-  text-decoration: none;
-}
-article code,
-article pre {
-  background: #ffeaea;
-  line-height: calc(1em + 10px);
-}
-article code {
-  padding: 3px;
-}
-article pre {
-  padding: 8px;
-}
 textarea {
   background: transparent;
   min-height: 400px;
@@ -99,3 +73,24 @@ nav a:hover {
   white-space: pre-wrap;
   word-wrap: break-word;
 }
+
+article {
+  background: var(--lightgrey);
+  padding: 3px 9px;
+}
+article a {
+  color: #25aa7b;
+  text-decoration: underline;
+}
+article a.header-anchor {
+  text-decoration: none;
+}
+article code,
+article pre {
+  background: #ffeaea;
+}
+article code {
+  padding: 3px;
+  line-height: calc(1em + 10px);
+}
+article pre { padding: 8px; }

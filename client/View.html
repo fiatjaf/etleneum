@@ -7,6 +7,7 @@
   import QR from './QR.html'
   import Json from './Json.html'
   import LuaCode from './LuaCode.html'
+  import Markdown from './Markdown.html'
   import account from './accountStore'
   import * as toast from './toast'
 
@@ -289,7 +290,7 @@
     <h4>state</h4>
     <Json value="{contract.state}" />
     <h4>readme</h4>
-    <div>{contract.readme}</div>
+    <Markdown>{contract.readme}</Markdown>
     <h4>code</h4>
     <LuaCode>{contract.code}</LuaCode>
   </div>

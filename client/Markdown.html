@@ -1,0 +1,35 @@
+<!-- @format -->
+
+<script>
+  import {onMount, onDestroy} from 'svelte'
+  import Markdown from 'markdown-it'
+
+  const md = Markdown({
+    html: false,
+    linkify: true,
+    typographer: false,
+    breaks: true
+  })
+
+  let id = parseInt(Math.random() * 100000)
+  var source
+  var target
+
+  onMount(() => {
+    source = document.getElementById('c-' + id + '-source')
+    target = document.getElementById('c-' + id + '-target')
+
+    target.innerHTML = md.render(source.innerHTML)
+    source.style.display = 'none'
+  })
+
+  onDestroy(() => {
+    target.innerHTML = ''
+    source.style.display = ''
+  })
+</script>
+
+<div id="c-{id}-source">
+  <slot></slot>
+</div>
+<article id="c-{id}-target"></article>

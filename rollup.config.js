@@ -1,5 +1,6 @@
 /** @format */
 
+import json from 'rollup-plugin-json'
 import svelte from 'rollup-plugin-svelte'
 import resolve from 'rollup-plugin-node-resolve'
 import commonjs from 'rollup-plugin-commonjs'
@@ -16,6 +17,8 @@ export default {
     file: 'static/bundle.js'
   },
   plugins: [
+    json(),
+
     svelte({
       // enable run-time checks when not in production
       dev: !production,
@@ -34,7 +37,8 @@ export default {
     resolve({
       browser: true,
       dedupe: importee =>
-        importee === 'svelte' || importee.startsWith('svelte/')
+        importee === 'svelte' || importee.startsWith('svelte/'),
+      preferBuiltins: false
     }),
     commonjs(),
 
