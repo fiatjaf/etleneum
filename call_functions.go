@@ -116,10 +116,14 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 		// send from contract
 		func(target string, msat int) (msatoshiSent int, err error) {
 			var totype string
-			if target[0] == 'c' {
+			if len(target) == 0 {
+				return 0, errors.New("can't send to blank recipient")
+			} else if target[0] == 'c' {
 				totype = "contract"
 			} else if target[0] == 'a' {
 				totype = "account"
+			} else {
+				return 0, errors.New("invalid recipient " + target)
 			}
 
 			log.Print("target ", target, " amt ", msat)
@@ -157,10 +161,14 @@ VALUES ($1, $2, $3, $4)
 		// send from current account
 		func(target string, msat int) (msatoshiSent int, err error) {
 			var totype string
-			if target[0] == 'c' {
+			if len(target) == 0 {
+				return 0, errors.New("can't send to blank recipient")
+			} else if target[0] == 'c' {
 				totype = "contract"
 			} else if target[0] == 'a' {
 				totype = "account"
+			} else {
+				return 0, errors.New("invalid recipient " + target)
 			}
 			_, err = txn.Exec(`
 INSERT INTO internal_transfers (call_id, msatoshi, from_account, to_`+totype+`)
