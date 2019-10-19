@@ -202,12 +202,17 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 INSERT INTO withdrawals (account_id, msatoshi, fulfilled, bolt11)
 VALUES ($1, $2, false, $3)
     `, accountId, amount, bolt11)
+	if err != nil {
+		log.Warn().Err(err).Msg("error inserting withdrawal")
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
+		return
+	}
 
 	// check balance afterwards
 	var balance int
 	err = txn.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", accountId)
 	if err != nil {
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("error fetching " + accountId + " balance."))
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
 		return
 	}
 	if balance < 0 {
@@ -216,6 +221,13 @@ VALUES ($1, $2, false, $3)
 	}
 
 	log.Debug().Int("balance after", balance).Msg("will fulfill")
+
+	err = txn.Commit()
+	if err != nil {
+		log.Warn().Err(err).Msg("error commiting withdrawal")
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
+		return
+	}
 
 	// actually send the payment
 	go func() {
