@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
@@ -46,6 +47,15 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "failed to parse json", 400)
 		return
 	}
+	if strings.TrimSpace(ct.Name) == "" {
+		jsonError(w, "contract must have a name", 400)
+		return
+	}
+	if len(strings.TrimSpace(ct.Readme)) < 100 && !s.FreeMode {
+		jsonError(w, "contract must have a readme of at least 100 characters", 400)
+		return
+	}
+
 	ct.Id = "c" + cuid.Slug()
 
 	if ok := checkContractCode(ct.Code); !ok {

@@ -85,7 +85,9 @@ func lnurlAuth(w http.ResponseWriter, r *http.Request) {
 	sig := params.Get("sig")
 	key := params.Get("key")
 
-	if ok, _ := lnurl.VerifySignature(k1, sig, key); !ok {
+	if ok, err := lnurl.VerifySignature(k1, sig, key); !ok {
+		log.Debug().Err(err).Str("k1", k1).Str("sig", sig).Str("key", key).
+			Msg("failed to verify lnurl-auth signature")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("signature verification failed."))
 		return
 	}
