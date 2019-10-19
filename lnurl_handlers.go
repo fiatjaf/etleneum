@@ -54,7 +54,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 
 	accountId := rds.Get("auth-session:" + session).Val()
 	if accountId != "" {
-		// we're logged already, so send our login information
+		// we're logged already, so send account information
 		go func() {
 			time.Sleep(2 * time.Second)
 			var acct types.Account
@@ -72,7 +72,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
-		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw")
+		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw?session=" + session)
 		es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
 	}()
 
@@ -132,6 +132,7 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 	// get account id from session
 	accountId, err := rds.Get("auth-session:" + session).Result()
 	if err != nil {
+		log.Error().Err(err).Str("session", session).Msg("failed to get session from redis on withdraw")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("lnurl session " + session + " has expired."))
 		return
 	}
@@ -179,6 +180,11 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	defer txn.Rollback()
 
+	if s.FreeMode {
+		json.NewEncoder(w).Encode(lnurl.OkResponse())
+		return
+	}
+
 	// decode invoice
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
@@ -215,6 +221,8 @@ VALUES ($1, $2, false, $3)
 	if ies, ok := userstreams.Get(session); ok {
 		ies.(eventsource.EventSource).SendEventMessage(`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`, "withdraw", "")
 	}
+
+	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {

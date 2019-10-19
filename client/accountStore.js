@@ -35,7 +35,8 @@ account.reset = function() {
 
 function startEventSource() {
   es = new window.EventSource(
-    '/lnurl/session?session=' + (current.session ? current.session : '')
+    '/lnurl/session?src=store&session=' +
+      (current.session ? current.session : '')
   )
 
   es.addEventListener('lnurls', e => {

@@ -13,7 +13,7 @@
   onMount(() => {
     unsubscribe = account.subscribe(({session}) => {
       if (session) {
-        es = new EventSource('/lnurl/session?session=' + session)
+        es = new EventSource('/lnurl/session?src=comp&session=' + session)
         es.addEventListener('withdraw', e => {
           let data = JSON.parse(e.data)
           toast.info(`successfully withdrawn ${data.amount} msatoshi`)
