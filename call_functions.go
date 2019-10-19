@@ -18,8 +18,8 @@ func getCallCosts(c types.Call) int {
 	cost := s.FixedCallCostSatoshis * 1000     // a fixed cost of 1 satoshi by default
 	cost += int(float64(len(c.Payload)) * 0.1) // a negligible amount of msats, just to prevent abuse by enormous payloads
 
-	words := len(wordMatcher.FindAllString(string(c.Payload), -1))
-	cost += 50 * words // 50 msatoshi for each word in the payload
+	chars := len(string(c.Payload))
+	cost += 7 * chars // 5 msatoshi for each character in the payload
 
 	if c.Msatoshi > 500000 {
 		// to help cover withdraw fees later we charge a percent of the amount of satoshis included
