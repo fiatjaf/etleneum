@@ -1,13 +1,78 @@
 <!-- @format -->
 
 <script>
+  import {onMount, onDestroy} from 'svelte'
+  import {blur} from 'svelte/transition'
+
   import QR from './QR.html'
   import account from './accountStore'
+
+  let names = [
+    'Etleneum',
+    'ڪيانا',
+    'Etleniko',
+    '菠蘿蜜',
+    'Etẽlenum',
+    '素晴らしい虹',
+    'Etljeneo'
+  ]
+  let name = 'Etleneum'
+  let rotation = 0
+  let visible = true
+  var intv
+
+  onMount(() => {
+    intv = setInterval(() => {
+      visible = false
+      setTimeout(() => {
+        name = names[names.indexOf(name) + (1 % (names.length - 1))]
+        rotation = rotation + 60
+        visible = true
+      }, 1)
+    }, 4000)
+  })
+  onDestroy(() => {
+    clearInterval(intv)
+  })
 </script>
 
-<div>
-  <h1>Etleneum</h1>
-  <h2>A programmable digital ledger that runs fast and scales</h2>
+<style>
+  * {
+    text-align: center;
+  }
+  main {
+    padding: 0 100px;
+  }
+  header img {
+    height: 14rem;
+  }
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: normal;
+  }
+</style>
+
+<main>
+  <header class="center">
+    {#if visible}
+    <img
+      in:blur="{{amount:10, duration: 450}}"
+      out:blur="{{amount: 10, duration: 450}}"
+      src="/static/icon.png"
+      alt="etleneum logo"
+      style="transform: rotate({rotation}deg)"
+    />
+    <h1
+      in:blur="{{amount:10, duration: 450}}"
+      out:blur="{{amount: 10, duration: 450}}"
+    >
+      {name}
+    </h1>
+    {/if}
+  </header>
+  <h2>
+    Etleneum is a global, open-source platform for the centralized applications.
+  </h2>
   <p>
     On Etleneum you can write code that controls digital value, runs exactly as
     programmed, and is accessible anywhere in the world.
@@ -25,4 +90,4 @@
     <p>scan to login</p>
     {/if}
   </div>
-</div>
+</main>
