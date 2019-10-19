@@ -192,6 +192,9 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	amount := inv.Get("msatoshi").Int()
 
+	log.Debug().Str("bolt11", bolt11).Str("account", accountId).Int64("amount", amount).
+		Msg("got a payment request")
+
 	// add a pending withdrawal
 	_, err = txn.Exec(`
 INSERT INTO withdrawals (account_id, msatoshi, fulfilled, bolt11)
@@ -209,6 +212,8 @@ VALUES ($1, $2, false, $3)
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("insufficient balance."))
 		return
 	}
+
+	log.Debug().Int("balance after", balance).Msg("will fulfill")
 
 	// actually send the payment
 	go func() {
