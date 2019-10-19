@@ -117,6 +117,11 @@
     nextcall.id = id
   }
 
+  function abandonCall(e) {
+    e.preventDefault()
+    resetNextCall()
+  }
+
   async function deleteContract(e) {
     e.preventDefault()
 
@@ -161,7 +166,17 @@
 
   var es
   onMount(() => {
+    startEventSource()
+  })
+
+  onDestroy(() => {
+    es.close()
+  })
+
+  function startEventSource() {
     es = new EventSource('/~/contract/' + params.ctid + '/stream')
+
+    es.onclose = startEventSource
     es.addEventListener('contract-created', e => {
       let data = JSON.parse(e.data)
       toast.success(`contract ${data.id} created!`)
@@ -200,11 +215,7 @@
       toast.warning(`${data.kind} error making call: ${data.message}`)
       resetNextCall()
     })
-  })
-
-  onDestroy(() => {
-    es.close()
-  })
+  }
 </script>
 
 <style>
@@ -290,6 +301,7 @@
     <div class="center">
       <QR value="{nextcall.invoice}" />
       <p>pay to make the call</p>
+      <button on:click="{abandonCall}">prepare a different call</button>
     </div>
     {:else}
     <form on:submit="{prepareCall}">
