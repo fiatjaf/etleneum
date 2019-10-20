@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"gopkg.in/antage/eventsource.v1"
@@ -33,7 +34,11 @@ func contractStream(w http.ResponseWriter, r *http.Request) {
 
 	if !ok {
 		es = eventsource.New(
-			eventsource.DefaultSettings(),
+			&eventsource.Settings{
+				Timeout:        5 * time.Second,
+				CloseOnTimeout: true,
+				IdleTimeout:    300 * time.Minute,
+			},
 			func(r *http.Request) [][]byte {
 				return [][]byte{
 					[]byte("X-Accel-Buffering: no"),
@@ -44,11 +49,26 @@ func contractStream(w http.ResponseWriter, r *http.Request) {
 				}
 			},
 		)
-
+		go func() {
+			for {
+				time.Sleep(25 * time.Second)
+				if es.ConsumersCount() == 0 {
+					es.Close()
+					return
+				} else {
+					es.SendEventMessage("", "keepalive", "")
+				}
+			}
+		}()
 		contractstreams.Set(ctid, es)
 	} else {
 		es = ies.(eventsource.EventSource)
 	}
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		es.SendRetryMessage(3 * time.Second)
+	}()
 
 	es.ServeHTTP(w, r)
 }

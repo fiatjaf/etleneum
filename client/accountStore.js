@@ -15,7 +15,7 @@ var storeSet = () => {}
 
 const account = readable(initial, set => {
   storeSet = set
-  es = startEventSource()
+  startEventSource()
 
   return () => {
     es.close()
@@ -38,7 +38,7 @@ function startEventSource() {
     '/lnurl/session?src=store&session=' +
       (current.session ? current.session : '')
   )
-
+  es.onerror = e => console.log('accountstore sse error', e.data)
   es.addEventListener('lnurls', e => {
     let data = JSON.parse(e.data)
     current = {...current, lnurl: data}

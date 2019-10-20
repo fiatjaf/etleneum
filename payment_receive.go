@@ -7,7 +7,6 @@ import (
 
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/tidwall/gjson"
-	"gopkg.in/antage/eventsource.v1"
 )
 
 func handleInvoicePaid(res gjson.Result) {
@@ -40,9 +39,7 @@ func handlePaymentReceived(label string, msats int64) {
 			ct, err := contractFromRedis(contractId)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to fetch contract from redis to activate")
-				if ies, ok := contractstreams.Get(contractId); ok {
-					ies.(eventsource.EventSource).SendEventMessage(`{"id": "`+contractId+`", "error": "`+err.Error()+`", "kind": "internal"}`, "contract-error", "")
-				}
+				dispatchContractEvent(contractId, ctevent{contractId, "", err.Error(), "internal"}, "contract-error")
 				return
 			}
 
