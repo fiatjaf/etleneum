@@ -157,6 +157,34 @@ ON CONFLICT (lnurl_key)
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
 
+func refreshBalance(w http.ResponseWriter, r *http.Request) {
+	session := r.URL.Query().Get("session")
+
+	// get account id from session
+	accountId, err := rds.Get("auth-session:" + session).Result()
+	if err != nil {
+		log.Error().Err(err).Str("session", session).Msg("failed to get session from redis on refresh")
+		w.WriteHeader(500)
+		return
+	}
+
+	// get balance
+	var balance int
+	err = pg.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", accountId)
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
+	if ies, ok := userstreams.Get(session); ok {
+		ies.(eventsource.EventSource).SendEventMessage(`{"account": "`+accountId+`", "balance": "`+strconv.Itoa(balance)+`"}`, "auth", "")
+		log.Debug().Str("account", accountId).Str("session", session).Str("type", "auth").
+			Msg("dispatched session message")
+	}
+
+	w.WriteHeader(200)
+}
+
 func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 	session := r.URL.Query().Get("session")
 

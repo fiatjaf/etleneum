@@ -202,6 +202,7 @@
           toast.info(
             `call ${data.id} used a function: <code>${data.message}</code>`
           )
+          account.refresh()
           break
       }
     })

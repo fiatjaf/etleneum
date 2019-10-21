@@ -22,6 +22,10 @@ const account = readable(initial, set => {
   }
 })
 
+account.refresh = function() {
+  window.fetch('/lnurl/refresh?session=' + current.session)
+}
+
 account.reset = function() {
   window.localStorage.removeItem('auth-session')
   current = {...initial}

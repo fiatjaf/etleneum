@@ -110,6 +110,7 @@ func main() {
 	router.Path("/~/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
 	router.Path("/lnurl/session").Methods("GET").HandlerFunc(lnurlSession)
 	router.Path("/lnurl/auth").Methods("GET").HandlerFunc(lnurlAuth)
+	router.Path("/lnurl/refresh").Methods("GET").HandlerFunc(refreshBalance)
 	router.Path("/lnurl/withdraw").Methods("GET").HandlerFunc(lnurlWithdraw)
 	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
 	router.Path("/lnurl/logout").Methods("POST").HandlerFunc(logout)
