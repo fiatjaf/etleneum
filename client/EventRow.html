@@ -1,0 +1,47 @@
+<!-- @format -->
+
+<script>
+  import Json from './Json.html'
+
+  export let event
+</script>
+
+<style>
+  .event {
+    display: grid;
+    grid-template-columns: 123px 123px 1fr 3fr 54px 123px;
+  }
+  .event > * {
+    border: 1px solid var(--softblue);
+    padding: 1px 4px;
+    margin: 2px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    display: flex;
+    justify-items: center;
+    align-items: center;
+    text-align: center;
+  }
+  .event:hover > * {
+    background-color: var(--lightgrey);
+  }
+</style>
+
+<div class="event">
+  <div>{event.call}</div>
+  <div>{event.time.split('T').join(' ').replace(/\..*/, '')}</div>
+  <div>
+    {#if event.kind == 'call'}{event.data.method}{/if}
+  </div>
+  <div>
+    {#if event.kind == 'call'}
+    <Json value="{event.data.payload}" closed />
+    {:else if event.kind == 'transfer_out'}transfer to{:else if event.kind ==
+    'transfer_in'}transfer from{/if}
+  </div>
+  <div>{parseInt(event.msatoshi/1000)} sat</div>
+  <div>
+    {#if event.kind == 'call'} {event.data.caller ? event.data.caller :
+    'anonymous'} {:else} {event.data.other} {/if}
+  </div>
+</div>

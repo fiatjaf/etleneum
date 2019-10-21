@@ -168,3 +168,28 @@ WHERE id = $1
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Result{Ok: true})
 }
+
+func listEvents(w http.ResponseWriter, r *http.Request) {
+	ctid := mux.Vars(r)["ctid"]
+	logger := log.With().Str("ctid", ctid).Logger()
+
+	events := make([]types.ContractEvent, 0)
+	err = pg.Select(&events, `
+SELECT `+types.CONTRACTEVENTFIELDS+`
+FROM contract_events
+WHERE contract = $1
+ORDER BY time DESC, kind DESC
+LIMIT 50
+    `, ctid)
+
+	if err == sql.ErrNoRows {
+		events = make([]types.ContractEvent, 0)
+	} else if err != nil {
+		logger.Warn().Err(err).Msg("failed to fetch events")
+		jsonError(w, "failed to fetch events", 404)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: events})
+}

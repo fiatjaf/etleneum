@@ -21,7 +21,7 @@ SELECT `+types.CALLFIELDS+`
 FROM calls
 WHERE contract_id = $1
 ORDER BY time DESC
-LIMIT 20
+LIMIT 50
         `, ctid)
 	if err == sql.ErrNoRows {
 		calls = make([]types.Call, 0)

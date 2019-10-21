@@ -9,13 +9,14 @@
   import LuaCode from './LuaCode.html'
   import Markdown from './Markdown.html'
   import MultiField from './MultiField.html'
+  import EventRow from './EventRow.html'
 
   import account from './accountStore'
   import * as toast from './toast'
 
   export let params
   var contract
-  var calls = []
+  var events = []
 
   var deletable = false
 
@@ -39,12 +40,12 @@
     parseCode(contract.code)
     nextcall.method = methods.length ? methods[0] : null
 
-    r = await fetch('/~/contract/' + params.ctid + '/calls')
-    calls = (await r.json()).value
+    r = await fetch('/~/contract/' + params.ctid + '/events')
+    events = (await r.json()).value
 
     deletable =
       contract.funds === 0 &&
-      calls.length < 4 &&
+      events.length < 4 &&
       new Date() - new Date(Date.parse(contract.created_at)) < 3600000
   }
 
@@ -257,27 +258,9 @@
     font-size: 1.2rem;
     background-color: var(--yellow);
   }
-  #calls {
+  #events {
     margin-top: 2%;
     width: 100%;
-  }
-  .call {
-    display: grid;
-    grid-template-columns: 123px 1fr 123px 54px 113px 2fr;
-  }
-  .call > * {
-    border: 1px solid var(--softblue);
-    padding: 1px 4px;
-    margin: 2px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    display: flex;
-    justify-items: center;
-    align-items: center;
-    text-align: center;
-  }
-  .call:hover > * {
-    background-color: var(--lightgrey);
   }
 </style>
 
@@ -348,17 +331,10 @@
     </form>
     {/if} {/if}
   </div>
-  <div id="calls">
-    <h2>call history</h2>
-    {#each calls as call}
-    <div class="call">
-      <div>{call.id}</div>
-      <div>{call.method}</div>
-      <div>{call.time.split('T').join(' ').replace(/\..*/, '')}</div>
-      <div>{parseInt(call.msatoshi/1000)} sat</div>
-      <div>{call.caller ? call.caller : 'anonymous'}</div>
-      <div><Json value="{call.payload}" closed /></div>
-    </div>
+  <div id="events">
+    <h2>contract (recent) history</h2>
+    {#each events as event}
+    <EventRow event="{event}" />
     {/each}
   </div>
 </main>

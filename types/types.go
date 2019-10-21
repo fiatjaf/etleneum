@@ -44,3 +44,13 @@ type Account struct {
 }
 
 const ACCOUNTFIELDS = "id, accounts.balance"
+
+type ContractEvent struct {
+	Kind     string         `db:"kind" json:"kind"`
+	Call     string         `db:"call" json:"call"`
+	Time     time.Time      `db:"time" json:"time"`
+	Msatoshi int            `db:"msatoshi" json:"msatoshi"`
+	Data     types.JSONText `db:"data" json:"data"`
+}
+
+const CONTRACTEVENTFIELDS = "kind, call, time, msatoshi, data"

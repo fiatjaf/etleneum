@@ -83,7 +83,12 @@
     <a href="https://test.etleneum.com">test website</a>{/if}.
   </p>
 
-  {#if window.location.host !== 'etleneum.com'}
+  {#if window.location.host === 'etleneum.com'}
+  <p>
+    If you need help, have questions or feedback or just want to say hi, go talk
+    to us at <a href="https://t.me/etleneum">our Telegram chat</a>.
+  </p>
+  {:else}
   <p>
     This is a test website. You can create contracts and run calls for free.
     Whenever you see an invoice, just wait and it will be paid automatically
