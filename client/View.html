@@ -130,7 +130,7 @@
     let resp = await r.json()
     if (resp.ok) {
       toast.success('contract deleted!')
-      push('/')
+      push('/contracts')
     } else {
       toast.warning(resp.error)
     }
@@ -282,7 +282,7 @@
 <main>
   <div id="status">
     <h1>
-      {contract.name} {#if deletable}
+      {contract.name} {#if window.location.host !== 'etleneum.com' || deletable}
       <button on:click="{deleteContract}">delete</button>{/if}
     </h1>
     <div>{(contract.funds/1000).toFixed(3)} sat</div>

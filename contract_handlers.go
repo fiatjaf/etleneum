@@ -152,10 +152,14 @@ func deleteContract(w http.ResponseWriter, r *http.Request) {
 	_, err := pg.Exec(`
 DELETE FROM contracts
 WHERE id = $1
-  AND contracts.funds = 0
-  AND created_at + '1 hour'::interval > now()
-  AND (SELECT count(*) FROM calls WHERE contract_id = contracts.id) < 4
-    `, id)
+  AND (
+    $2 OR (
+      contracts.funds = 0
+        AND created_at + '1 hour'::interval > now()
+        AND (SELECT count(*) FROM calls WHERE contract_id = contracts.id) < 4
+    )
+  )
+    `, id, s.FreeMode)
 	if err != nil {
 		log.Info().Err(err).Str("id", id).Msg("can't delete contract")
 		jsonError(w, "can't delete contract", 404)

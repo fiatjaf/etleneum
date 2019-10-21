@@ -42,21 +42,6 @@ textarea {
   border: 1px solid;
   background: #fff;
 }
-nav {
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-nav > * {
-  margin: 0 14px;
-}
-nav .logo img {
-  width: 3em;
-}
-nav a:hover {
-  padding: 3px 6px;
-}
 .center {
   display: flex;
   flex-direction: column;

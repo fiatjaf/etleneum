@@ -78,12 +78,12 @@
     programmed, and is accessible anywhere in the world.
   </p>
   <p>
-    <a href="#/docs">Read more</a>{#if window.location.host !==
-    'test.etleneum.com'} and start creating some <em>free</em> contracts in the
+    <a href="#/docs">Read more</a>{#if window.location.host === 'etleneum.com'}
+    and start creating some <em>free</em> contracts in the
     <a href="https://test.etleneum.com">test website</a>{/if}.
   </p>
 
-  {#if window.location.host !== 'test.etleneum.com'}
+  {#if window.location.host !== 'etleneum.com'}
   <p>
     This is a test website. You can create contracts and run calls for free.
     Whenever you see an invoice, just wait and it will be paid automatically

@@ -26,11 +26,26 @@
 </script>
 
 <style>
+  nav {
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  nav > * {
+    margin: 0 14px;
+  }
+  nav a:hover {
+    padding: 3px 6px;
+  }
   nav img {
     height: 3rem;
   }
   nav a {
     color: inherit;
+  }
+  .account {
+    text-transform: lowercase;
   }
   main {
     margin: 23px auto;
@@ -42,7 +57,8 @@
   <a href="#/contracts">list contracts</a>
   <a href="#/create">create</a>
   <a href="#/account">
-    {#if $account.id}acct:{$account.id}{:else}login{/if}
+    {#if $account.id}acct:<span class="account">{$account.id}</span
+    >{:else}login{/if}
   </a>
   <a href="#/docs">docs</a>
 </nav>
