@@ -19,7 +19,7 @@ func getCallCosts(c types.Call) int {
 	cost += int(float64(len(c.Payload)) * 0.1) // a negligible amount of msats, just to prevent abuse by enormous payloads
 
 	chars := len(string(c.Payload))
-	cost += 7 * chars // 5 msatoshi for each character in the payload
+	cost += 70 * chars // 70 msatoshi for each character in the payload
 
 	if c.Msatoshi > 500000 {
 		// to help cover withdraw fees later we charge a percent of the amount of satoshis included
