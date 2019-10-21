@@ -8,6 +8,8 @@
   import Json from './Json.html'
   import LuaCode from './LuaCode.html'
   import Markdown from './Markdown.html'
+  import MultiField from './MultiField.html'
+
   import account from './accountStore'
   import * as toast from './toast'
 
@@ -20,6 +22,7 @@
   var methods = []
   var usesauth = {}
   var payloadfields = {}
+  var payloadfieldtypes = {}
 
   var nextcall
   resetNextCall()
@@ -140,17 +143,15 @@
     nextcall.msatoshi = parseInt(e.target.value) * 1000
   }
 
-  function setPayloadField(e) {
-    let pf = e.currentTarget.dataset.field
-
+  function setPayloadField(pf, e) {
     var jsonvalue
-    if (e.target.value === '') {
+    if (e.detail === '') {
       jsonvalue = undefined
     } else {
       try {
-        jsonvalue = JSON.parse(e.target.value)
+        jsonvalue = JSON.parse(e.detail)
       } catch (err) {
-        jsonvalue = e.target.value
+        jsonvalue = e.detail
       }
     }
 
@@ -320,10 +321,9 @@
       {#each (payloadfields[nextcall.method] || []) as pf}
       <label
         >{pf}:
-        <input
-          data-field="{pf}"
+        <MultiField
           value="{renderPayloadField(pf)}"
-          on:input="{setPayloadField}"
+          on:change="{e => setPayloadField(pf, e)}"
       /></label>
       {/each} {#if Object.keys(nextcall.payload).length > 0}
       <label>payload: <Json value="{nextcall.payload}" /> </label>

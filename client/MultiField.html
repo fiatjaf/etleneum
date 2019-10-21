@@ -1,0 +1,43 @@
+<!-- @format -->
+
+<script>
+  import {createEventDispatcher} from 'svelte'
+
+  export let value
+
+  const dispatch = createEventDispatcher()
+
+  function change(e) {
+    dispatch('change', e.target.value)
+  }
+
+  const types = ['text-line', 'text-area', 'number', 'bool']
+  export let type = types[0]
+
+  function toggle() {
+    type = types[(types.indexOf(type) + 1) % types.length]
+  }
+</script>
+
+<style>
+  div {
+    display: inline;
+  }
+  span {
+    cursor: pointer;
+    cursor: alias;
+  }
+</style>
+
+<div>
+  <span on:click="{toggle}">⇋</span>
+  {#if type == 'text-line'}
+  <input type="text" value="{value}" on:input="{change}" />
+  {:else if type == 'text-area'}
+  <textarea value="{value}" on:input="{change}" />
+  {:else if type == 'number'}
+  <input type="number" value="{value}" on:input="{change}" />
+  {:else if type == 'bool'}
+  <input type="checkbox" value="{value}" on:input="{change}" />
+  {/if}
+</div>

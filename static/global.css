@@ -30,11 +30,9 @@ a:hover {
 }
 textarea {
   background: transparent;
-  min-height: 400px;
-  min-width: 400px;
   white-space: pre-wrap;
   word-wrap: break-word;
-  max-width: 100%;
+  width: 100%;
 }
 input,
 textarea {
