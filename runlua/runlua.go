@@ -245,7 +245,9 @@ ret = run(sandbox_env, call)
 
 	err = L.DoString(code)
 	if err != nil {
-		log.Print(stackTraceWithCode(err.Error(), code))
+		st := stackTraceWithCode(err.Error(), code)
+		log.Print(st)
+		err = errors.New(st)
 		return
 	}
 

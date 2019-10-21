@@ -126,7 +126,6 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 				return 0, errors.New("invalid recipient " + target)
 			}
 
-			log.Print("target ", target, " amt ", msat)
 			_, err = txn.Exec(`
 INSERT INTO internal_transfers (call_id, msatoshi, from_contract, to_`+totype+`)
 VALUES ($1, $2, $3, $4)
@@ -194,7 +193,6 @@ VALUES ($1, $2, $3, $4)
 		*call,
 	)
 	if err != nil {
-		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to run call")
 		return
 	}
 

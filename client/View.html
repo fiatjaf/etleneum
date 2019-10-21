@@ -82,7 +82,9 @@
     })
   }
 
-  function resetNextCall() {
+  function resetNextCall(id) {
+    if (id && nextcall.id !== id) return
+
     nextcall = {
       msatoshi: 0,
       payload: {},
@@ -207,14 +209,20 @@
       let data = JSON.parse(e.data)
       setTimeout(() => {
         toast.success(`call ${data.id} made!`)
-        resetNextCall()
+        resetNextCall(data.id)
         loadContract()
       }, 1000)
     })
     es.addEventListener('call-error', e => {
       let data = JSON.parse(e.data)
-      toast.warning(`${data.kind} error making call: ${data.message}`)
-      resetNextCall()
+
+      if (data.kind === 'internal') {
+        toast.error(`internal error, please notify: ${data.message}`)
+      } else if (data.kind === 'runtime') {
+        toast.warning(`raised error: <pre>${data.message}</pre>`, 30000)
+      }
+
+      resetNextCall(data.id)
     })
   }
 </script>
