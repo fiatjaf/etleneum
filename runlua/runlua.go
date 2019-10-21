@@ -125,6 +125,7 @@ func runCall(
 		"httppostjson":                lua_http_postjson,
 		"keybase_verify":              lua_keybase_verify_signature,
 		"keybase_verify_bundle":       lua_keybase_verify_bundle,
+		"keybase_extract_message":     lua_keybase_extract_message,
 		"keybase_lookup":              lua_keybase_lookup,
 		"print": func(args ...interface{}) {
 			actualArgs := make([]interface{}, len(args)*2+1)
@@ -208,6 +209,7 @@ custom_env = {
       end
       return keybase._verify(username, text_or_bundle, signature_block)
     end,
+    extract_message=keybase_extract_message,
     lookup=keybase_lookup,
     exists=function (n) return keybase.username(n) ~= "" end,
     github=function (n) return keybase.lookup("github", n) end,

@@ -85,6 +85,11 @@ func lua_keybase_verify_bundle(username, bundle string) (ok bool, err error) {
 	return lua_keybase_verify_signature(username, text, sig)
 }
 
+func lua_keybase_extract_message(bundle string) (message string) {
+	message, _ = getSignedMessageFromBundle(bundle)
+	return
+}
+
 var signedMessageRe = regexp.MustCompile(`-----BEGIN PGP SIGNED MESSAGE-----\n(\w.*\n)*\n((.*\n?)*)\n-----BEGIN`)
 
 func getSignedMessageFromBundle(bundle string) (message string, err error) {
