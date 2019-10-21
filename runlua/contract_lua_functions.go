@@ -9,14 +9,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/tidwall/gjson"
-	openpgp "golang.org/x/crypto/openpgp"
-	openpgperrors "golang.org/x/crypto/openpgp/errors"
 )
 
 func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
@@ -120,59 +115,6 @@ func lua_sha256(preimage string) (hash string, err error) {
 	}
 	hash = hex.EncodeToString(h.Sum(nil))
 	return hash, nil
-}
-
-func lua_keybase_verify_signature(username, text, sig string) (ok bool, err error) {
-	resp, err := http.Get("https://keybase.io/" + username + "/pgp_keys.asc")
-	if err != nil {
-		return false, err
-	}
-	if resp.StatusCode != 200 {
-		return false, fmt.Errorf("keybase returned status code %d", resp.StatusCode)
-	}
-
-	keyring, err := openpgp.ReadArmoredKeyRing(resp.Body)
-	if err != nil {
-		return false, err
-	}
-
-	verification_target := strings.NewReader(text)
-	signature := strings.NewReader(sig)
-
-	_, err = openpgp.CheckArmoredDetachedSignature(keyring, verification_target, signature)
-	if err != nil {
-		if _, ok := err.(openpgperrors.SignatureError); ok {
-			// this means the signature is wrong and not some kind of operational error
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	return true, nil
-}
-
-func lua_keybase_lookup(provider, name string) (username string, err error) {
-	params := url.Values{}
-	params.Set("fields", "basics")
-	params.Set(provider, name)
-	url := "https://keybase.io/_/api/1.0/user/lookup.json"
-	resp, err := http.Get(url + "?" + params.Encode())
-	if err != nil {
-		return "", err
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	gjson.GetBytes(b, "them").ForEach(func(_, match gjson.Result) bool {
-		username = match.Get("basics.username").String()
-		return false
-	})
-
-	return username, nil
 }
 
 var reNumber = regexp.MustCompile("\\d+")

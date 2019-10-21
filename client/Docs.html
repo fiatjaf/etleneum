@@ -257,6 +257,16 @@ end`
         </li>
         <li>
           <code
+            >verify: (username: String, bundle: String) => (ok: Bool,
+            error)</code
+          >
+          (yes, the same name, different arguments), takes a Keybase username
+          and the armored bundle produced by
+          <a href="https://keybase.io/sign">https://keybase.io/sign</a>
+          containing both the signed message and the signature blocks.
+        </li>
+        <li>
+          <code
             >lookup: (provider: String, name: String) => (username: String,
             error)</code
           >, searches the Keybase username associated with the given

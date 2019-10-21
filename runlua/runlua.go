@@ -124,6 +124,7 @@ func runCall(
 		"httpgetjson":                 lua_http_getjson,
 		"httppostjson":                lua_http_postjson,
 		"keybase_verify":              lua_keybase_verify_signature,
+		"keybase_verify_bundle":       lua_keybase_verify_bundle,
 		"keybase_lookup":              lua_keybase_lookup,
 		"print": func(args ...interface{}) {
 			actualArgs := make([]interface{}, len(args)*2+1)
@@ -201,7 +202,12 @@ custom_env = {
     msatoshi=msatoshi
   },
   keybase={
-    verify=keybase_verify,
+    verify=function (username, text_or_bundle, signature_block)
+      if not signature_block then
+        return keybase._verify_bundle(username, text_or_bundle)
+      end
+      return keybase._verify(username, text_or_bundle, signature_block)
+    end,
     lookup=keybase_lookup,
     exists=function (n) return keybase.username(n) ~= "" end,
     github=function (n) return keybase.lookup("github", n) end,
@@ -211,6 +217,8 @@ custom_env = {
     key_fingerprint=function (n) return keybase.lookup("key_fingerprint", n) end,
     domain=function (n) return keybase.lookup("domain", n) end,
     username=function (n) return keybase.lookup("usernames", n) end,
+    _verify=keybase_verify,
+    _verify_bundle=keybase_verify_bundle,
   },
   internal={
     send_from_current_account=send_from_current_account,
