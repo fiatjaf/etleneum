@@ -30,6 +30,7 @@ func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 		if body != nil {
 			err = json.NewEncoder(bodyjson).Encode(body)
 			if err != nil {
+				log.Warn().Err(err).Msg("http: failed to encode body")
 				return
 			}
 			headers = append([]map[string]interface{}{{"Content-Type": "application/json"}}, headers...)
@@ -37,6 +38,7 @@ func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 
 		req, err := http.NewRequest(method, url, bodyjson)
 		if err != nil {
+			log.Warn().Err(err).Msg("http: failed to create request")
 			return
 		}
 
@@ -50,16 +52,19 @@ func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 
 		resp, err := makeRequest(req)
 		if err != nil {
+			log.Warn().Err(err).Msg("http: failed to make request")
 			return
 		}
 
 		if resp.StatusCode >= 400 {
+			log.Debug().Err(err).Int("code", resp.StatusCode).Msg("http: got bad status")
 			err = errors.New("response status code: " + strconv.Itoa(resp.StatusCode))
 			return
 		}
 
 		b, err = ioutil.ReadAll(resp.Body)
 		if err != nil {
+			log.Warn().Err(err).Msg("http: failed to read body")
 			return
 		}
 
