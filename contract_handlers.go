@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	sqlxtypes "github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"
@@ -64,7 +65,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	label, msats, err := setContractInvoice(ct)
+	label, err := setContractInvoice(ct)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "failed to make invoice", 500)
@@ -74,8 +75,8 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	if s.FreeMode {
 		// wait 10 seconds and notify this payment was received
 		go func() {
-			time.Sleep(10 * time.Second)
-			handlePaymentReceived(label, int64(msats))
+			time.Sleep(5 * time.Second)
+			handlePaymentReceived(label, lnurl.RandomK1())
 		}()
 	}
 
@@ -107,7 +108,7 @@ WHERE id = $1`,
 			jsonError(w, "failed to fetch prepared contract", 404)
 			return
 		}
-		_, _, err = setContractInvoice(ct)
+		_, err = setContractInvoice(ct)
 		if err != nil {
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to get/make invoice")

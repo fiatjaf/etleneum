@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	"github.com/lucsky/cuid"
 )
@@ -68,7 +69,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	label, msats, err := setCallInvoice(call)
+	label, err := setCallInvoice(call)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "failed to make invoice, please try again", 500)
@@ -78,8 +79,8 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	if s.FreeMode {
 		// wait 10 seconds and notify this payment was received
 		go func() {
-			time.Sleep(10 * time.Second)
-			handlePaymentReceived(label, int64(msats))
+			time.Sleep(5 * time.Second)
+			handlePaymentReceived(label, lnurl.RandomK1())
 		}()
 	}
 

@@ -47,10 +47,10 @@ func getContractCost(ct types.Contract) int {
 	return 1000*s.InitialContractCostSatoshis + 1000*words
 }
 
-func setContractInvoice(ct *types.Contract) (label string, msats int, err error) {
+func setContractInvoice(ct *types.Contract) (label string, err error) {
 	label = s.ServiceId + "." + ct.Id
 	desc := s.ServiceId + " __init__ [" + ct.Id + "]"
-	msats = getContractCost(*ct)
+	msats := getContractCost(*ct)
 	bolt11, paid, err := getInvoice(label, desc, msats)
 	ct.Bolt11 = bolt11
 	ct.InvoicePaid = &paid

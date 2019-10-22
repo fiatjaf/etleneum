@@ -15,17 +15,16 @@ func handleInvoicePaid(res gjson.Result) {
 
 	label := res.Get("label").String()
 	msats := res.Get("msatoshi_received").Int()
+	paymenthash := res.Get("payment_hash").String()
 
 	log.Info().Str("label", label).Int64("msats", msats).
 		Str("desc", res.Get("description").String()).
 		Msg("got payment")
 
-	go handlePaymentReceived(label, msats)
+	go handlePaymentReceived(label, paymenthash)
 }
 
-func handlePaymentReceived(label string, msats int64) {
-	log.Debug().Str("label", label).Int64("msats", msats).Msg("handling payment")
-
+func handlePaymentReceived(label string, paymenthash string) {
 	switch {
 	case strings.HasPrefix(label, s.ServiceId+"."):
 		// a contract or call invoice was paid
@@ -76,6 +75,11 @@ VALUES ($1, $2, $3, $4, '{}')
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to run call")
 				dispatchContractEvent(contractId, ctevent{contractId, "", err.Error(), "runtime"}, "contract-error")
+
+				// store pending_refund
+				refundable := call.Cost - 1000*s.InitialContractCostSatoshis
+				pg.Exec(`INSERT INTO pending_refunds VALUES ($1, $2)`, paymenthash, refundable)
+
 				return
 			}
 			dispatchContractEvent(contractId, ctevent{contractId, "", "", ""}, "contract-created")
@@ -110,6 +114,12 @@ VALUES ($1, $2, $3, $4, '{}')
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to run call")
 				dispatchContractEvent(contractId, ctevent{callId, call.ContractId, err.Error(), "runtime"}, "call-error")
+
+				// store pending_refund
+				refundable := call.Msatoshi
+				if refundable > 0 {
+					pg.Exec(`INSERT INTO pending_refunds VALUES ($1, $2)`, paymenthash, refundable)
+				}
 				return
 			}
 

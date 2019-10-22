@@ -29,11 +29,11 @@ func getCallCosts(c types.Call) int {
 	return cost
 }
 
-func setCallInvoice(c *types.Call) (label string, msats int, err error) {
+func setCallInvoice(c *types.Call) (label string, err error) {
 	label = s.ServiceId + "." + c.ContractId + "." + c.Id
 	desc := s.ServiceId + " " + c.Method + " [" + c.ContractId + "][" + c.Id + "]"
 	c.Cost = getCallCosts(*c)
-	msats = c.Cost + c.Msatoshi
+	msats := c.Cost + c.Msatoshi
 	bolt11, paid, err := getInvoice(label, desc, msats)
 	c.Bolt11 = bolt11
 	c.InvoicePaid = &paid

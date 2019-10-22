@@ -46,6 +46,8 @@ textarea {
   justify-content: center;
   align-items: center;
 }
+
+.toastify { max-width: none; }
 .toast-info { background: #726edb !important; }
 .toast-warning { background: #cfdb6e !important; }
 .toast-error { background: #db6e6e!important; }
