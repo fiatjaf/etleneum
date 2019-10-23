@@ -38,7 +38,7 @@
     contract = (await r.json()).value
 
     parseCode(contract.code)
-    nextcall.method = methods.length ? methods[0] : null
+    resetNextCall()
 
     r = await fetch('/~/contract/' + params.ctid + '/events')
     events = (await r.json()).value
@@ -89,7 +89,7 @@
     nextcall = {
       msatoshi: 0,
       payload: {},
-      method: methods.length ? methods[0] : null,
+      method: null,
       includeCallerSession: false
     }
   }
@@ -98,6 +98,12 @@
     e.preventDefault()
 
     let {method, msatoshi, payload, includeCallerSession} = nextcall
+
+    if (!method) {
+      toast.warning('you must select a method to call!')
+      return
+    }
+
     let qr =
       $account.session && includeCallerSession
         ? `?session=${$account.session}`
@@ -146,19 +152,13 @@
     nextcall.msatoshi = parseInt(e.target.value) * 1000
   }
 
-  function setPayloadField(pf, e) {
-    var jsonvalue
-    if (e.detail === '') {
-      jsonvalue = undefined
-    } else {
-      try {
-        jsonvalue = JSON.parse(e.detail)
-      } catch (err) {
-        jsonvalue = e.detail
-      }
-    }
+  function setMethod(e) {
+    e.preventDefault()
+    nextcall.method = e.target.innerHTML.trim()
+  }
 
-    nextcall.payload[pf] = jsonvalue
+  function setPayloadField(pf, e) {
+    nextcall.payload[pf] = e.detail
   }
 
   function renderPayloadField(pf) {
@@ -245,11 +245,22 @@
     display: block;
     margin: 12px 2px;
   }
+  #action .select {
+    display: flex;
+    flex-wrap: wrap;
+  }
   #action input:not([type='checkbox']),
-  #action select {
+  #action .select button {
     padding: 4px;
     font-size: 1.2rem;
     background-color: var(--lightgrey);
+  }
+  #action .select button.enabled {
+   background: var(--yellow);
+   border: inset var(--lightgrey) 3px
+  }
+  .disabled {
+    color: grey;
   }
   button {
     cursor: pointer;
@@ -298,36 +309,42 @@
     </div>
     {:else}
     <form on:submit="{prepareCall}">
-      <label
-        >method:
-        <select bind:value="{nextcall.method}">
-          {#each methods as method}<option>{method}</option>{/each}
-        </select>
-        {#if usesauth[nextcall.method]}apparently this method requires you to be
-        authenticated{/if}
+      <label>
+        method: {#if nextcall.method}<b>{nextcall.method}</b>{:else}none selected{/if}
+        <div class="select">
+          {#each methods as method (method)}
+          <button
+            on:click="{setMethod}"
+            class:enabled={method === nextcall.method}
+          >
+            {method}
+          </button>
+          {/each}
+        </div>
+        {#if usesauth[nextcall.method]}
+        <div>apparently this method requires you to be authenticated</div>
+        {/if}
       </label>
-      <label
-        >satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
-        on:input="{setMsatoshi}" /></label
-      >
-      {#each (payloadfields[nextcall.method] || []) as pf}
-      <label
-        >{pf}:
+      <label>
+        satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
+        on:input="{setMsatoshi}" />
+      </label>
+      {#each (payloadfields[nextcall.method] || []) as pf (pf)}
+      <label>
+        {pf}:
         <MultiField
           value="{renderPayloadField(pf)}"
           on:change="{e => setPayloadField(pf, e)}"
-      /></label>
+        />
+      </label>
       {/each} {#if Object.keys(nextcall.payload).length > 0}
       <label>payload: <Json value="{nextcall.payload}" /> </label>
       {/if}
-      <label
-        >make this call authenticated with your account:
-        <input
-          type="checkbox"
-          bind:checked="{nextcall.includeCallerSession}"
-          disabled="{!$account.session}"
-      /></label>
-      <button>prepare call</button>
+      <label class:disabled="{!$account.session}">
+        make this call authenticated with your account:
+        <input type="checkbox" disabled="{!$account.session}" bind:checked="{nextcall.includeCallerSession}" />
+      </label>
+      <div><button>prepare call</button></div>
     </form>
     {/if} {/if}
   </div>
