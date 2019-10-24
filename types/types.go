@@ -54,3 +54,13 @@ type ContractEvent struct {
 }
 
 const CONTRACTEVENTFIELDS = "kind, call, time, msatoshi, data"
+
+type Refund struct {
+	PaymentHash string    `db:"payment_hash" json:"hash"`
+	Time        time.Time `db:"time" json:"time"`
+	Msatoshi    int       `db:"msatoshi" json:"msatoshi"`
+	Claimed     bool      `db:"claimed" json:"claimed"`
+	Fulfilled   bool      `db:"fulfilled" json:"fulfilled"`
+}
+
+const REFUNDFIELDS = "payment_hash, time, msatoshi, claimed, fulfilled"

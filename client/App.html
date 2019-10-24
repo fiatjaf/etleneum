@@ -9,6 +9,7 @@
   import View from './View.html'
   import Create from './Create.html'
   import Account from './Account.html'
+  import Refund from './Refund.html'
   import Docs from './Docs.html'
   import NotFound from './NotFound.html'
 
@@ -21,6 +22,7 @@
     '/create': Create,
     '/contract/:ctid': View,
     '/account': Account,
+    '/refunds': Refund,
     '*': NotFound
   }
 </script>
@@ -60,6 +62,7 @@
     {#if $account.id}acct:<span class="account">{$account.id}</span
     >{:else}login{/if}
   </a>
+  <a href="#/refunds">refunds</a>
   <a href="#/docs">docs</a>
 </nav>
 <main><Router {routes} /></main>

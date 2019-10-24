@@ -1,0 +1,86 @@
+<!-- @format -->
+
+<script>
+  import bech32 from 'bech32'
+  import {Buffer} from 'safe-buffer'
+  import sha256 from 'sha.js/sha256'
+  import {onMount} from 'svelte'
+
+  import QR from './QR.html'
+
+  var refunds
+  var claimable
+
+  onMount(async () => {
+    let r = await fetch('/~/refunds')
+    refunds = (await r.json()).value
+  })
+
+  function handleTypedPreimage(e) {
+    let hash = new sha256()
+      .update(Buffer.from(e.target.value, 'hex'))
+      .digest('hex')
+
+    for (let i = 0; i < refunds.length; i++) {
+      let refund = refunds[i]
+      if (refund === e.target.dataset.hash) {
+        refund = hash
+
+        if (hash === refund.hash) {
+          refund.claimable = true
+        }
+
+        break
+      }
+    }
+  }
+
+  function lnurl(preimage) {
+    return bech32.encode(
+      'lnurl',
+      bech32.toWords(`https://${window.location.host}/lnurl/refund/${preimage}`)
+    )
+  }
+</script>
+
+<style>
+  table {
+    width: 100%;
+  }
+
+  td {
+    padding: 2px 5px;
+  }
+
+  .hash {
+    max-width: 400px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+</style>
+
+<main class="center">
+  {#if !refunds} loading {:else}
+  <table>
+    {#each refunds as refund (refund.hash)}
+    <tr>
+      <td class="hash">{refund.hash}</td>
+      <td>{refund.time.split('T').join(' ').replace(/\..*/, '')}</td>
+      <td>{(refund.msatoshi/1000).toFixed(3)} sat</td>
+      <td>
+        {#if refund.claimable}
+        <QR value="{lnurl(refund.typed)}" />
+        {:else if refund.claimed} refund claimed, but not yet paid {:else}
+        <input
+          placeholder="type your preimage"
+          data-refund="{refund.hash}"
+          on:change="{handleTypedPreimage}"
+        />
+        {/if}
+      </td>
+    </tr>
+    {/each}
+  </table>
+
+  {/if}
+</main>

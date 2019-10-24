@@ -57,19 +57,22 @@ CREATE INDEX IF NOT EXISTS idx_internal_transfers_from_account ON internal_trans
 CREATE INDEX IF NOT EXISTS idx_internal_transfers_to_account ON internal_transfers (to_account);
 
 CREATE TABLE withdrawals (
-  account_id text REFERENCES accounts(id),
+  account_id text NOT NULL REFERENCES accounts(id),
   time timestamp NOT NULL DEFAULT now(),
   msatoshi int NOT NULL,
   fulfilled bool NOT NULL,
   bolt11 text NOT NULL
 );
 
-CREATE TABLE pending_refunds (
+CREATE TABLE refunds (
   -- when a call fails the payer may get its satoshis back
   -- anyone providing the preimage is fine.
   payment_hash text PRIMARY KEY,
   time timestamp NOT NULL DEFAULT now(),
-  msatoshi int NOT NULL -- does not include the fixed costs of the call
+  msatoshi int NOT NULL. -- does not include the fixed costs of the call
+  claimed boolean NOT NULL DEFAULT false,
+  fulfilled bool NOT NULL DEFAULT false,
+  bolt11 text
 );
 
 CREATE FUNCTION funds(contracts) RETURNS bigint AS $$

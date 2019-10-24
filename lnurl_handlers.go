@@ -250,11 +250,12 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	inv, err := ln.Call("decodepay", bolt11)
 	if err != nil {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to decode invoice."))
+		return
 	}
 	amount := inv.Get("msatoshi").Int()
 
 	log.Debug().Str("bolt11", bolt11).Str("account", accountId).Int64("amount", amount).
-		Msg("got a payment request")
+		Msg("got a withdraw payment request")
 
 	// add a pending withdrawal
 	_, err = txn.Exec(`
@@ -293,14 +294,25 @@ VALUES ($1, $2, false, $3)
 		payresp, err := ln.Call("waitpay", bolt11)
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
 			Msg("withdraw waitpay result")
-	}()
 
-	// notify browser
-	if ies, ok := userstreams.Get(session); ok {
-		ies.(eventsource.EventSource).SendEventMessage(`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`, "withdraw", "")
-		log.Debug().Str("account", accountId).Str("session", session).Str("type", "withdraw").
-			Msg("dispatched session message")
-	}
+		if err == nil {
+			// mark as fulfilled
+			_, err := pg.Exec(`UPDATE withdrawals SET fulfilled = true WHERE bolt11 = $1`, bolt11)
+			if err != nil {
+				log.Error().Err(err).Str("accountId", accountId).Msg("error marking payment as fulfilled")
+			}
+
+			// notify browser
+			if ies, ok := userstreams.Get(session); ok {
+				ies.(eventsource.EventSource).SendEventMessage(
+					`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`,
+					"withdraw", "")
+				log.Debug().Str("account", accountId).Str("session", session).Str("type", "withdraw").
+					Msg("dispatched session message")
+			}
+		}
+
+	}()
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }

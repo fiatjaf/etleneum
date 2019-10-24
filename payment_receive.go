@@ -78,7 +78,7 @@ VALUES ($1, $2, $3, $4, '{}')
 
 				// store pending_refund
 				refundable := call.Cost - 1000*s.InitialContractCostSatoshis
-				pg.Exec(`INSERT INTO pending_refunds VALUES ($1, $2)`, paymenthash, refundable)
+				pg.Exec(`INSERT INTO refunds (payment_hash, msatoshi) VALUES ($1, $2)`, paymenthash, refundable)
 
 				return
 			}
@@ -118,7 +118,7 @@ VALUES ($1, $2, $3, $4, '{}')
 				// store pending_refund
 				refundable := call.Msatoshi
 				if refundable > 0 {
-					pg.Exec(`INSERT INTO pending_refunds VALUES ($1, $2)`, paymenthash, refundable)
+					pg.Exec(`INSERT INTO refunds (payment_hash, msatoshi) VALUES ($1, $2)`, paymenthash, refundable)
 				}
 				return
 			}
