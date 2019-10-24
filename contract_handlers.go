@@ -150,17 +150,26 @@ func getContractFunds(w http.ResponseWriter, r *http.Request) {
 
 func deleteContract(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["ctid"]
-	_, err := pg.Exec(`
+
+	var err error
+	if s.FreeMode {
+		_, err = pg.Exec(`
+WITH del AS (
+  DELETE FROM calls WHERE contract_id = $1
+)
+DELETE FROM contracts WHERE id = $1
+    `, id)
+	} else {
+		_, err = pg.Exec(`
 DELETE FROM contracts
 WHERE id = $1
   AND (
-    $2 OR (
-      contracts.funds = 0
-        AND created_at + '1 hour'::interval > now()
-        AND (SELECT count(*) FROM calls WHERE contract_id = contracts.id) < 4
-    )
+    contracts.funds = 0
+      AND created_at + '1 hour'::interval > now()
+      AND (SELECT count(*) FROM calls WHERE contract_id = contracts.id) < 4
   )
-    `, id, s.FreeMode)
+    `, id)
+	}
 	if err != nil {
 		log.Info().Err(err).Str("id", id).Msg("can't delete contract")
 		jsonError(w, "can't delete contract", 404)
