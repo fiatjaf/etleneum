@@ -1,5 +1,6 @@
 /** @format */
 
+import shim from 'rollup-plugin-shim'
 import json from 'rollup-plugin-json'
 import svelte from 'rollup-plugin-svelte'
 import resolve from 'rollup-plugin-node-resolve'
@@ -18,6 +19,10 @@ export default {
   },
   plugins: [
     json(),
+
+    shim({
+      fengari: 'export default window.fengari'
+    }),
 
     svelte({
       // enable run-time checks when not in production
