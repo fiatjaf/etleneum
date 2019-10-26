@@ -57,21 +57,14 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			for {
 				time.Sleep(25 * time.Second)
-				if es.ConsumersCount() == 0 {
-					es.Close()
-					return
-				} else {
-					es.SendEventMessage("", "keepalive", "")
-				}
+				es.SendEventMessage("", "keepalive", "")
 			}
 		}()
 	}
 
 	go func() {
 		time.Sleep(1 * time.Second)
-		if es.ConsumersCount() > 0 {
-			es.SendRetryMessage(3 * time.Second)
-		}
+		es.SendRetryMessage(3 * time.Second)
 	}()
 
 	accountId := rds.Get("auth-session:" + session).Val()
