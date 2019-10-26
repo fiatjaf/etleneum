@@ -69,7 +69,7 @@ CREATE TABLE refunds (
   -- anyone providing the preimage is fine.
   payment_hash text PRIMARY KEY,
   time timestamp NOT NULL DEFAULT now(),
-  msatoshi int NOT NULL. -- does not include the fixed costs of the call
+  msatoshi int NOT NULL, -- does not include the fixed costs of the call
   claimed boolean NOT NULL DEFAULT false,
   fulfilled bool NOT NULL DEFAULT false,
   bolt11 text

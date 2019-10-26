@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
-	"github.com/fiatjaf/go-lnurl"
+	lnurl "github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	sqlxtypes "github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"
@@ -50,10 +50,6 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(ct.Name) == "" {
 		jsonError(w, "contract must have a name", 400)
-		return
-	}
-	if len(strings.TrimSpace(ct.Readme)) < 100 && !s.FreeMode {
-		jsonError(w, "contract must have a readme of at least 100 characters", 400)
 		return
 	}
 

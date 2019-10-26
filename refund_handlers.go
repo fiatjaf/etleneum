@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/go-lnurl"
-	"github.com/gorilla/mux"
 )
 
 func listRefunds(w http.ResponseWriter, r *http.Request) {
@@ -38,18 +38,23 @@ ORDER BY time DESC
 }
 
 func lnurlRefund(w http.ResponseWriter, r *http.Request) {
-	preimage := mux.Vars(r)["preimage"]
+	preimage := r.URL.Query().Get("preimage")
+	bpreimage, err := hex.DecodeString(preimage)
+	if err != nil {
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("invalid hex: " + preimage))
+		return
+	}
 
 	// get refund
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(preimage)))
+	hash := fmt.Sprintf("%x", sha256.Sum256(bpreimage))
 	var refund types.Refund
-	err := pg.Get(&refund, `
+	err = pg.Get(&refund, `
 UPDATE refunds SET claimed = true
 WHERE payment_hash = $1
 RETURNING `+types.REFUNDFIELDS+`
     `, hash)
 	if err != nil {
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("No refundable calls found for preimage " + preimage))
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("no refundable calls found for preimage " + preimage))
 		return
 	}
 
@@ -65,8 +70,14 @@ RETURNING `+types.REFUNDFIELDS+`
 }
 
 func lnurlRefundCallback(w http.ResponseWriter, r *http.Request) {
-	preimage := r.URL.Query().Get("k1")
 	bolt11 := r.URL.Query().Get("pr")
+	preimage := r.URL.Query().Get("k1")
+
+	bpreimage, err := hex.DecodeString(preimage)
+	if err != nil {
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("invalid hex: " + preimage))
+		return
+	}
 
 	// start withdrawal transaction
 	txn, err := pg.BeginTxx(context.TODO(), &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -83,7 +94,7 @@ func lnurlRefundCallback(w http.ResponseWriter, r *http.Request) {
 
 	// get refund and set the bolt11 field
 	// the presence of a bolt11 field will tell us if we're already trying to refund this
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(preimage)))
+	hash := fmt.Sprintf("%x", sha256.Sum256(bpreimage))
 	var refund types.Refund
 	err = pg.Get(&refund, `
 UPDATE refunds SET bolt11 = $2
@@ -91,7 +102,7 @@ WHERE payment_hash = $1 AND bolt11 IS NULL
 RETURNING `+types.REFUNDFIELDS+`
     `, hash, bolt11)
 	if err != nil {
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("No refundable calls found for preimage " + preimage))
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("no refundable calls found for preimage " + preimage))
 		return
 	}
 

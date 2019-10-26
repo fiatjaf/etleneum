@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
-	"github.com/fiatjaf/go-lnurl"
+	lnurl "github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	"github.com/lucsky/cuid"
 )

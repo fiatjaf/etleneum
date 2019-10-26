@@ -1,15 +1,17 @@
+import os
 import json
 import datetime
 import urllib3
 import hashlib
 import subprocess
 from pathlib import Path
+from binascii import unhexlify
 
 import requests
 import sseclient
 
 
-def test_everything(etleneum, lightnings):
+def test_contract_failure_and_refund(etleneum, lightnings):
     etleneum_proc, url = etleneum
     _, [rpc_a, rpc_b] = lightnings
 
@@ -19,20 +21,98 @@ def test_everything(etleneum, lightnings):
     assert r.json() == {"ok": True, "value": []}
 
     # try to create a contract with invalid lua code and fail
-    r = requests.post(url + "/~/contract", json={
-        'name': 'qwe',
-        'readme': 'owwi',
-        'code': '''
+    r = requests.post(
+        url + "/~/contract",
+        json={
+            "name": "qwe",
+            "readme": "owwiawjhebqwljebqlejbqwelkjqwbelkqwbelqkwjbeqlwkjebqwlkjebqwlkjebqwlkjebqlk",
+            "code": """
   function __init__
     return {}
   end
-        '''
-    })
+        """,
+        },
+    )
+
+    # create a contract with valid lua, but then fail when executing __init__
+    r = requests.post(
+        url + "/~/contract",
+        json={
+            "name": "qwe",
+            "readme": "owwiqwkjebqlwkjebqwebqwlkejbqwlkejbqwklejbqwklejbqwklebqwlkebqwklejbqwkljeb",
+            "code": "function __init__ () return banana() end",
+        },
+    )
+    assert r.ok
+    ctid = r.json()["value"]["id"]
+    bolt11 = r.json()["value"]["invoice"]
+
+    # start listening for contract events
+    sse = sseclient.SSEClient(
+        urllib3.PoolManager().request(
+            "GET", url + "/~~~/contract/" + ctid, preload_content=False
+        )
+    ).events()
+
+    # pay
+    payment = rpc_b.pay(bolt11)
+    preimage = payment["payment_preimage"]
+
+    # should run and fail
+    assert next(sse).event == "call-run-event"
+    ev = next(sse)
+    assert ev.event == "contract-error"
+    assert json.loads(ev.data)["id"] == ctid
+    assert json.loads(ev.data)["kind"] == "runtime"
+
+    # there are still zero contracts in the list
+    r = requests.get(url + "/~/contracts")
+    assert r.ok
+    assert r.json() == {"ok": True, "value": []}
+
+    # there's a pending refund
+    r = requests.get(url + "/~/refunds")
+    assert r.ok
+    data = r.json()
+    assert data["ok"]
+    assert len(data["value"]) == 1
+
+    refund = data["value"][0]
+    assert refund["claimed"] == False
+    assert refund["fulfilled"] == False
+    assert (
+        refund["msatoshi"]
+        == payment["msatoshi"] - int(os.getenv("INITIAL_CONTRACT_COST_SATOSHIS")) * 1000
+    )
+    assert refund["hash"] == hashlib.sha256(unhexlify(preimage)).hexdigest()
+
+    # withdraw refund
+    r = requests.get(url + "/lnurl/refund?preimage=" + preimage)
+    assert r.ok
+    assert (
+        r.json()["maxWithdrawable"] == r.json()["minWithdrawable"] == refund["msatoshi"]
+    )
+    bolt11 = rpc_b.invoice(
+        refund["msatoshi"], "withdraw-refund", r.json()["defaultDescription"]
+    )["bolt11"]
+    r = requests.get(r.json()["callback"] + "?k1=" + preimage + "&pr=" + bolt11)
+    assert r.json()["status"] == "OK"
+    assert rpc_b.waitinvoice("withdraw-refund")["label"] == "withdraw-refund"
+
+
+def test_everything_else(etleneum, lightnings):
+    etleneum_proc, url = etleneum
+    _, [rpc_a, rpc_b] = lightnings
+
+    # there are zero contracts
+    r = requests.get(url + "/~/contracts")
+    assert r.ok
+    assert r.json() == {"ok": True, "value": []}
 
     # create a valid contract
     ctdata = {
         "name": "ico",
-        "readme": "get rich",
+        "readme": "get rich!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
         "code": """
 function __init__ ()
   return {
@@ -143,8 +223,11 @@ end
     ctid = r.json()["value"]["id"]
     bolt11 = r.json()["value"]["invoice"]
 
-    # start listening for contract events
-    sse = sseclient.SSEClient(urllib3.PoolManager().request('GET', url + '/~/contract/' + ctid + '/stream', preload_content=False)).events()
+    sse = sseclient.SSEClient(
+        urllib3.PoolManager().request(
+            "GET", url + "/~~~/contract/" + ctid, preload_content=False
+        )
+    ).events()
 
     # there are still zero contracts in the list
     r = requests.get(url + "/~/contracts")
@@ -164,10 +247,10 @@ end
     payment = rpc_b.pay(bolt11)
 
     # it should get created and we should get a notification
-    assert next(sse).event == 'call-run-event'
+    assert next(sse).event == "call-run-event"
     ev = next(sse)
-    assert ev.event == 'contract-created'
-    assert json.loads(ev.data)['id'] == ctid
+    assert ev.event == "contract-created"
+    assert json.loads(ev.data)["id"] == ctid
 
     # check contract info
     r = requests.get(url + "/~/contract/" + ctid)
@@ -176,7 +259,7 @@ end
     assert r.json()["value"]["code"] == ctdata["code"]
     assert r.json()["value"]["name"] == ctdata["name"]
     assert r.json()["value"]["readme"] == ctdata["readme"]
-    assert r.json()["value"]["state"]['token_name'] == 'richcoin'
+    assert r.json()["value"]["state"]["token_name"] == "richcoin"
     assert r.json()["value"]["funds"] == 0
 
     # contract list should show this single contract
@@ -226,18 +309,18 @@ end
         json={"method": "setowner", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-error'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-error"
 
     ## create a fake session, then succeed
-    subprocess.run('redis-cli setex auth-session:zxcasdqwe 999 account1', shell=True)
+    subprocess.run("redis-cli setex auth-session:zxcasdqwe 999 account1", shell=True)
     r = requests.post(
         url + "/~/contract/" + ctid + "/call?session=zxcasdqwe",
         json={"method": "setowner", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-made'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-made"
 
     ## fail because no logged account
     r = requests.post(
@@ -245,13 +328,17 @@ end
         json={"method": "setowner", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-error'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-error"
 
     # prepare calls and send them
-    current_state = {"balances": {"dummy": 0}, "token_name": "richcoin", 'owner': 'account1'}
+    current_state = {
+        "balances": {"dummy": 0},
+        "token_name": "richcoin",
+        "owner": "account1",
+    }
     current_funds = 0
-    current_call_n = 2 # __ini__ and setowner
+    current_call_n = 2  # __ini__ and setowner
     for buyer, amount, msatoshi, succeed in [
         ("x", 2, 9000, False),
         ("x", 0, 0, True),
@@ -267,7 +354,7 @@ end
         )
         assert r.ok
         callid = r.json()["value"]["id"]
-        assert 1300 > r.json()["value"]["cost"] > 1000
+        assert 6000 > r.json()["value"]["cost"] > 1000
         assert r.json()["value"]["msatoshi"] == msatoshi
 
         payment = rpc_b.pay(r.json()["value"]["invoice"])
@@ -276,18 +363,54 @@ end
             == r.json()["value"]["cost"] + r.json()["value"]["msatoshi"]
         )
 
-        assert next(sse).event == 'call-run-event'
+        assert next(sse).event == "call-run-event"
         ev = next(sse)
-        assert json.loads(ev.data)['id'] == callid
+        assert json.loads(ev.data)["id"] == callid
 
         if succeed:
-            assert ev.event == 'call-made'
+            assert ev.event == "call-made"
             bal = current_state["balances"].setdefault(buyer, 0)
             current_state["balances"][buyer] = bal + amount
             current_funds += msatoshi
             current_call_n += 1
         else:
-            assert ev.event == 'call-error'
+            assert ev.event == "call-error"
+
+            # perform a refund
+            r = requests.get(url + "/~/refunds")
+            data = r.json()
+            assert len(data["value"]) == 1
+            refund = data["value"][0]
+            assert refund["claimed"] == False
+            assert refund["fulfilled"] == False
+            assert refund["msatoshi"] == msatoshi
+            assert refund["hash"] == payment["payment_hash"]
+            r = requests.get(
+                url + "/lnurl/refund?preimage=" + payment["payment_preimage"]
+            )
+            assert r.ok
+            assert (
+                r.json()["maxWithdrawable"]
+                == r.json()["minWithdrawable"]
+                == refund["msatoshi"]
+            )
+            bolt11 = rpc_b.invoice(
+                refund["msatoshi"],
+                "withdraw-refund-" + callid,
+                r.json()["defaultDescription"],
+            )["bolt11"]
+            r = requests.get(
+                r.json()["callback"]
+                + "?k1="
+                + payment["payment_preimage"]
+                + "&pr="
+                + bolt11
+            )
+            assert r.json()["status"] == "OK"
+            assert (
+                rpc_b.waitinvoice("withdraw-refund-" + callid)["label"]
+                == "withdraw-refund-" + callid
+            )
 
         # check contract state and funds after
         r = requests.get(url + "/~/contract/" + ctid)
@@ -307,26 +430,26 @@ end
         assert r.ok
         assert len(r.json()["value"]) == current_call_n
 
-    # try to cash out to our own scammer balance 
+    # try to cash out to our own scammer balance
     ## fail because of too big amount
     r = requests.post(
         url + "/~/contract/" + ctid + "/call",
-        json={"method": "cashout", "payload": {"amt_to_cashout": current_funds+1}},
+        json={"method": "cashout", "payload": {"amt_to_cashout": current_funds + 1}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-error'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-error"
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
 
     ## also fail because of too small amount
     r = requests.post(
         url + "/~/contract/" + ctid + "/call",
-        json={"method": "cashout", "payload": {"amt_to_cashout": current_funds-1}},
+        json={"method": "cashout", "payload": {"amt_to_cashout": current_funds - 1}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-error'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-error"
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
 
@@ -336,8 +459,8 @@ end
         json={"method": "cashout_wrong", "payload": {"amt_to_cashout": current_funds}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-error'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-error"
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == current_funds
 
@@ -347,9 +470,9 @@ end
         json={"method": "cashout", "payload": {"amt_to_cashout": current_funds}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-made'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-made"
     r = requests.get(url + "/~/contract/" + ctid)
     assert r.json()["value"]["funds"] == 0
 
@@ -369,10 +492,10 @@ end
         json={"method": "infiniteloop", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
+    assert next(sse).event == "call-run-event"
     ev = next(sse)
-    assert ev.event == 'call-error'
-    assert json.loads(ev.data)['kind'] == 'runtime'
+    assert ev.event == "call-error"
+    assert json.loads(ev.data)["kind"] == "runtime"
 
     # call a method that should break out of the sandbox
     Path("file").touch()
@@ -381,11 +504,14 @@ end
         json={"method": "dangerous", "payload": {}},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
+    assert next(sse).event == "call-run-event"
     ev = next(sse)
-    assert ev.event == 'call-error'
-    assert json.loads(ev.data)['kind'] == 'runtime'
-    assert 'home' not in requests.get(url + "/~/contract/" + ctid + "/state").json()["value"]
+    assert ev.event == "call-error"
+    assert json.loads(ev.data)["kind"] == "runtime"
+    assert (
+        "home"
+        not in requests.get(url + "/~/contract/" + ctid + "/state").json()["value"]
+    )
     assert not Path("nofile").exists()
     assert Path("file").exists()
     Path("file").unlink()
@@ -393,14 +519,15 @@ end
 
     # call the method that tests all the fancy lua apis
     r = requests.post(
-        url + "/~/contract/" + ctid + "/call",
-        json={"method": "apitest", "payload": {}},
+        url + "/~/contract/" + ctid + "/call", json={"method": "apitest", "payload": {}}
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-made'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-made"
 
-    data = requests.get(url + "/~/contract/" + ctid + "/state").json()["value"]['apitest']
+    data = requests.get(url + "/~/contract/" + ctid + "/state").json()["value"][
+        "apitest"
+    ]
     assert type(data["cuid"]) == str
     assert len(data["cuid"]) > 5
     del data["cuid"]
@@ -424,16 +551,18 @@ end
     # send a lot of money to the contract so we can have incoming capacity in our second node for the next step
     r = requests.post(
         url + "/~/contract/" + ctid + "/call",
-        json={"method": "losemoney", "payload": {}, 'msatoshi': 444444444},
+        json={"method": "losemoney", "payload": {}, "msatoshi": 444444444},
     )
     rpc_b.pay(r.json()["value"]["invoice"])
-    assert next(sse).event == 'call-run-event'
-    assert next(sse).event == 'call-made'
+    assert next(sse).event == "call-run-event"
+    assert next(sse).event == "call-made"
 
     # finally withdraw our scammer balance
-    r = requests.get(url + '/lnurl/withdraw?session=zxcasdqwe')
+    r = requests.get(url + "/lnurl/withdraw?session=zxcasdqwe")
     assert r.ok
-    assert r.json()['maxWithdrawable'] == current_funds
-    bolt11 = rpc_b.invoice(current_funds, 'withdraw-scam', r.json()['defaultDescription'])['bolt11']
-    r = requests.get(r.json()['callback'] + '?k1=zxcasdqwe&pr=' + bolt11)
-    assert rpc_b.waitinvoice('withdraw-scam')['label'] == 'withdraw-scam'
+    assert r.json()["maxWithdrawable"] == current_funds
+    bolt11 = rpc_b.invoice(
+        current_funds, "withdraw-scam", r.json()["defaultDescription"]
+    )["bolt11"]
+    r = requests.get(r.json()["callback"] + "?k1=zxcasdqwe&pr=" + bolt11)
+    assert rpc_b.waitinvoice("withdraw-scam")["label"] == "withdraw-scam"

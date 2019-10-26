@@ -79,7 +79,6 @@ VALUES ($1, $2, $3, $4, '{}')
 				// store pending_refund
 				refundable := call.Cost - 1000*s.InitialContractCostSatoshis
 				pg.Exec(`INSERT INTO refunds (payment_hash, msatoshi) VALUES ($1, $2)`, paymenthash, refundable)
-
 				return
 			}
 			dispatchContractEvent(contractId, ctevent{contractId, "", "", ""}, "contract-created")

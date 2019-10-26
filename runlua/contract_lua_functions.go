@@ -6,12 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"regexp"
 	"strconv"
-	"strings"
 )
 
 func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
@@ -120,32 +117,4 @@ func lua_sha256(preimage string) (hash string, err error) {
 	}
 	hash = hex.EncodeToString(h.Sum(nil))
 	return hash, nil
-}
-
-var reNumber = regexp.MustCompile("\\d+")
-
-func stackTraceWithCode(stacktrace string, code string) string {
-	var result []string
-
-	stlines := strings.Split(stacktrace, "\n")
-	lines := strings.Split(code, "\n")
-	result = append(result, stlines[0])
-
-	for i := 0; i < len(stlines); i++ {
-		stline := stlines[i]
-		result = append(result, stline)
-
-		snum := reNumber.FindString(stline)
-		if snum != "" {
-			num, _ := strconv.Atoi(snum)
-			for i, line := range lines {
-				line = fmt.Sprintf("%3d %s", i+1, line)
-				if i+1 > num-3 && i+1 < num+3 {
-					result = append(result, line)
-				}
-			}
-		}
-	}
-
-	return strings.Join(result, "\n")
 }

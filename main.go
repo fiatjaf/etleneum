@@ -32,7 +32,6 @@ type Settings struct {
 
 	InitialContractCostSatoshis int `envconfig:"INITIAL_CONTRACT_COST_SATOSHIS" default:"970"`
 	FixedCallCostSatoshis       int `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
-	PaymentRetrySeconds         int `envconfig:"PAYMENT_RETRY_SECONDS" default:"30"`
 
 	FreeMode bool `envconfig:"FREE_MODE" default:"false"`
 }
@@ -106,18 +105,18 @@ func main() {
 	router.Path("/~/contract/{ctid}/events").Methods("GET").HandlerFunc(listEvents)
 	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
 	router.Path("/~/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
-	router.Path("/~/contract/{ctid}/stream").Methods("GET").HandlerFunc(contractStream)
+	router.Path("/~~~/contract/{ctid}").Methods("GET").HandlerFunc(contractStream)
 	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
 	router.Path("/~/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
 	router.Path("/~/refunds").Methods("GET").HandlerFunc(listRefunds)
-	router.Path("/lnurl/refund/{preimage}").Methods("GET").HandlerFunc(lnurlRefund)
-	router.Path("/lnurl/refund/callback").Methods("GET").HandlerFunc(lnurlRefund)
-	router.Path("/lnurl/session").Methods("GET").HandlerFunc(lnurlSession)
-	router.Path("/lnurl/auth").Methods("GET").HandlerFunc(lnurlAuth)
-	router.Path("/lnurl/refresh").Methods("GET").HandlerFunc(refreshBalance)
+	router.Path("/lnurl/refund").Methods("GET").HandlerFunc(lnurlRefund)
+	router.Path("/lnurl/refund/callback").Methods("GET").HandlerFunc(lnurlRefundCallback)
+	router.Path("/~~~/session").Methods("GET").HandlerFunc(lnurlSession)
+	router.Path("/lnurl/session/auth").Methods("GET").HandlerFunc(lnurlAuth)
+	router.Path("/~/session/refresh").Methods("GET").HandlerFunc(refreshBalance)
 	router.Path("/lnurl/withdraw").Methods("GET").HandlerFunc(lnurlWithdraw)
 	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
-	router.Path("/lnurl/logout").Methods("POST").HandlerFunc(logout)
+	router.Path("/~/session/logout").Methods("POST").HandlerFunc(logout)
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{

@@ -38,7 +38,9 @@
   function lnurl(preimage) {
     return bech32.encode(
       'lnurl',
-      bech32.toWords(`https://${window.location.host}/lnurl/refund/${preimage}`)
+      bech32.toWords(
+        `https://${window.location.host}/lnurl/refund?preimage=${preimage}`
+      )
     )
   }
 </script>

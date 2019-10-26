@@ -89,9 +89,7 @@ def lightnings(bitcoin_dir, bitcoind, lightning_dirs):
     t = rpcs[0]
     f = rpcs[1]
     tinfo = t.getinfo()
-    f.connect(
-        tinfo["id"], tinfo["binding"][0]["address"], tinfo["binding"][0]["port"]
-    )
+    f.connect(tinfo["id"], tinfo["binding"][0]["address"], tinfo["binding"][0]["port"])
     num_tx = len(bitcoin_rpc.getrawmempool())
     f.fundchannel(tinfo["id"], 10000000)
     wait_for(lambda: len(bitcoin_rpc.getrawmempool()) == num_tx + 1)
@@ -102,6 +100,10 @@ def lightnings(bitcoin_dir, bitcoind, lightning_dirs):
         proc.wait_for_log("to CHANNELD_NORMAL", timeout=60)
     for rpc in rpcs:
         wait_for(lambda: len(rpc.listfunds()["channels"]) > 0, timeout=60)
+
+    # send some money just to open space at the channel
+    f.pay(t.invoice(1000000000, "open", "nada")["bolt11"])
+    t.waitinvoice("open")
 
     yield procs, rpcs
 
@@ -124,7 +126,7 @@ def init_db():
 
     # destroy db
     end = subprocess.run(
-        "psql {url} -c 'drop table if exists withdrawals; drop table if exists internal_transfers; drop table if exists calls; drop table if exists contracts cascade; drop table if exists accounts cascade;'".format(
+        "psql {url} -c 'drop table if exists withdrawals cascade; drop table if exists internal_transfers cascade; drop table if exists calls cascade; drop table if exists contracts cascade; drop table if exists accounts cascade; drop table if exists refunds cascade;'".format(
             url=db
         ),
         shell=True,
@@ -143,7 +145,11 @@ def init_db():
     # create an account
     subprocess.run(
         """psql {url} -c "insert into accounts values ('account1', 'xxx')"
-        """.format(url=db), shell=True, capture_output=True
+        """.format(
+            url=db
+        ),
+        shell=True,
+        capture_output=True,
     )
 
 

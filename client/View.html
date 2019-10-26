@@ -193,7 +193,7 @@
   })
 
   function startEventSource() {
-    es = new EventSource('/~/contract/' + params.ctid + '/stream')
+    es = new EventSource('/~~~/contract/' + params.ctid)
     es.onerror = e => console.log('contract sse error', e.data)
     es.addEventListener('contract-created', e => {
       let data = JSON.parse(e.data)

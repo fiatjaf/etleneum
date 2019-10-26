@@ -13,7 +13,7 @@
   onMount(() => {
     unsubscribe = account.subscribe(({session}) => {
       if (session && !es) {
-        es = new EventSource('/lnurl/session?src=comp&session=' + session)
+        es = new EventSource('/~~~/session?src=comp&session=' + session)
         es.onerror = e => console.log('Account component sse error', e.data)
         es.addEventListener('withdraw', e => {
           let data = JSON.parse(e.data)

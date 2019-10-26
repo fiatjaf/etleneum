@@ -23,7 +23,7 @@ const account = readable(initial, set => {
 })
 
 account.refresh = function() {
-  window.fetch('/lnurl/refresh?session=' + current.session)
+  window.fetch('/~/refresh?session=' + current.session)
 }
 
 account.reset = function() {
@@ -39,8 +39,7 @@ account.reset = function() {
 
 function startEventSource() {
   es = new window.EventSource(
-    '/lnurl/session?src=store&session=' +
-      (current.session ? current.session : '')
+    '/~~~/session?src=store&session=' + (current.session ? current.session : '')
   )
   es.onerror = e => console.log('accountstore sse error', e.data)
   es.addEventListener('lnurls', e => {
