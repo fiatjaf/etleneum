@@ -80,6 +80,7 @@ func main() {
 			Path:             s.SocketPath,
 			LastInvoiceIndex: int(lastinvoiceindex),
 			PaymentHandler:   handleInvoicePaid,
+			CallTimeout:      time.Hour * 6000,
 		}
 		log.Debug().Int64("index", lastinvoiceindex).Msg("listening for invoices")
 		ln.ListenForInvoices()
@@ -112,7 +113,7 @@ func main() {
 	router.Path("/lnurl/refund").Methods("GET").HandlerFunc(lnurlRefund)
 	router.Path("/lnurl/refund/callback").Methods("GET").HandlerFunc(lnurlRefundCallback)
 	router.Path("/~~~/session").Methods("GET").HandlerFunc(lnurlSession)
-	router.Path("/lnurl/session/auth").Methods("GET").HandlerFunc(lnurlAuth)
+	router.Path("/lnurl/auth").Methods("GET").HandlerFunc(lnurlAuth)
 	router.Path("/~/session/refresh").Methods("GET").HandlerFunc(refreshBalance)
 	router.Path("/lnurl/withdraw").Methods("GET").HandlerFunc(lnurlWithdraw)
 	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
