@@ -150,7 +150,12 @@ func deleteContract(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if s.FreeMode {
 		_, err = pg.Exec(`
-WITH del AS (
+WITH del_r AS (
+  DELETE FROM refunds
+), del_t AS (
+  DELETE FROM internal_transfers
+  WHERE call_id IN (SELECT id FROM calls WHERE contract_id = $1)
+), del_c AS (
   DELETE FROM calls WHERE contract_id = $1
 )
 DELETE FROM contracts WHERE id = $1

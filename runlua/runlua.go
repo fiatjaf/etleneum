@@ -21,6 +21,7 @@ func RunCall(
 	sandboxCode string,
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
+	getExternalContractData func(string) (interface{}, int, error),
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -36,6 +37,7 @@ func RunCall(
 			sandboxCode,
 			printToDestination,
 			makeRequest,
+			getExternalContractData,
 			getContractFunds,
 			sendFromContract,
 			getCurrentAccountBalance,
@@ -67,6 +69,7 @@ func runCall(
 	sandboxCode string,
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
+	getExternalContractData func(string) (interface{}, int, error),
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -117,6 +120,7 @@ func runCall(
 		"current_account":             lua_current_account,
 		"send_from_current_account":   sendFromCurrentAccount,
 		"get_current_account_balance": getCurrentAccountBalance,
+		"get_external_contract_data":  getExternalContractData,
 		"contract":                    contract.Id,
 		"get_contract_funds":          getContractFunds,
 		"send_from_contract":          sendFromContract,
@@ -180,6 +184,15 @@ custom_env = {
     end,
     state=state
   },
+  etleneum={
+    get_contract=function (id)
+      state, funds, err = internal.get_external_contract_data(id)
+      if err ~= nil then
+        error(err)
+      end
+      return state, funds
+    end
+  },
   account={
     id=account_id,
     send=function (target, amount)
@@ -223,6 +236,7 @@ custom_env = {
     _verify_bundle=keybase_verify_bundle,
   },
   internal={
+    get_external_contract_data=get_external_contract_data,
     send_from_current_account=send_from_current_account,
     send_from_contract=send_from_contract,
     get_current_account_balance=get_current_account_balance,

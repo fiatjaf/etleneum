@@ -107,6 +107,20 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 		&callPrinter{call.ContractId, call.Id},
 		func(r *http.Request) (*http.Response, error) { return http.DefaultClient.Do(r) },
 
+		// get external contract
+		func(contractId string) (state interface{}, funds int, err error) {
+			var data types.Contract
+			err = txn.Get(&data, "SELECT state, contracts.funds FROM contracts WHERE id = $1", contractId)
+			if err != nil {
+				return
+			}
+			err = json.Unmarshal(data.State, &state)
+			if err != nil {
+				return
+			}
+			return state, data.Funds, nil
+		},
+
 		// get contract balance
 		func() (contractFunds int, err error) {
 			err = txn.Get(&contractFunds, "SELECT contracts.funds FROM contracts WHERE id = $1", ct.Id)
@@ -152,7 +166,6 @@ VALUES ($1, $2, $3, $4)
 			if call.Caller == "" {
 				return 0, errors.New("no account")
 			}
-
 			err = txn.Get(&userBalance, "SELECT accounts.balance FROM accounts WHERE id = $1", call.Caller)
 			return
 		},

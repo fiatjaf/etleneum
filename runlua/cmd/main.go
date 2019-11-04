@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -105,6 +106,9 @@ func main() {
 			sandboxCode,
 			os.Stderr,
 			returnHttp,
+			func(_ string) (interface{}, int, error) {
+				return nil, 0, errors.New("no external contracts in test environment")
+			},
 			func() (contractFunds int, err error) { return contractFunds, nil },
 			func(target string, msat int) (msatoshiSent int, err error) {
 				contractFunds -= msat

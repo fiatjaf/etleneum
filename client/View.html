@@ -155,7 +155,8 @@
 
   function setMethod(e) {
     e.preventDefault()
-    nextcall.method = e.target.innerHTML.trim()
+    let method = e.target.innerHTML.trim()
+    nextcall.method = nextcall.method === method ? null : method
   }
 
   function setPayloadField(pf, e) {
@@ -294,7 +295,10 @@
     <h4>state</h4>
     <Json value="{contract.state}" />
     <h4>readme</h4>
-    <Markdown ctdata={{funds: contract.funds, state: contract.state, id: contract.id}}>{contract.readme}</Markdown>
+    <Markdown
+      ctdata="{{funds: contract.funds, state: contract.state, id: contract.id}}"
+      >{contract.readme}</Markdown
+    >
     <h4>code</h4>
     <LuaCode>{contract.code}</LuaCode>
   </div>
@@ -327,11 +331,12 @@
         <div>apparently this method requires you to be authenticated</div>
         {/if}
       </label>
+      {#if nextcall.method}
       <label>
         satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
         on:input="{setMsatoshi}" />
       </label>
-      {#each (payloadfields[nextcall.method] || []) as pf (pf)}
+      {/if} {#each (payloadfields[nextcall.method] || []) as pf (pf)}
       <label>
         {pf}:
         <MultiField
