@@ -3,7 +3,6 @@
 <script>
   import {onMount, onDestroy} from 'svelte'
   import {replace, push} from 'svelte-spa-router'
-  import flua from 'flua'
 
   import QR from './QR.html'
   import Json from './Json.html'
@@ -37,7 +36,6 @@
     let r = await fetch('/~/contract/' + params.ctid)
     if (r.status == 404) replace('/notfound')
     let ctdata = (await r.json()).value
-    ctdata.readme = renderLuaSnippets(ctdata)
     contract = ctdata
 
     parseCode(contract.code)
@@ -82,17 +80,6 @@
         payloadfields[infunction] = Object.keys(fieldmap || {})
         infunction = null
         fieldmap = null
-      }
-    })
-  }
-
-  function renderLuaSnippets(contract) {
-    return contract.readme.replace(/{([^}]+)}/g, (_, code) => {
-      try {
-        let {res} = flua.runWithGlobals(contract, `res = ${code}`, ['res'])
-        return res
-      } catch (e) {
-        return '{' + code + '}'
       }
     })
   }
@@ -307,7 +294,7 @@
     <h4>state</h4>
     <Json value="{contract.state}" />
     <h4>readme</h4>
-    <Markdown>{contract.readme}</Markdown>
+    <Markdown ctdata={{funds: contract.funds, state: contract.state, id: contract.id}}>{contract.readme}</Markdown>
     <h4>code</h4>
     <LuaCode>{contract.code}</LuaCode>
   </div>

@@ -66,7 +66,9 @@ textarea {
 article {
   background: var(--lightgrey);
   padding: 3px 9px;
+  transition: 300ms ease-in background-color;
 }
+article:hover { background-color: white; }
 article a {
   color: #25aa7b;
   text-decoration: underline;
