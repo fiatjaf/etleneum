@@ -2,6 +2,7 @@
 
 <script>
   import {onMount, onDestroy} from 'svelte'
+  import PromiseWindow from 'promise-window'
 
   import * as toast from './toast'
   import QR from './QR.html'
@@ -9,6 +10,10 @@
 
   var unsubscribe = () => {}
   var es
+
+  const SEEDAUTH = 'https://seed-auth.etleneum.com'
+  var awaitingSeedAuth = false
+  var popupBlocked = false
 
   onMount(() => {
     unsubscribe = account.subscribe(({session}) => {
@@ -31,6 +36,33 @@
     unsubscribe()
   })
 
+  async function loginSeedAuth(e) {
+    if (popupBlocked) {
+      return
+    } else {
+      e.preventDefault()
+    }
+
+    awaitingSeedAuth = true
+    try {
+      await PromiseWindow.open(`${SEEDAUTH}/#/lnurl/${$account.lnurl.auth}`, {
+        windowName: 'Login to etleneum.com',
+        height: 500,
+        width: 400
+      })
+    } catch (err) {
+      if (err !== 'closed') {
+        if (err === 'blocked') {
+          popupBlocked = true
+        }
+        toast.warning(`${err}`)
+        console.log(err)
+      }
+    }
+
+    awaitingSeedAuth = false
+  }
+
   async function logout() {
     account.reset()
     await fetch('/lnurl/logout')
@@ -46,6 +78,16 @@
     background-color: var(--yellow);
     float: right;
   }
+  .awaiting-seed-auth {
+    width: 500px;
+    height: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .awaiting-seed-auth img {
+    width: 40%;
+  }
 </style>
 
 <div class="center">
@@ -57,8 +99,25 @@
   <p>Scan to withdraw.</p>
   {/if}
   <div><button on:click="{logout}">logout</button></div>
-  {:else if $account.lnurl.auth}
+  {:else if awaitingSeedAuth}
+  <div class="awaiting-seed-auth"><img src="/static/rings.svg" /></div>
+  Waiting for login on popup {:else if $account.lnurl.auth}
+  <h2>lnurl login</h2>
   <QR value="{$account.lnurl.auth}" />
-  <p>Scan to login.</p>
+  <p>
+    Scan/click with
+    <a target="_blank" href="https://lightning-wallet.com/">BLW</a> or
+    scan/copy-paste to
+    <a target="_blank" href="https://t.me/lntxbot">@lntxbot</a> to login.
+  </p>
+  <p>
+    Or
+    <a
+      on:click="{loginSeedAuth}"
+      href="{SEEDAUTH}/#/lnurl/{$account.lnurl.auth}"
+      target="_blank"
+      >login with username and password</a
+    >.
+  </p>
   {/if}
 </div>

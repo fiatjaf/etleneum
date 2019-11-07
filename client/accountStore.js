@@ -33,7 +33,11 @@ account.reset = function() {
 
   if (es) {
     es.close()
+    window.localStorage.removeItem('auth-session')
+    current = {...initial}
+    storeSet(current)
   }
+
   startEventSource()
 }
 

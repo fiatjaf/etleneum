@@ -98,14 +98,14 @@
   {/if}
 
   <div class="center">
-    {#if $account.id}
+    <h2>Etleneum in 2 minutes</h2>
     <p>
-      Logged as <b><a href="#/account">{$account.id}</a></b
-      >.
+      Etleneum is not just a pun with Ethereum, it's a real smart contract
+      platform. You can build publicly auditable and trusted applications that
+      run custom code, can talk to other services and are accessible through an
+      API, all using a built-in user account system (optional) and real
+      Lightning payments.
     </p>
-    {:else if $account.lnurl.auth}
-    <QR value="{$account.lnurl.auth}" />
-    <p>scan to login</p>
-    {/if}
+    <h3>Example</h3>
   </div>
 </main>
