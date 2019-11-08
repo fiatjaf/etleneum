@@ -9,29 +9,23 @@
   import QR from './QR.html'
 
   var refunds
-  var claimable
+  var claimable = null
+  var preimage
 
   onMount(async () => {
     let r = await fetch('/~/refunds')
     refunds = (await r.json()).value
   })
 
-  function handleTypedPreimage(e) {
-    let hash = new sha256()
-      .update(Buffer.from(e.target.value, 'hex'))
-      .digest('hex')
+  function handlePreimage(e) {
+    let hash = new sha256().update(Buffer.from(preimage, 'hex')).digest('hex')
 
     for (let i = 0; i < refunds.length; i++) {
       let refund = refunds[i]
-      if (refund === e.target.dataset.hash) {
-        refund = hash
-
-        if (hash === refund.hash) {
-          refund.claimable = true
-        }
-
-        break
+      if (hash === refund.hash) {
+        claimable = refund
       }
+      break
     }
   }
 
@@ -39,50 +33,66 @@
     return bech32.encode(
       'lnurl',
       bech32.toWords(
-        `https://${window.location.host}/lnurl/refund?preimage=${preimage}`
-      )
+        `${location.origin}/lnurl/refund?preimage=${preimage}`
+          .split('')
+          .map(l => l.charCodeAt(0))
+      ),
+      1500
     )
   }
 </script>
 
 <style>
+  #claim {
+    margin: 20px auto;
+  }
+  input {
+    width: 80%;
+    display: block;
+    text-align: center;
+  }
   table {
     width: 100%;
   }
-
   td {
     padding: 2px 5px;
   }
-
   .hash {
     max-width: 400px;
     white-space: pre-wrap;
     word-wrap: break-word;
   }
+  .claimable {
+    background: var(--softblue);
+    color: white;
+  }
 </style>
 
-<main class="center">
-  {#if !refunds} loading {:else}
-  <table>
-    {#each refunds as refund (refund.hash)}
-    <tr>
-      <td class="hash">{refund.hash}</td>
-      <td>{refund.time.split('T').join(' ').replace(/\..*/, '')}</td>
-      <td>{(refund.msatoshi/1000).toFixed(3)} sat</td>
-      <td>
-        {#if refund.claimable}
-        <QR value="{lnurl(refund.typed)}" />
-        {:else if refund.claimed} refund claimed, but not yet paid {:else}
-        <input
-          placeholder="type your preimage"
-          data-refund="{refund.hash}"
-          on:change="{handleTypedPreimage}"
-        />
-        {/if}
-      </td>
-    </tr>
-    {/each}
-  </table>
-
+{#if !refunds}
+<div class="center">
+  loading
+</div>
+{:else}
+<div id="claim" class="center">
+  {#if claimable}
+  <QR value="{lnurl(preimage)}" />
+  {:else}
+  <input
+    on:input="{handlePreimage}"
+    bind:value="{preimage}"
+    placeholder="payment proof or preimage"
+  />
   {/if}
-</main>
+</div>
+
+<table>
+  {#each refunds as refund (refund.hash)}
+  <tr class:claimable="{claimable && refund.hash === claimable.hash}">
+    <td class="hash">{refund.hash}</td>
+    <td>{refund.time.split('T').join(' ').replace(/\..*/, '')}</td>
+    <td>{(refund.msatoshi/1000).toFixed(3)} sat</td>
+  </tr>
+  {/each}
+</table>
+
+{/if}
