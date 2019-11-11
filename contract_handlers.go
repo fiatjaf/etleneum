@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
-	lnurl "github.com/fiatjaf/go-lnurl"
+	"github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	sqlxtypes "github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"

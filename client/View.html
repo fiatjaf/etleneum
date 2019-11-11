@@ -277,6 +277,12 @@
   }
 </style>
 
+<svelte:head>
+  {#if contract && contract.name}
+  <title>[{contract.id}] {contract.name} | etleneum contract</title>
+  {/if}
+</svelte:head>
+
 {#if !contract}
 <div class="center">loading</div>
 {:else if contract.invoice && !contract.invoice_paid}

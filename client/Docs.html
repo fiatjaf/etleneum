@@ -30,7 +30,7 @@ function getmoney ()
   end
 
   -- this sends the money to the account balance of the caller
-  contract.send(money_to_get, account.id)
+  contract.send(account.id, money_to_get)
 end`
 </script>
 

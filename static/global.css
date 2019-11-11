@@ -57,10 +57,12 @@ textarea {
 .toast-error { background: #db6e6e!important; }
 .toast-success { background: #6edb91!important; }
 
+.djt-Content { text-align: left; }
 .djt-Property_Key,
 .djt-Property_Type {
   white-space: pre-wrap;
   word-wrap: break-word;
+  word-break: break-all;
 }
 
 article {

@@ -15,13 +15,12 @@ import (
 )
 
 func getCallCosts(c types.Call) int {
-	cost := s.FixedCallCostSatoshis * 1000     // a fixed cost of 1 satoshi by default
-	cost += int(float64(len(c.Payload)) * 0.1) // a negligible amount of msats, just to prevent abuse by enormous payloads
+	cost := s.FixedCallCostSatoshis * 1000 // a fixed cost of 1 satoshi by default
 
 	chars := len(string(c.Payload))
-	cost += 70 * chars // 70 msatoshi for each character in the payload
+	cost += 20 * chars // 70 msatoshi for each character in the payload
 
-	if c.Msatoshi > 500000 {
+	if c.Msatoshi > 50000 {
 		// to help cover withdraw fees later we charge a percent of the amount of satoshis included
 		cost += int(float64(c.Msatoshi) / 100)
 	}
