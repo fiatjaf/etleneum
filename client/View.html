@@ -156,7 +156,13 @@
   function setMethod(e) {
     e.preventDefault()
     let method = e.target.innerHTML.trim()
+
     nextcall.method = nextcall.method === method ? null : method
+
+    for (let k in nextcall.payload) {
+      if (k in payloadfields[method]) continue
+      delete nextcall.payload[k]
+    }
   }
 
   function setPayloadField(pf, e) {
@@ -342,7 +348,7 @@
         satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
         on:input="{setMsatoshi}" />
       </label>
-      {/if} {#each (payloadfields[nextcall.method] || []) as pf (pf)}
+      {#each (payloadfields[nextcall.method] || []) as pf (pf)}
       <label>
         {pf}:
         <MultiField
@@ -362,6 +368,7 @@
         />
       </label>
       <div><button>prepare call</button></div>
+      {/if}
     </form>
     {/if} {/if}
   </div>
