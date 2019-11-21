@@ -21,7 +21,6 @@ func dispatchContractEvent(contractId string, ev ctevent, typ string) {
 	payload := string(jpayload)
 
 	if ies, ok := contractstreams.Get(contractId); ok {
-		log.Info().Str("type", typ).Str("p", payload).Msg("event dispatched")
 		ies.(eventsource.EventSource).SendEventMessage(payload, typ, "")
 	}
 }

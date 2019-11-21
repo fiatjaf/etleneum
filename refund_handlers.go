@@ -142,7 +142,7 @@ RETURNING `+types.REFUNDFIELDS+`
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("hash", hash).Str("bolt11", bolt11).
 			Msg("refund waitpay result")
 
-		if err == nil {
+		if payresp.Get("status").String() == "complete" {
 			// mark as fulfilled
 			_, err := pg.Exec(`UPDATE refunds SET fulfilled = true WHERE payment_hash = $1`, hash)
 			if err != nil {

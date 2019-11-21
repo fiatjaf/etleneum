@@ -80,8 +80,6 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
-			log.Debug().Str("account", accountId).Str("session", session).Str("type", "auth").
-				Msg("dispatched session message")
 		}()
 
 		// also renew his session
@@ -94,8 +92,6 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
 		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw?session=" + session)
 		es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
-		log.Debug().Str("account", accountId).Str("session", session).Str("type", "lnurls").
-			Msg("dispatched session message")
 	}()
 
 	es.ServeHTTP(w, r)
@@ -146,8 +142,6 @@ ON CONFLICT (lnurl_key)
 
 	// notify browser
 	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
-	log.Debug().Str("account", acct.Id).Str("session", k1).Str("type", "auth").
-		Msg("dispatched session message")
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
@@ -173,8 +167,6 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 
 	if ies, ok := userstreams.Get(session); ok {
 		ies.(eventsource.EventSource).SendEventMessage(`{"account": "`+accountId+`", "balance": "`+strconv.Itoa(balance)+`"}`, "auth", "")
-		log.Debug().Str("account", accountId).Str("session", session).Str("type", "auth").
-			Msg("dispatched session message")
 	}
 
 	w.WriteHeader(200)
@@ -288,7 +280,7 @@ VALUES ($1, $2, false, $3)
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
 			Msg("withdraw waitpay result")
 
-		if err == nil {
+		if payresp.Get("status").String() == "complete" {
 			// mark as fulfilled
 			_, err := pg.Exec(`UPDATE withdrawals SET fulfilled = true WHERE bolt11 = $1`, bolt11)
 			if err != nil {
@@ -300,8 +292,6 @@ VALUES ($1, $2, false, $3)
 				ies.(eventsource.EventSource).SendEventMessage(
 					`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`,
 					"withdraw", "")
-				log.Debug().Str("account", accountId).Str("session", session).Str("type", "withdraw").
-					Msg("dispatched session message")
 			}
 		}
 
