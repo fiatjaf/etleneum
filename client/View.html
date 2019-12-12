@@ -249,7 +249,8 @@
     margin-left: 2%;
     width: 40%;
   }
-  #action label {
+  #action label,
+  #action .label {
     display: block;
     margin: 12px 2px;
   }
@@ -326,7 +327,7 @@
     </div>
     {:else}
     <form on:submit="{prepareCall}">
-      <label>
+      <div class="label">
         method: {#if nextcall.method}<b>{nextcall.method}</b>{:else}none
         selected{/if}
         <div class="select">
@@ -342,7 +343,7 @@
         {#if usesauth[nextcall.method]}
         <div>apparently this method requires you to be authenticated</div>
         {/if}
-      </label>
+      </div>
       {#if nextcall.method}
       <label>
         satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
