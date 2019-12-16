@@ -27,7 +27,7 @@ LIMIT 50
 	if err == sql.ErrNoRows {
 		calls = make([]types.Call, 0)
 	} else if err != nil {
-		logger.Warn().Err(err).Msg("failed to fetch calls")
+		logger.Error().Err(err).Msg("failed to fetch calls")
 		jsonError(w, "failed to fetch calls", 404)
 		return
 	}
@@ -71,13 +71,13 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 
 	label, err := setCallInvoice(call)
 	if err != nil {
-		logger.Warn().Err(err).Msg("failed to make invoice.")
+		logger.Error().Err(err).Msg("failed to make invoice.")
 		jsonError(w, "failed to make invoice, please try again", 500)
 		return
 	}
 
 	if s.FreeMode {
-		// wait 10 seconds and notify this payment was received
+		// wait 5 seconds and notify this payment was received
 		go func() {
 			time.Sleep(5 * time.Second)
 			handlePaymentReceived(label, lnurl.RandomK1())
@@ -86,7 +86,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 
 	_, err = saveCallOnRedis(*call)
 	if err != nil {
-		logger.Warn().Err(err).Interface("call", call).
+		logger.Error().Err(err).Interface("call", call).
 			Msg("failed to save call on redis")
 		jsonError(w, "failed to save prepared call", 500)
 		return
@@ -114,7 +114,7 @@ FROM calls WHERE id = $1
 		}
 	} else if err != nil {
 		// it's a database error
-		logger.Warn().Err(err).Msg("database error fetching call")
+		logger.Error().Err(err).Msg("database error fetching call")
 		jsonError(w, "failed to fetch call "+callid, 500)
 		return
 	}
@@ -153,7 +153,7 @@ func patchCall(w http.ResponseWriter, r *http.Request) {
 
 	_, err = saveCallOnRedis(*call)
 	if err != nil {
-		logger.Warn().Err(err).Interface("call", call).
+		logger.Error().Err(err).Interface("call", call).
 			Msg("failed to save patched call on redis")
 		jsonError(w, "failed to save patched call", 500)
 		return

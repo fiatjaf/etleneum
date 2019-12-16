@@ -22,10 +22,10 @@ import (
 )
 
 type Settings struct {
-	ServiceId   string `envconfig:"SERVICE_ID" default:"etleneum"`
+	ServiceId   string `envconfig:"SERVICE_ID" default:"etleneum.com"`
 	ServiceURL  string `envconfig:"SERVICE_URL" required:"true"`
 	Port        string `envconfig:"PORT" required:"true"`
-	HashidSalt  string `envconfig:"HASHID_SALT" default:"etleneum"`
+	SecretKey   string `envconfig:"SECRET_KEY" default:"etleneum"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
@@ -110,6 +110,9 @@ func main() {
 	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
 	router.Path("/~/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
 	router.Path("/~/refunds").Methods("GET").HandlerFunc(listRefunds)
+	router.Path("/lnurl/contract/{ctid}/call/{method}/{msatoshi}").
+		Methods("GET").HandlerFunc(lnurlPayParams)
+	router.Path("/lnurl/call/{callid}").Methods("GET").HandlerFunc(lnurlPayParams)
 	router.Path("/lnurl/refund").Methods("GET").HandlerFunc(lnurlRefund)
 	router.Path("/lnurl/refund/callback").Methods("GET").HandlerFunc(lnurlRefundCallback)
 	router.Path("/~~~/session").Methods("GET").HandlerFunc(lnurlSession)
