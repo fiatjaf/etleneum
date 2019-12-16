@@ -2,13 +2,10 @@ package main
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
@@ -18,6 +15,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/lucsky/cuid"
+	"github.com/tidwall/gjson"
 )
 
 func lnurlCallMetadata(call *types.Call) string {
@@ -75,25 +73,10 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	// if the user has a personal token and wants to make an authenticated call
 	var caller string
 	if token := qs.Get("_token"); token != "" {
-		rtoken, err := base64.StdEncoding.DecodeString(token)
-		if err != nil {
-			logger.Warn().Err(err).Str("token", token).Msg("token base64")
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid token."))
-			return
-		}
-		spl := strings.Split(string(rtoken), ":")
-		if len(spl) != 2 {
-			logger.Warn().Str("rtoken", string(rtoken)).Msg("token split")
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid token."))
-			return
-		}
-		account := spl[0]
-		passkey := spl[1]
-		hash := sha256.Sum256([]byte(account + "~" + s.SecretKey))
-		if passkey == hex.EncodeToString(hash[:]) {
+		if account, ok := accountFromToken(token); ok {
 			caller = account
 		} else {
-			logger.Warn().Str("rtoken", string(rtoken)).Msg("token mismatch")
+			logger.Warn().Str("token", token).Msg("token mismatch")
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid token."))
 			return
 		}
@@ -101,12 +84,12 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 
 	// payload comes as query parameters
 	payload := make(map[string]interface{})
-	for k, v := range qs {
-		if f, err := strconv.ParseFloat(v[0], 10); err == nil {
-			payload[k] = f
-		} else {
-			payload[k] = v[0]
+	for k, _ := range qs {
+		v := gjson.Parse(qs.Get(k)).Value()
+		if v == nil {
+			v = qs.Get(k)
 		}
+		payload[k] = v
 	}
 	jpayload, _ := json.Marshal(payload)
 

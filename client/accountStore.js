@@ -57,7 +57,8 @@ function startEventSource() {
       ...current,
       session: data.session || current.session,
       id: data.account,
-      balance: data.balance
+      balance: data.balance,
+      token: data.token
     }
     storeSet(current)
 

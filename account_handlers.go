@@ -79,7 +79,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 					Msg("failed to load account from session")
 				return
 			}
-			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
+			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`", "token": "`+getToken(acct.Id)+`"}`, "auth", "")
 		}()
 
 		// also renew his session

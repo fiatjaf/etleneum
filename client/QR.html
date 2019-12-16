@@ -6,6 +6,7 @@
 
   export var value
   export var color = '#333'
+  export var size = 300
 
   let id = parseInt(Math.random() * 100000)
 
@@ -15,7 +16,7 @@
       text: value.toUpperCase(),
       fill: color,
       back: 'transparent',
-      size: 300
+      size
     })
 
     document.getElementById('c-' + id).appendChild(el)

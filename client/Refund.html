@@ -29,7 +29,7 @@
     }
   }
 
-  function lnurl(preimage) {
+  function lnurlwithdraw(preimage) {
     return bech32.encode(
       'lnurl',
       bech32.toWords(
@@ -75,7 +75,7 @@
 {:else}
 <div id="claim" class="center">
   {#if claimable}
-  <QR value="{lnurl(preimage)}" />
+  <QR value="{lnurlwithdraw(preimage)}" />
   {:else}
   <input
     on:input="{handlePreimage}"

@@ -1,6 +1,7 @@
 <!-- @format -->
 
 <script>
+  import bech32 from 'bech32'
   import {onMount, onDestroy} from 'svelte'
   import {replace, push} from 'svelte-spa-router'
 
@@ -136,6 +137,32 @@
     resetNextCall()
   }
 
+  function lnurlpay(nextcall) {
+    var url = new URL(
+      `/lnurl/contract/${params.ctid}/call/${nextcall.method}/${nextcall.msatoshi}`,
+      location
+    )
+    var qs = new URLSearchParams()
+    for (let k in nextcall.payload) {
+      qs.set(k, nextcall.payload[k])
+    }
+    if (nextcall.includeCallerSession) {
+      qs.set('_token', $account.token)
+    }
+    url.search = qs.toString()
+
+    return bech32.encode(
+      'lnurl',
+      bech32.toWords(
+        url
+          .toString()
+          .split('')
+          .map(l => l.charCodeAt(0))
+      ),
+      1500
+    )
+  }
+
   async function deleteContract(e) {
     e.preventDefault()
 
@@ -237,53 +264,6 @@
   }
 </script>
 
-<style>
-  main {
-    display: flex;
-    flex-wrap: wrap;
-  }
-  #status {
-    width: 58%;
-  }
-  #action {
-    margin-left: 2%;
-    width: 40%;
-  }
-  #action label,
-  #action .label {
-    display: block;
-    margin: 12px 2px;
-  }
-  #action .select {
-    display: flex;
-    flex-wrap: wrap;
-  }
-  #action input:not([type='checkbox']),
-  #action .select button {
-    padding: 4px;
-    font-size: 1.2rem;
-    background-color: var(--lightgrey);
-  }
-  #action .select button.enabled {
-    background: var(--yellow);
-    border: inset var(--lightgrey) 3px;
-  }
-  .disabled {
-    color: grey;
-  }
-  button {
-    cursor: pointer;
-    margin: 12px;
-    padding: 12px;
-    font-size: 1.2rem;
-    background-color: var(--yellow);
-  }
-  #events {
-    margin-top: 2%;
-    width: 100%;
-  }
-</style>
-
 <svelte:head>
   {#if contract && contract.name}
   <title>[{contract.id}] {contract.name} | etleneum contract</title>
@@ -371,6 +351,16 @@
       <div><button>prepare call</button></div>
       {/if}
     </form>
+    {/if} {#if nextcall.method}
+    <div id="lnurl-pay">
+      <h3>reusable lnurl-pay for this call</h3>
+      {#if nextcall.includeCallerSession}
+      <p>(includes <b>secret</b> auth token)</p>
+      {/if}
+      <div class="center">
+        <QR value="{lnurlpay(nextcall)}" size="{200}" />
+      </div>
+    </div>
     {/if} {/if}
   </div>
   <div id="events">
@@ -381,3 +371,57 @@
   </div>
 </main>
 {/if}
+
+<style>
+  main {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  #status {
+    width: 58%;
+  }
+  #action {
+    margin-left: 2%;
+    width: 40%;
+  }
+  #action label,
+  #action .label {
+    display: block;
+    margin: 12px 2px;
+  }
+  #action .select {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  #action input:not([type='checkbox']),
+  #action .select button {
+    padding: 4px;
+    font-size: 1.2rem;
+    background-color: var(--lightgrey);
+  }
+  #action .select button.enabled {
+    background: var(--yellow);
+    border: inset var(--lightgrey) 3px;
+  }
+  .disabled {
+    color: grey;
+  }
+  #lnurl-pay {
+    margin-top: 70px;
+    text-align: center;
+  }
+  #lnurl-pay h3 {
+    margin: 0;
+  }
+  button {
+    cursor: pointer;
+    margin: 12px;
+    padding: 12px;
+    font-size: 1.2rem;
+    background-color: var(--yellow);
+  }
+  #events {
+    margin-top: 2%;
+    width: 100%;
+  }
+</style>
