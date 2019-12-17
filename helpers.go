@@ -88,6 +88,9 @@ func diffDeltaOneliner(prefix string, idelta gojsondiff.Delta) (lines []string) 
 			key = key + delta.PrePosition().String()
 			lines = append(lines, fmt.Sprintf("- %s", key[:len(key)-1]))
 		}
+	}
+
+	switch pdelta := idelta.(type) {
 	case gojsondiff.PostDelta:
 		switch delta := pdelta.(type) {
 		case *gojsondiff.TextDiff:
@@ -95,10 +98,12 @@ func diffDeltaOneliner(prefix string, idelta gojsondiff.Delta) (lines []string) 
 			lines = append(lines, fmt.Sprintf("= %s %v", key, delta.NewValue))
 		case *gojsondiff.Modified:
 			key = key + delta.PostPosition().String()
-			lines = append(lines, fmt.Sprintf("= %s %v", key, delta.NewValue))
+			value, _ := json.Marshal(delta.NewValue)
+			lines = append(lines, fmt.Sprintf("= %s %s", key, value))
 		case *gojsondiff.Added:
 			key = key + delta.PostPosition().String()
-			lines = append(lines, fmt.Sprintf("+ %s %v", key, delta.Value))
+			value, _ := json.Marshal(delta.Value)
+			lines = append(lines, fmt.Sprintf("+ %s %s", key, value))
 		case *gojsondiff.Object:
 			key = key + delta.PostPosition().String()
 			for _, nextdelta := range delta.Deltas {
@@ -111,7 +116,8 @@ func diffDeltaOneliner(prefix string, idelta gojsondiff.Delta) (lines []string) 
 			}
 		case *gojsondiff.Moved:
 			key = key + delta.PostPosition().String()
-			lines = append(lines, fmt.Sprintf("+ %s %v", key, delta.Value))
+			value, _ := json.Marshal(delta.Value)
+			lines = append(lines, fmt.Sprintf("+ %s %s", key, value))
 			if delta.Delta != nil {
 				if d, ok := delta.Delta.(gojsondiff.Delta); ok {
 					lines = append(lines, diffDeltaOneliner(key, d)...)
