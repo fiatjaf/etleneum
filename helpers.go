@@ -3,10 +3,13 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/yudai/gojsondiff"
 )
 
 var wordMatcher *regexp.Regexp = regexp.MustCompile(`\b\w+\b`)
@@ -67,4 +70,55 @@ func jsonError(w http.ResponseWriter, message string, code int) {
 		Ok:    false,
 		Error: message,
 	})
+}
+
+func diffDeltaOneliner(prefix string, idelta gojsondiff.Delta) (lines []string) {
+	key := prefix
+	if key != "" {
+		key += "."
+	}
+
+	switch pdelta := idelta.(type) {
+	case gojsondiff.PreDelta:
+		switch delta := pdelta.(type) {
+		case *gojsondiff.Moved:
+			key = key + delta.PrePosition().String()
+			lines = append(lines, fmt.Sprintf("- %s", key))
+		case *gojsondiff.Deleted:
+			key = key + delta.PrePosition().String()
+			lines = append(lines, fmt.Sprintf("- %s", key[:len(key)-1]))
+		}
+	case gojsondiff.PostDelta:
+		switch delta := pdelta.(type) {
+		case *gojsondiff.TextDiff:
+			key = key + delta.PostPosition().String()
+			lines = append(lines, fmt.Sprintf("= %s %v", key, delta.NewValue))
+		case *gojsondiff.Modified:
+			key = key + delta.PostPosition().String()
+			lines = append(lines, fmt.Sprintf("= %s %v", key, delta.NewValue))
+		case *gojsondiff.Added:
+			key = key + delta.PostPosition().String()
+			lines = append(lines, fmt.Sprintf("+ %s %v", key, delta.Value))
+		case *gojsondiff.Object:
+			key = key + delta.PostPosition().String()
+			for _, nextdelta := range delta.Deltas {
+				lines = append(lines, diffDeltaOneliner(key, nextdelta)...)
+			}
+		case *gojsondiff.Array:
+			key = key + delta.PostPosition().String()
+			for _, nextdelta := range delta.Deltas {
+				lines = append(lines, diffDeltaOneliner(key, nextdelta)...)
+			}
+		case *gojsondiff.Moved:
+			key = key + delta.PostPosition().String()
+			lines = append(lines, fmt.Sprintf("+ %s %v", key, delta.Value))
+			if delta.Delta != nil {
+				if d, ok := delta.Delta.(gojsondiff.Delta); ok {
+					lines = append(lines, diffDeltaOneliner(key, d)...)
+				}
+			}
+		}
+	}
+
+	return
 }

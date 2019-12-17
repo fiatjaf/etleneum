@@ -37,11 +37,12 @@
     {#if event.kind == 'call'}
     <Json value="{event.data.payload}" closed />
     {:else if event.kind == 'transfer_out'}transfer to{:else if event.kind ==
-    'transfer_in'}transfer from{/if}
+    'transfer_in'}transfer from{:else if event.kind ==
+    'diff'}{event.data.diff}{/if}
   </div>
-  <div>{parseInt(event.msatoshi/1000)} sat</div>
+  <div>{#if event.kind != 'diff'}{parseInt(event.msatoshi/1000)} sat{/if}</div>
   <div>
     {#if event.kind == 'call'} {event.data.caller ? event.data.caller :
-    'anonymous'} {:else} {event.data.other} {/if}
+    'anonymous'} {:else if event.kind == 'diff'}{:else} {event.data.other} {/if}
   </div>
 </div>

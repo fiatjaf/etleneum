@@ -24,6 +24,7 @@ CREATE TABLE calls (
   msatoshi int NOT NULL DEFAULT 0,
   cost int NOT NULL,
   caller text REFERENCES accounts(id),
+  diff text,
 
   CONSTRAINT method_exists CHECK (method != ''),
   CONSTRAINT cost_positive CHECK (method = '__init__' OR cost > 0),
@@ -111,6 +112,17 @@ CREATE VIEW contract_events AS
       jsonb_build_object('method', method, 'payload', payload, 'caller', caller) AS data
     FROM calls
     INNER JOIN contracts on calls.contract_id = contracts.id
+  UNION ALL
+    SELECT
+      contracts.id AS contract,
+      'diff' AS kind,
+      calls.id AS call,
+      time,
+      0 AS msatoshi,
+      jsonb_build_object('diff', diff) AS data
+    FROM calls
+    INNER JOIN contracts on calls.contract_id = contracts.id
+    WHERE diff IS NOT NULL AND diff != ''
   UNION ALL
     SELECT
       contracts.id AS contract,

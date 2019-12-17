@@ -31,12 +31,13 @@ type Call struct {
 	Msatoshi   int            `db:"msatoshi" json:"msatoshi"` // msats to be added to the contract
 	Cost       int            `db:"cost" json:"cost"`         // msats to be paid to the platform
 	Caller     string         `db:"caller" json:"caller"`
+	Diff       string         `db:"diff" json:"diff"`
 
 	Bolt11      string `db:"-" json:"invoice,omitempty"`
 	InvoicePaid *bool  `db:"-" json:"invoice_paid,omitempty"`
 }
 
-const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller"
+const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller, coalesce(diff, '') AS diff"
 
 type Account struct {
 	Id      string `db:"id" json:"id"`

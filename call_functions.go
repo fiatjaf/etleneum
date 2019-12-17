@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/fiatjaf/etleneum/runlua"
 	runlua_assets "github.com/fiatjaf/etleneum/runlua/assets"
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/jmoiron/sqlx"
+	"github.com/yudai/gojsondiff"
 )
 
 func getCallCosts(c types.Call) int {
@@ -212,6 +214,29 @@ VALUES ($1, $2, $3, $4)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to marshal new state")
 		return
+	}
+
+	// calculate and save state diff
+	differ := gojsondiff.New()
+	diff, err := differ.Compare(ct.State, newState)
+	if err == nil {
+		var adiff []string
+		for _, idelta := range diff.Deltas() {
+			adiff = append(adiff, diffDeltaOneliner("", idelta)...)
+		}
+		tdiff := strings.Join(adiff, "\n")
+		_, err = txn.Exec(`
+UPDATE calls SET diff = $2
+WHERE id = $1
+    `, call.Id, tdiff)
+		if err != nil {
+			log.Warn().Err(err).Str("callid", call.Id).
+				Str("diff", tdiff).
+				Msg("database error")
+			return
+		}
+	} else {
+		log.Warn().Err(err).Str("callid", call.Id).Msg("error calculating diff")
 	}
 
 	// save new state
