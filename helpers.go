@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/itchyny/gojq"
 	"github.com/yudai/gojsondiff"
 )
 
@@ -127,4 +129,34 @@ func diffDeltaOneliner(prefix string, idelta gojsondiff.Delta) (lines []string) 
 	}
 
 	return
+}
+
+func runJQ(
+	ctx context.Context,
+	input []byte,
+	filter string,
+) (result interface{}, err error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*2)
+	defer cancel()
+
+	query, err := gojq.Parse(filter)
+	if err != nil {
+		return
+	}
+
+	var object map[string]interface{}
+	err = json.Unmarshal(input, &object)
+	if err != nil {
+		return nil, err
+	}
+
+	iter := query.RunWithContext(ctx, object)
+	v, ok := iter.Next()
+	if !ok {
+		return nil, nil
+	}
+	if err, ok := v.(error); ok {
+		return nil, err
+	}
+	return v, nil
 }

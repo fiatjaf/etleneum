@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/elazarl/go-bindata-assetfs"
-	"github.com/fiatjaf/lightningd-gjson-rpc"
+	assetfs "github.com/elazarl/go-bindata-assetfs"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
-	"github.com/orcaman/concurrent-map"
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"gopkg.in/redis.v5"
@@ -101,6 +101,7 @@ func main() {
 	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
 	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
 	router.Path("/~/contract/{ctid}/state").Methods("GET").HandlerFunc(getContractState)
+	router.Path("/~/contract/{ctid}/state/{jq}").Methods("GET").HandlerFunc(getContractState)
 	router.Path("/~/contract/{ctid}/funds").Methods("GET").HandlerFunc(getContractFunds)
 	router.Path("/~/contract/{ctid}").Methods("DELETE").HandlerFunc(deleteContract)
 	router.Path("/~/contract/{ctid}/events").Methods("GET").HandlerFunc(listEvents)

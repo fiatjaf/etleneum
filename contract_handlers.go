@@ -130,6 +130,14 @@ func getContractState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+
+	if jqfilter, ok := mux.Vars(r)["jq"]; ok {
+		if result, err := runJQ(r.Context(), []byte(state), jqfilter); err == nil {
+			jresult, _ := json.Marshal(result)
+			state = sqlxtypes.JSONText(jresult)
+		}
+	}
+
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: state})
 }
 
