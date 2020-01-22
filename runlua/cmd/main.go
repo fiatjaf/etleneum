@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/fiatjaf/etleneum/runlua"
-	"github.com/fiatjaf/etleneum/runlua/assets"
 	"github.com/fiatjaf/etleneum/types"
 	sqlxtypes "github.com/jmoiron/sqlx/types"
 	"gopkg.in/urfave/cli.v1"
@@ -61,9 +60,6 @@ func main() {
 		},
 	}
 	app.Action = func(c *cli.Context) error {
-		bsandboxCode, _ := assets.Asset("runlua/assets/sandbox.lua")
-		sandboxCode := string(bsandboxCode)
-
 		// contract code
 		contractFile := c.String("contract")
 		if contractFile == "" {
@@ -103,7 +99,6 @@ func main() {
 		contractFunds := c.Int("funds") * 1000
 
 		state, err := runlua.RunCall(
-			sandboxCode,
 			os.Stderr,
 			returnHttp,
 			func(_ string) (interface{}, int, error) {

@@ -18,7 +18,6 @@ import (
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
 func RunCall(
-	sandboxCode string,
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int, error),
@@ -34,7 +33,6 @@ func RunCall(
 
 	go func() {
 		stateAfter, err = runCall(
-			sandboxCode,
 			printToDestination,
 			makeRequest,
 			getExternalContractData,
@@ -66,7 +64,6 @@ func RunCall(
 }
 
 func runCall(
-	sandboxCode string,
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int, error),
@@ -113,6 +110,8 @@ func runCall(
 
 	// globals
 	lunatico.SetGlobals(L, map[string]interface{}{
+		"code":                        contract.Code,
+		"method":                      call.Method,
 		"state":                       currentstate,
 		"payload":                     payload,
 		"msatoshi":                    call.Msatoshi,
@@ -146,120 +145,126 @@ func runCall(
 		"cuid":   cuid.New,
 	})
 
-	code := fmt.Sprintf(`
-%s
-
+	code := `
 -- account.id will be nil if there's not a logged user
 local account_id = nil
 if current_account ~= "" then
   account_id = current_account
 end
 
-custom_env = {
-  http={
-    gettext=httpgettext,
-    getjson=httpgetjson,
-    postjson=httppostjson
+sandbox_env = {
+  ipairs = ipairs,
+  next = next,
+  pairs = pairs,
+  error = error,
+  tonumber = tonumber,
+  tostring = tostring,
+  type = type,
+  unpack = unpack,
+  string = { byte = string.byte, char = string.char, find = string.find,
+      format = string.format, gmatch = string.gmatch, gsub = string.gsub,
+      len = string.len, lower = string.lower, match = string.match,
+      rep = string.rep, reverse = string.reverse, sub = string.sub,
+      upper = string.upper },
+  table = { insert = table.insert, maxn = table.maxn, remove = table.remove,
+      sort = table.sort },
+  math = { abs = math.abs, acos = math.acos, asin = math.asin,
+      atan = math.atan, atan2 = math.atan2, ceil = math.ceil, cos = math.cos,
+      cosh = math.cosh, deg = math.deg, exp = math.exp, floor = math.floor,
+      fmod = math.fmod, frexp = math.frexp, huge = math.huge,
+      ldexp = math.ldexp, log = math.log, log10 = math.log10, max = math.max,
+      min = math.min, modf = math.modf, pi = math.pi, pow = math.pow,
+      rad = math.rad, random = math.random, randomseed = math.randomseed,
+      sin = math.sin, sinh = math.sinh, sqrt = math.sqrt, tan = math.tan, tanh = math.tanh },
+  os = { clock = os.clock, difftime = os.difftime, time = os.time, date = os.date },
+  http = {
+    gettext = httpgettext,
+    getjson = httpgetjson,
+    postjson = httppostjson
   },
-  util={
-    sha256=sha256,
-    cuid=cuid,
-    print=print,
+  util = {
+    sha256 = sha256,
+    cuid = cuid,
+    print = print,
   },
-  contract={
-    id=current_contract,
-    get_funds=function ()
-      funds, err = internal.get_contract_funds()
+  contract = {
+    id = current_contract,
+    get_funds = function ()
+      funds, err = get_contract_funds()
       if err ~= nil then
         error(err)
       end
       return funds
     end,
-    send=function (target, amount)
-      amt, err = internal.send_from_contract(target, amount)
+    send = function (target, amount)
+      amt, err = send_from_contract(target, amount)
       if err ~= nil then
         error(err)
       end
       return amt
     end,
-    state=state
+    state = state
   },
-  etleneum={
-    get_contract=function (id)
-      state, funds, err = internal.get_external_contract_data(id)
+  etleneum = {
+    get_contract = function (id)
+      state, funds, err = get_external_contract_data(id)
       if err ~= nil then
         error(err)
       end
       return state, funds
     end
   },
-  account={
-    id=account_id,
-    send=function (target, amount)
-      amt, err = internal.send_from_current_account(target, amount)
+  account = {
+    id = account_id,
+    send = function (target, amount)
+      amt, err = send_from_current_account(target, amount)
       if err ~= nil then
         error(err)
       end
       return amt
     end,
-    get_balance=function ()
-      balance, err = internal.get_current_account_balance()
+    get_balance = function ()
+      balance, err = get_current_account_balance()
       if err ~= nil then
         error(err)
       end
       return balance
     end,
   },
-  call={
-    id=call,
-    payload=payload,
-    msatoshi=msatoshi
+  call = {
+    id = call,
+    payload = payload,
+    msatoshi = msatoshi
   },
-  keybase={
-    verify=function (username, text_or_bundle, signature_block)
+  keybase = {
+    verify = function (username, text_or_bundle, signature_block)
       if not signature_block then
         return keybase._verify_bundle(username, text_or_bundle)
       end
       return keybase._verify(username, text_or_bundle, signature_block)
     end,
-    extract_message=keybase_extract_message,
-    lookup=keybase_lookup,
-    exists=function (n) return keybase.username(n) ~= "" end,
-    github=function (n) return keybase.lookup("github", n) end,
-    twitter=function (n) return keybase.lookup("twitter", n) end,
-    reddit=function (n) return keybase.lookup("reddit", n) end,
-    hackernews=function (n) return keybase.lookup("hackernews", n) end,
-    key_fingerprint=function (n) return keybase.lookup("key_fingerprint", n) end,
-    domain=function (n) return keybase.lookup("domain", n) end,
-    username=function (n) return keybase.lookup("usernames", n) end,
-    _verify=keybase_verify,
-    _verify_bundle=keybase_verify_bundle,
-  },
-  internal={
-    get_external_contract_data=get_external_contract_data,
-    send_from_current_account=send_from_current_account,
-    send_from_contract=send_from_contract,
-    get_current_account_balance=get_current_account_balance,
-    get_contract_funds=get_contract_funds,
+    extract_message = keybase_extract_message,
+    lookup = keybase_lookup,
+    exists = function (n) return keybase.username(n) ~= "" end,
+    github = function (n) return keybase.lookup("github", n) end,
+    twitter = function (n) return keybase.lookup("twitter", n) end,
+    reddit = function (n) return keybase.lookup("reddit", n) end,
+    hackernews = function (n) return keybase.lookup("hackernews", n) end,
+    key_fingerprint = function (n) return keybase.lookup("key_fingerprint", n) end,
+    domain = function (n) return keybase.lookup("domain", n) end,
+    username = function (n) return keybase.lookup("usernames", n) end,
+    _verify = keybase_verify,
+    _verify_bundle = keybase_verify_bundle,
   }
 }
 
-for k, v in pairs(custom_env) do
-  sandbox_env[k] = v
-end
-
-function call ()
-%s
-
-  return %s()
-end
-
-ret = run(sandbox_env, call)
-    `, sandboxCode, contract.Code, call.Method)
+ret = load(code .. '\nreturn ' .. method .. '()', 'call', 't', sandbox_env)()
+state = sandbox_env.contract.state
+    `
 
 	err = L.DoString(code)
 	if err != nil {
-		st := stackTraceWithCode(err.Error(), code)
+		st := stackTraceWithCode(err.Error(), contract.Code)
 		log.Print(st)
 		err = errors.New(st)
 		return
