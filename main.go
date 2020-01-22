@@ -30,6 +30,10 @@ type Settings struct {
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
 	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
+	GitHubRepoOwner string `envconfig:"GITHUB_REPO_OWNER"`
+	GitHubRepoName  string `envconfig:"GITHUB_REPO_NAME"`
+	GitHubToken     string `envconfig:"GITHUB_TOKEN"`
+
 	InitialContractCostSatoshis int `envconfig:"INITIAL_CONTRACT_COST_SATOSHIS" default:"970"`
 	FixedCallCostSatoshis       int `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
 
@@ -122,6 +126,7 @@ func main() {
 	router.Path("/lnurl/withdraw").Methods("GET").HandlerFunc(lnurlWithdraw)
 	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
 	router.Path("/~/session/logout").Methods("POST").HandlerFunc(logout)
+	router.Path("/^/webhook/github").Methods("POST").HandlerFunc(handleGitHubWebhook)
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{

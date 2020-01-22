@@ -1,3 +1,8 @@
+CREATE TABLE kv (
+  k text PRIMARY KEY,
+  v jsonb NOT NULL
+);
+
 CREATE TABLE accounts (
   id text PRIMARY KEY,
   lnurl_key text UNIQUE NOT NULL

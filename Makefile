@@ -15,14 +15,7 @@ runlua/assets/bindata.go: $(shell find runlua/assets ! -name "bindata.go")
 static/bundle.js: $(shell find client)
 	./node_modules/.bin/rollup -c
 
-deploy: deploy_test deploy_prod
-
 deploy_test: etleneum
 	ssh root@nusakan-58 'systemctl stop etleneum-test'
 	scp etleneum nusakan-58:etleneum-test/etleneum
 	ssh root@nusakan-58 'systemctl start etleneum-test'
-
-deploy_prod: etleneum
-	ssh root@etleneum 'systemctl stop lightningd'
-	scp etleneum etleneum:etleneum/etleneum
-	ssh root@etleneum 'systemctl start lightningd'

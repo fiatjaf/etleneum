@@ -86,6 +86,9 @@ VALUES ($1, $2, $3, $4, '{}')
 
 			// saved. delete from redis.
 			rds.Del("contract:" + contractId)
+
+			// save contract on github
+			saveContractOnGitHub(ct)
 		case 3:
 			// run the call
 			contractId := parts[1]
