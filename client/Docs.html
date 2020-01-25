@@ -209,6 +209,25 @@ end`
       </ul>
     </li>
     <li>
+      <code>etleneum</code> table with fields:
+      <ul>
+        <li>
+          <code>get_contract: (id: String) => (state: Any, funds: Int)</code>, a
+          function that returns data about another contract.
+        </li>
+        <li>
+          <code
+            >call_external: (contract_id: String, method: String, payload: Any,
+            msatoshi: Int, params: {`{as: String?}`}) => ()</code
+          >, a function that calls a method on another contract -- each external
+          call costs one satoshi and it must be manually included in the current
+          call, the <code>as</code> parameter could be either "contract" to make
+          the call as the contract or "user" to make the call as the current
+          user, or nil;
+        </li>
+      </ul>
+    </li>
+    <li>
       <code>util</code> table with functions:
       <ul>
         <li>

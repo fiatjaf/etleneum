@@ -1,16 +1,13 @@
 all: etleneum runcall
 
-etleneum: $(shell find . -name "*.go") bindata.go runlua/assets/bindata.go
+etleneum: $(shell find . -name "*.go") bindata.go
 	go build -ldflags="-s -w" -o ./etleneum
 
-runcall: runlua/runlua.go runlua/assets/bindata.go runlua/cmd/main.go
+runcall: runlua/runlua.go runlua/cmd/main.go
 	cd runlua/cmd && go build -o ../../runcall
 
 bindata.go: static/bundle.js static/index.html static/global.css static/bundle.css
 	go-bindata -o bindata.go static/...
-
-runlua/assets/bindata.go: $(shell find runlua/assets ! -name "bindata.go")
-	go-bindata -pkg assets -o runlua/assets/bindata.go -ignore=.*\.go runlua/assets/...
 
 static/bundle.js: $(shell find client)
 	./node_modules/.bin/rollup -c

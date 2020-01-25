@@ -12,6 +12,7 @@ import (
 	"github.com/fiatjaf/etleneum/runlua"
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/jmoiron/sqlx"
+	"github.com/lucsky/cuid"
 	"github.com/yudai/gojsondiff"
 )
 
@@ -116,6 +117,53 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 				return
 			}
 			return state, data.Funds, nil
+		},
+
+		// call external method
+		func(externalContractId string, method string, payload interface{}, msatoshi int, account string) (err error) {
+			jpayload, _ := json.Marshal(payload)
+
+			// build the call
+			externalCall := &types.Call{
+				ContractId: externalContractId,
+				Id:         "r" + cuid.Slug(), // a normal new call id
+				Method:     method,
+				Payload:    jpayload,
+				Msatoshi:   msatoshi,
+				Cost:       1000, // only the fixed cost, the other costs are included
+				Caller:     account,
+			}
+
+			// pay for the call (by extracting the fixed cost from call satoshis)
+			// this external call will already have its cost saved by runCall()
+			_, err = txn.Exec(`
+UPDATE calls AS c SET msatoshi = c.msatoshi - $2 WHERE id = $1
+            `, call.Id, externalCall.Cost)
+			if err != nil {
+				log.Error().Err(err).Msg("external call cost update failed")
+				return
+			}
+
+			// transfer funds from current contract to the external contract
+			if externalCall.Msatoshi > 0 {
+				_, err = txn.Exec(`
+INSERT INTO internal_transfers
+  (call_id, msatoshi, from_contract, to_contract)
+VALUES ($1, $2, $3, $4)
+            `, call.Id, externalCall.Msatoshi, ct.Id, externalCall.ContractId)
+				if err != nil {
+					log.Error().Err(err).Msg("external call transfer failed")
+					return
+				}
+			}
+
+			// then run
+			err = runCall(externalCall, txn)
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
 
 		// get contract balance
@@ -263,13 +311,7 @@ FROM contracts WHERE id = $1`,
 		return
 	}
 
-	// ok, all is good, commit and proceed.
-	err = txn.Commit()
-	if err != nil {
-		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to commit call")
-		return
-	}
-
+	// ok, all is good
 	log.Info().Str("callid", call.Id).Msg("call done")
 	return
 }

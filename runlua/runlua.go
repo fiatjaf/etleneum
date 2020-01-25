@@ -21,6 +21,7 @@ func RunCall(
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int, error),
+	callExternalMethod func(string, string, interface{}, int, string) error,
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -36,6 +37,7 @@ func RunCall(
 			printToDestination,
 			makeRequest,
 			getExternalContractData,
+			callExternalMethod,
 			getContractFunds,
 			sendFromContract,
 			getCurrentAccountBalance,
@@ -67,6 +69,7 @@ func runCall(
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int, error),
+	callExternalMethod func(string, string, interface{}, int, string) error,
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -116,10 +119,12 @@ func runCall(
 		"payload":                     payload,
 		"msatoshi":                    call.Msatoshi,
 		"call":                        call.Id,
+		"current_contract":            call.ContractId,
 		"current_account":             lua_current_account,
 		"send_from_current_account":   sendFromCurrentAccount,
 		"get_current_account_balance": getCurrentAccountBalance,
 		"get_external_contract_data":  getExternalContractData,
+		"call_external_method":        callExternalMethod,
 		"contract":                    contract.Id,
 		"get_contract_funds":          getContractFunds,
 		"send_from_contract":          sendFromContract,
@@ -167,7 +172,7 @@ sandbox_env = {
       rep = string.rep, reverse = string.reverse, sub = string.sub,
       upper = string.upper },
   table = { insert = table.insert, maxn = table.maxn, remove = table.remove,
-      sort = table.sort },
+      sort = table.sort, pack = table.pack },
   math = { abs = math.abs, acos = math.acos, asin = math.asin,
       atan = math.atan, atan2 = math.atan2, ceil = math.ceil, cos = math.cos,
       cosh = math.cosh, deg = math.deg, exp = math.exp, floor = math.floor,
@@ -212,6 +217,18 @@ sandbox_env = {
         error(err)
       end
       return state, funds
+    end,
+    call_external = function (contract, method, payload, msatoshi, params)
+      local as = nil
+      if account_id and params.as == 'caller' then
+        as = account_id
+      elseif params.as == 'contract' then
+        as = current_contract
+      end
+      local err = call_external_method(contract, method, payload, msatoshi, as)
+      if err ~= nil then
+        error(err)
+      end
     end
   },
   account = {
@@ -257,6 +274,15 @@ sandbox_env = {
     _verify_bundle = keybase_verify_bundle,
   }
 }
+
+_calls = 0
+function count ()
+  _calls = _calls + 1
+  if _calls > 1000 then
+    error('too many operations!')
+  end
+end
+debug.sethook(count, 'c')
 
 ret = load(code .. '\nreturn ' .. method .. '()', 'call', 't', sandbox_env)()
 state = sandbox_env.contract.state

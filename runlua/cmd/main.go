@@ -104,6 +104,9 @@ func main() {
 			func(_ string) (interface{}, int, error) {
 				return nil, 0, errors.New("no external contracts in test environment")
 			},
+			func(_, _ string, _ interface{}, _ int, _ string) error {
+				return errors.New("no external contracts in test environment")
+			},
 			func() (contractFunds int, err error) { return contractFunds, nil },
 			func(target string, msat int) (msatoshiSent int, err error) {
 				contractFunds -= msat

@@ -33,7 +33,8 @@ CREATE TABLE calls (
 
   CONSTRAINT method_exists CHECK (method != ''),
   CONSTRAINT cost_positive CHECK (method = '__init__' OR cost > 0),
-  CONSTRAINT caller_not_blank CHECK (caller != '')
+  CONSTRAINT caller_not_blank CHECK (caller != ''),
+  CONSTRAINT msatoshi_not_negative CHECK (msatoshi >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS idx_calls_by_contract ON calls (contract_id, time);

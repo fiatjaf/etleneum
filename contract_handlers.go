@@ -156,6 +156,8 @@ func deleteContract(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["ctid"]
 
 	var err error
+
+	// can only delete on free mode
 	if s.FreeMode {
 		_, err = pg.Exec(`
 WITH del_r AS (
@@ -167,16 +169,6 @@ WITH del_r AS (
   DELETE FROM calls WHERE contract_id = $1
 )
 DELETE FROM contracts WHERE id = $1
-    `, id)
-	} else {
-		_, err = pg.Exec(`
-DELETE FROM contracts
-WHERE id = $1
-  AND (
-    contracts.funds = 0
-      AND created_at + '1 hour'::interval > now()
-      AND (SELECT count(*) FROM calls WHERE contract_id = contracts.id) < 4
-  )
     `, id)
 	}
 	if err != nil {

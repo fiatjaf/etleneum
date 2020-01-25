@@ -62,7 +62,7 @@ VALUES ($1, $2, $3, $4, '{}')
 				return
 			}
 
-			// instantiate call
+			// instantiate call (the __init__ special kind)
 			call := &types.Call{
 				ContractId: ct.Id,
 				Id:         ct.Id, // same
@@ -81,6 +81,14 @@ VALUES ($1, $2, $3, $4, '{}')
 				pg.Exec(`INSERT INTO refunds (payment_hash, msatoshi) VALUES ($1, $2)`, paymenthash, refundable)
 				return
 			}
+
+			// commit contract call
+			err = txn.Commit()
+			if err != nil {
+				log.Warn().Err(err).Str("callid", call.Id).Msg("failed to commit call")
+				return
+			}
+
 			dispatchContractEvent(contractId, ctevent{contractId, "", "", ""}, "contract-created")
 			logger.Info().Msg("contract is live")
 
@@ -112,6 +120,8 @@ VALUES ($1, $2, $3, $4, '{}')
 			defer txn.Rollback()
 
 			logger.Info().Interface("call", call).Msg("call being made")
+
+			// a normal call
 			err = runCall(call, txn)
 			if err != nil {
 				logger.Warn().Err(err).Msg("failed to run call")
@@ -122,6 +132,13 @@ VALUES ($1, $2, $3, $4, '{}')
 				if refundable > 0 {
 					pg.Exec(`INSERT INTO refunds (payment_hash, msatoshi) VALUES ($1, $2)`, paymenthash, refundable)
 				}
+				return
+			}
+
+			// commit
+			err = txn.Commit()
+			if err != nil {
+				log.Warn().Err(err).Str("callid", call.Id).Msg("failed to commit call")
 				return
 			}
 
