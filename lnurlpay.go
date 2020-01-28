@@ -6,14 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
-	"github.com/btcsuite/btcd/btcec"
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/go-lnurl"
-	decodepay "github.com/fiatjaf/ln-decodepay"
 	"github.com/gorilla/mux"
-	"github.com/lightningnetwork/lnd/zpay32"
 	"github.com/lucsky/cuid"
 	"github.com/tidwall/gjson"
 )
@@ -36,36 +32,14 @@ func lnurlCallMetadata(call *types.Call) string {
 	return string(jmetadata)
 }
 
-func translateInvoice(bolt11 string, descriptionHash [32]byte) (string, error) {
-	invoice, err := zpay32.Decode(bolt11, decodepay.ChainFromCurrency(bolt11[2:]))
-	if err != nil {
-		return "", err
-	}
-	invoice.Description = nil
-	invoice.Destination = nil
-	invoice.DescriptionHash = &descriptionHash
-
-	privKey, err := ln.GetPrivateKey()
-	if err != nil {
-		return "", err
-	}
-
-	return invoice.Encode(zpay32.MessageSigner{
-		SignCompact: func(hash []byte) ([]byte, error) {
-			return btcec.SignCompact(btcec.S256(), privKey, hash, true)
-		},
-	})
-}
-
 func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ctid := vars["ctid"]
 	method := vars["method"]
-	msatoshi, err := strconv.Atoi(vars["msatoshi"])
-	if err != nil {
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("msatoshi is '" + vars["msatoshi"] + "', must be an integer"))
-		return
-	}
+
+	// if not given default to zero but let the person choose on lnurl-pay ui
+	msatoshi, _ := strconv.ParseInt(vars["msatoshi"], 10, 64)
+
 	logger := log.With().Str("ctid", ctid).Bool("lnurl", true).Logger()
 
 	qs := r.URL.Query()
@@ -101,6 +75,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		Payload:    []byte(jpayload),
 		Caller:     caller,
 	}
+	call.Cost = getCallCosts(*call)
 	logger = logger.With().Str("callid", call.Id).Logger()
 
 	// verify call is valid as best as possible
@@ -108,21 +83,6 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		logger.Warn().Err(err).Str("method", call.Method).Msg("invalid method")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid method '" + call.Method + "'."))
 		return
-	}
-
-	label, err := setCallInvoice(call)
-	if err != nil {
-		logger.Warn().Err(err).Msg("failed to make invoice.")
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to make invoice."))
-		return
-	}
-
-	if s.FreeMode {
-		// wait 10 seconds and notify this payment was received
-		go func() {
-			time.Sleep(10 * time.Second)
-			handlePaymentReceived(label, lnurl.RandomK1())
-		}()
 	}
 
 	_, err = saveCallOnRedis(*call)
@@ -133,17 +93,27 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	min := call.Msatoshi
+	max := call.Msatoshi
+	if max == 0 {
+		min = 1
+		max = 1000000
+	}
+
 	json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
 		Tag:             "payRequest",
 		Callback:        s.ServiceURL + "/lnurl/call/" + call.Id,
 		EncodedMetadata: lnurlCallMetadata(call),
-		MinSendable:     int64(call.Cost + call.Msatoshi),
-		MaxSendable:     int64(call.Cost + call.Msatoshi),
+		MinSendable:     min,
+		MaxSendable:     max,
 	})
 }
 
 func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
-	callid := mux.Vars(r)["callid"]
+	vars := mux.Vars(r)
+	callid := vars["callid"]
+	msatoshi, _ := strconv.ParseInt(vars["msatoshi"], 10, 64)
+
 	logger := log.With().Str("callid", callid).Logger()
 
 	call, err := callFromRedis(callid)
@@ -152,10 +122,9 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))
 		return
 	}
-
 	descriptionHash := sha256.Sum256([]byte(lnurlCallMetadata(call)))
 
-	pr, err := translateInvoice(call.Bolt11, descriptionHash)
+	pr, err := makeInvoice(call.Id, "", &descriptionHash, msatoshi, call.Cost)
 	if err != nil {
 		logger.Error().Err(err).Msg("translate invoice")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))

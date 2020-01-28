@@ -3,6 +3,8 @@
 <script>
   import {push} from 'svelte-spa-router'
 
+  import QR from './QR.html'
+
   import * as toast from './toast'
 
   const emptyContract = {
@@ -22,6 +24,8 @@ end`
   }
 
   let contract = {...emptyContract}
+  var id
+  var invoice
 
   async function prepare(e) {
     // when the invoice is paid the contract will be created
@@ -39,8 +43,20 @@ end`
       return
     }
 
-    let {id} = resp.value
-    push('/contract/' + id)
+    id = resp.value.id
+    invoice = resp.value.invoice
+
+    const es = new EventSource('/~~~/contract/' + id)
+    es.onerror = e => console.log('contract sse error', e.data)
+    es.addEventListener('contract-created', e => {
+      let data = JSON.parse(e.data)
+      toast.success(`contract ${data.id} created!`)
+      push('/contract/' + id)
+    })
+    es.addEventListener('contract-error', e => {
+      let data = JSON.parse(e.data)
+      toast.warning(`${data.kind} error creating contract: ${data.message}`)
+    })
   }
 </script>
 
@@ -71,9 +87,16 @@ end`
   }
 </style>
 
+{#if invoice}
+<div class="center">
+  <QR value="{invoice}" />
+  <p>pay to enable the contract</p>
+</div>
+{:else}
 <form on:submit="{prepare}">
   <label>name:<input bind:value="{contract.name}"/></label>
   <label>readme: <textarea bind:value="{contract.readme}"/></label>
   <label>code:<textarea class="code" bind:value="{contract.code}"/></label>
   <button>prepare contract</button>
 </form>
+{/if}

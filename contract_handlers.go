@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
-	"github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	sqlxtypes "github.com/jmoiron/sqlx/types"
 	"github.com/lucsky/cuid"
@@ -61,19 +60,28 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	label, err := setContractInvoice(ct)
-	if err != nil {
-		log.Warn().Err(err).Msg("failed to make invoice.")
-		jsonError(w, "failed to make invoice", 500)
-		return
-	}
-
+	var invoice string
 	if s.FreeMode {
+		invoice = BOGUS_INVOICE
+
 		// wait 10 seconds and notify this payment was received
 		go func() {
 			time.Sleep(5 * time.Second)
-			handlePaymentReceived(label, lnurl.RandomK1())
+			contractPaymentReceived(ct.Id, getContractCost(*ct))
 		}()
+	} else {
+		invoice, err = makeInvoice(
+			ct.Id,
+			s.ServiceId+" __init__ ["+ct.Id+"]",
+			nil,
+			getContractCost(*ct),
+			0,
+		)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to make invoice.")
+			jsonError(w, "failed to make invoice", 500)
+			return
+		}
 	}
 
 	_, err = saveContractOnRedis(*ct)
@@ -83,7 +91,10 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: ct})
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: types.StuffBeingCreated{
+		Id:      ct.Id,
+		Invoice: invoice,
+	}})
 }
 
 func getContract(w http.ResponseWriter, r *http.Request) {
@@ -102,13 +113,6 @@ WHERE id = $1`,
 			log.Warn().Err(err).Str("ctid", ctid).
 				Msg("failed to fetch fetch prepared contract from redis")
 			jsonError(w, "failed to fetch prepared contract", 404)
-			return
-		}
-		_, err = setContractInvoice(ct)
-		if err != nil {
-			log.Warn().Err(err).Str("ctid", ctid).
-				Msg("failed to get/make invoice")
-			jsonError(w, "failed to get or make invoice", 500)
 			return
 		}
 	} else if err != nil {

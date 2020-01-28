@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
-	lnurl "github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	"github.com/lucsky/cuid"
 )
@@ -49,6 +48,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	}
 	call.ContractId = ctid
 	call.Id = "r" + cuid.Slug()
+	call.Cost = getCallCosts(*call)
 	logger = logger.With().Str("callid", call.Id).Logger()
 
 	// if the user has authorized and want to make an authenticated call
@@ -69,19 +69,28 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	label, err := setCallInvoice(call)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to make invoice.")
-		jsonError(w, "failed to make invoice, please try again", 500)
-		return
-	}
-
+	var invoice string
 	if s.FreeMode {
+		invoice = BOGUS_INVOICE
+
 		// wait 5 seconds and notify this payment was received
 		go func() {
 			time.Sleep(5 * time.Second)
-			handlePaymentReceived(label, lnurl.RandomK1())
+			callPaymentReceived(call.Id, call.Msatoshi+call.Cost)
 		}()
+	} else {
+		invoice, err = makeInvoice(
+			call.Id,
+			s.ServiceId+" "+call.Method+" ["+call.ContractId+"]["+call.Id+"]",
+			nil,
+			call.Msatoshi,
+			call.Cost,
+		)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to make invoice.")
+			jsonError(w, "failed to make invoice, please try again", 500)
+			return
+		}
 	}
 
 	_, err = saveCallOnRedis(*call)
@@ -93,7 +102,10 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: call})
+	json.NewEncoder(w).Encode(Result{Ok: true, Value: types.StuffBeingCreated{
+		Id:      call.Id,
+		Invoice: invoice,
+	}})
 }
 
 func getCall(w http.ResponseWriter, r *http.Request) {

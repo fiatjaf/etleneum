@@ -96,20 +96,20 @@ func main() {
 			return http.DefaultClient.Do(r)
 		}
 
-		contractFunds := c.Int("funds") * 1000
+		contractFunds := c.Int64("funds") * 1000
 
 		state, err := runlua.RunCall(
 			os.Stderr,
 			returnHttp,
-			func(_ string) (interface{}, int, error) {
+			func(_ string) (interface{}, int64, error) {
 				return nil, 0, errors.New("no external contracts in test environment")
 			},
-			func(_, _ string, _ interface{}, _ int, _ string) error {
+			func(_, _ string, _ interface{}, _ int64, _ string) error {
 				return errors.New("no external contracts in test environment")
 			},
 			func() (contractFunds int, err error) { return contractFunds, nil },
 			func(target string, msat int) (msatoshiSent int, err error) {
-				contractFunds -= msat
+				contractFunds -= int64(msat)
 				return msat, nil
 			},
 			func() (userBalance int, err error) { return 99999, nil },
@@ -121,7 +121,7 @@ func main() {
 			},
 			types.Call{
 				Id:       "callid",
-				Msatoshi: 1000 * c.Int("satoshis"),
+				Msatoshi: 1000 * c.Int64("satoshis"),
 				Method:   c.String("method"),
 				Payload:  sqlxtypes.JSONText([]byte(c.String("payload"))),
 				Caller:   c.String("caller"),

@@ -216,15 +216,6 @@
   function startEventSource() {
     es = new EventSource('/~~~/contract/' + params.ctid)
     es.onerror = e => console.log('contract sse error', e.data)
-    es.addEventListener('contract-created', e => {
-      let data = JSON.parse(e.data)
-      toast.success(`contract ${data.id} created!`)
-      setTimeout(loadContract, 2300)
-    })
-    es.addEventListener('contract-error', e => {
-      let data = JSON.parse(e.data)
-      toast.warning(`${data.kind} error creating contract: ${data.message}`)
-    })
     es.addEventListener('call-run-event', e => {
       let data = JSON.parse(e.data)
       switch (data.kind) {
@@ -272,11 +263,6 @@
 
 {#if !contract}
 <div class="center">loading</div>
-{:else if contract.invoice && !contract.invoice_paid}
-<div class="center">
-  <QR value="{contract.invoice}" />
-  <p>pay to enable the contract</p>
-</div>
 {:else}
 <main>
   <div id="status">

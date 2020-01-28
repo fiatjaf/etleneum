@@ -20,8 +20,8 @@ var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
 func RunCall(
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
-	getExternalContractData func(string) (interface{}, int, error),
-	callExternalMethod func(string, string, interface{}, int, string) error,
+	getExternalContractData func(string) (interface{}, int64, error),
+	callExternalMethod func(string, string, interface{}, int64, string) error,
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -68,8 +68,8 @@ func RunCall(
 func runCall(
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
-	getExternalContractData func(string) (interface{}, int, error),
-	callExternalMethod func(string, string, interface{}, int, string) error,
+	getExternalContractData func(string) (interface{}, int64, error),
+	callExternalMethod func(string, string, interface{}, int64, string) error,
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -105,10 +105,10 @@ func runCall(
 	// run the code
 	log.Debug().Str("method", call.Method).
 		Str("caller", call.Caller).
-		Int("msatoshi", call.Msatoshi).
+		Int64("msatoshi", call.Msatoshi).
 		Interface("payload", payload).
 		Interface("state", currentstate).
-		Int("funds", initialFunds).
+		Int64("funds", initialFunds).
 		Msg("running code")
 
 	// globals

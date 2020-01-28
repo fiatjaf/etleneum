@@ -5,14 +5,19 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	_ "github.com/lib/pq"
 	cmap "github.com/orcaman/concurrent-map"
@@ -28,16 +33,16 @@ type Settings struct {
 	SecretKey   string `envconfig:"SECRET_KEY" default:"etleneum"`
 	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
-	SocketPath  string `envconfig:"SOCKET_PATH" required:"true"`
 
 	GitHubRepoOwner string `envconfig:"GITHUB_REPO_OWNER"`
 	GitHubRepoName  string `envconfig:"GITHUB_REPO_NAME"`
 	GitHubToken     string `envconfig:"GITHUB_TOKEN"`
 
-	InitialContractCostSatoshis int `envconfig:"INITIAL_CONTRACT_COST_SATOSHIS" default:"970"`
-	FixedCallCostSatoshis       int `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
+	InitialContractCostSatoshis int64 `envconfig:"INITIAL_CONTRACT_COST_SATOSHIS" default:"970"`
+	FixedCallCostSatoshis       int64 `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
 
-	FreeMode bool `envconfig:"FREE_MODE" default:"false"`
+	NodeId   string
+	FreeMode bool
 }
 
 var err error
@@ -51,6 +56,59 @@ var userstreams = cmap.New()
 var contractstreams = cmap.New()
 
 func main() {
+	if isRunningAsPlugin() {
+		p := plugin.Plugin{
+			Name:    "etleneum",
+			Version: "v2.0",
+			Dynamic: true,
+			Options: []plugin.Option{
+				{"etleneum-envfile", "string", "", "Path to the file containing everything"},
+			},
+			Hooks: []plugin.Hook{
+				{
+					"htlc_accepted",
+					htlc_accepted,
+				},
+			},
+			OnInit: func(p *plugin.Plugin) {
+				// set environment from envfile (hack)
+				if envpath, err := p.Args.String("etleneum-envfile"); err == nil {
+					if !filepath.IsAbs(envpath) {
+						// expand tlspath from lightning dir
+						godotenv.Load(filepath.Join(filepath.Dir(p.Client.Path), envpath))
+					} else {
+						godotenv.Load(envpath)
+					}
+				} else {
+					log.Fatal().Err(err).Msg("couldn't find envfile, specify etleneum-envfile")
+				}
+
+				// globalize the lightning rpc client
+				ln = p.Client
+
+				// get our own nodeid
+				res, err := ln.Call("getinfo")
+				if err != nil {
+					log.Fatal().Err(err).Msg("couldn't call getinfo")
+				}
+				s.NodeId = res.Get("id").String()
+
+				// start the server
+				server()
+			},
+		}
+
+		p.Run()
+	} else {
+		// when not running as a plugin this will operate on the free mode
+		s.FreeMode = true
+
+		// start the server
+		server()
+	}
+}
+
+func server() {
 	err = envconfig.Process("", &s)
 	if err != nil {
 		log.Fatal().Err(err).Msg("couldn't process envconfig.")
@@ -75,19 +133,6 @@ func main() {
 	if err := rds.Ping().Err(); err != nil {
 		log.Fatal().Err(err).Str("url", s.RedisURL).
 			Msg("failed to connect to redis")
-	}
-
-	// lightningd connection
-	if !s.FreeMode {
-		lastinvoiceindex, _ := rds.Get("lastinvoiceindex").Int64()
-		ln = &lightning.Client{
-			Path:             s.SocketPath,
-			LastInvoiceIndex: int(lastinvoiceindex),
-			PaymentHandler:   handleInvoicePaid,
-			CallTimeout:      time.Hour * 6000,
-		}
-		log.Debug().Int64("index", lastinvoiceindex).Msg("listening for invoices")
-		ln.ListenForInvoices()
 	}
 
 	// http server
@@ -173,4 +218,12 @@ func serveClient(w http.ResponseWriter, r *http.Request) {
 	fstat, _ := indexf.Stat()
 	http.ServeContent(w, r, "static/index.html", fstat.ModTime(), indexf)
 	return
+}
+
+func isRunningAsPlugin() bool {
+	pid := os.Getppid()
+	res, _ := exec.Command(
+		"ps", "-p", strconv.Itoa(pid), "-o", "comm=",
+	).CombinedOutput()
+	return string(res) == "lightningd"
 }

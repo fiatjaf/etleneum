@@ -42,19 +42,9 @@ func checkContractCode(code string) (ok bool) {
 	return true
 }
 
-func getContractCost(ct types.Contract) int {
-	words := len(wordMatcher.FindAllString(ct.Code, -1))
+func getContractCost(ct types.Contract) int64 {
+	words := int64(len(wordMatcher.FindAllString(ct.Code, -1)))
 	return 1000*s.InitialContractCostSatoshis + 1000*words
-}
-
-func setContractInvoice(ct *types.Contract) (label string, err error) {
-	label = s.ServiceId + "." + ct.Id
-	desc := s.ServiceId + " __init__ [" + ct.Id + "]"
-	msats := getContractCost(*ct)
-	bolt11, paid, err := getInvoice(label, desc, msats)
-	ct.Bolt11 = bolt11
-	ct.InvoicePaid = &paid
-	return
 }
 
 func saveContractOnRedis(ct types.Contract) (jct []byte, err error) {

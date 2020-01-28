@@ -16,29 +16,19 @@ import (
 	"github.com/yudai/gojsondiff"
 )
 
-func getCallCosts(c types.Call) int {
+func getCallCosts(c types.Call) int64 {
 	cost := s.FixedCallCostSatoshis * 1000 // a fixed cost of 1 satoshi by default
 
-	chars := len(string(c.Payload))
+	chars := int64(len(string(c.Payload)))
 	cost += 20 * chars // 70 msatoshi for each character in the payload
 
 	if c.Msatoshi > 0 {
-		// to help cover withdraw fees later we charge a percent of the amount of satoshis included
-		cost += int(float64(c.Msatoshi) / 100)
+		// to help cover withdraw fees later we charge a percent of the
+		// amount of satoshis included
+		cost += int64(float64(c.Msatoshi) / 100)
 	}
 
 	return cost
-}
-
-func setCallInvoice(c *types.Call) (label string, err error) {
-	label = s.ServiceId + "." + c.ContractId + "." + c.Id
-	desc := s.ServiceId + " " + c.Method + " [" + c.ContractId + "][" + c.Id + "]"
-	c.Cost = getCallCosts(*c)
-	msats := c.Cost + c.Msatoshi
-	bolt11, paid, err := getInvoice(label, desc, msats)
-	c.Bolt11 = bolt11
-	c.InvoicePaid = &paid
-	return
 }
 
 func callFromRedis(callid string) (call *types.Call, err error) {
@@ -106,7 +96,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 		func(r *http.Request) (*http.Response, error) { return http.DefaultClient.Do(r) },
 
 		// get external contract
-		func(contractId string) (state interface{}, funds int, err error) {
+		func(contractId string) (state interface{}, funds int64, err error) {
 			var data types.Contract
 			err = txn.Get(&data, "SELECT state, contracts.funds FROM contracts WHERE id = $1", contractId)
 			if err != nil {
@@ -120,7 +110,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 		},
 
 		// call external method
-		func(externalContractId string, method string, payload interface{}, msatoshi int, account string) (err error) {
+		func(externalContractId string, method string, payload interface{}, msatoshi int64, account string) (err error) {
 			jpayload, _ := json.Marshal(payload)
 
 			// build the call
