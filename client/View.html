@@ -288,7 +288,7 @@
     {:else} {#if nextcall.invoice}
     <div class="center">
       <QR value="{nextcall.invoice}" />
-      <p>pay to make the call</p>
+      <p>{nextcall.id}<br />pay to make the call</p>
       <button on:click="{abandonCall}">prepare a different call</button>
     </div>
     {:else}

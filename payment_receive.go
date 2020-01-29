@@ -17,6 +17,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	msatoshi, err := strconv.ParseInt(amount[:len(amount)-4], 10, 64)
 	if err != nil {
 		// I don't know what is happening
+		p.Logf("error parsing onion.forward_amount (%s): %s", amount, err.Error())
 		return continueHTLC
 	}
 	scid := params.Get("onion.short_channel_id").String()
@@ -24,6 +25,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	id, ok := parseShortChannelId(scid)
 	if !ok {
 		// it's not an invoice for an etleneum call or contract
+		p.Logf("failed to parse onion.short_channel_id %s", scid)
 		return continueHTLC
 	}
 
@@ -33,6 +35,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		ok = callPaymentReceived(id, msatoshi)
 	} else {
 		// it's not an invoice for an etleneum call or contract
+		p.Logf("parsed scid (%s) is not from an etleneum payment", id)
 		return continueHTLC
 	}
 

@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -75,12 +76,16 @@ func main() {
 				if envpath, err := p.Args.String("etleneum-envfile"); err == nil {
 					if !filepath.IsAbs(envpath) {
 						// expand tlspath from lightning dir
-						godotenv.Load(filepath.Join(filepath.Dir(p.Client.Path), envpath))
-					} else {
-						godotenv.Load(envpath)
+						envpath = filepath.Join(filepath.Dir(p.Client.Path), envpath)
 					}
+
+					if _, err := os.Stat(envpath); err != nil {
+						log.Fatal().Err(err).Str("path", envpath).Msg("envfile not found")
+					}
+
+					godotenv.Load(envpath)
 				} else {
-					log.Fatal().Err(err).Msg("couldn't find envfile, specify etleneum-envfile")
+					log.Fatal().Err(err).Msg("specify etleneum-envfile")
 				}
 
 				// globalize the lightning rpc client
@@ -225,5 +230,6 @@ func isRunningAsPlugin() bool {
 	res, _ := exec.Command(
 		"ps", "-p", strconv.Itoa(pid), "-o", "comm=",
 	).CombinedOutput()
-	return string(res) == "lightningd"
+
+	return strings.TrimSpace(string(res)) == "lightningd"
 }
