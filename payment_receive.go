@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"strconv"
+	"time"
 
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
@@ -13,19 +15,33 @@ var continueHTLC = map[string]interface{}{"result": "continue"}
 var failHTLC = map[string]interface{}{"result": "fail", "failure_code": 16399}
 
 func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
-	amount := params.Get("onion.forward_amount").String()
+	amount := params.Get("htlc.amount").String()
+	scid := params.Get("onion.short_channel_id").String()
+	hash := params.Get("htlc.payment_hash").String()
+
+	p.Logf("got HTLC. amount=%s short_channel_id=%s hash=%s", amount, scid, hash)
+	for rds == nil || pg == nil {
+		p.Log("htlc_accepted: waiting until redis and postgres are available.")
+		time.Sleep(1 * time.Second)
+	}
+
 	msatoshi, err := strconv.ParseInt(amount[:len(amount)-4], 10, 64)
 	if err != nil {
 		// I don't know what is happening
-		p.Logf("error parsing onion.forward_amount (%s): %s", amount, err.Error())
+		p.Logf("error parsing onion.forward_amount: %s - continue", err.Error())
 		return continueHTLC
 	}
-	scid := params.Get("onion.short_channel_id").String()
 
-	id, ok := parseShortChannelId(scid)
+	bscid, err := decodeShortChannelId(scid)
+	if err != nil {
+		p.Logf("onion.short_channel_id is not in the usual format - continue")
+		return continueHTLC
+	}
+
+	id, ok := parseShortChannelId(bscid)
 	if !ok {
 		// it's not an invoice for an etleneum call or contract
-		p.Logf("failed to parse onion.short_channel_id %s", scid)
+		p.Logf("failed to parse onion.short_channel_id - continue")
 		return continueHTLC
 	}
 
@@ -35,17 +51,20 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		ok = callPaymentReceived(id, msatoshi)
 	} else {
 		// it's not an invoice for an etleneum call or contract
-		p.Logf("parsed scid (%s) is not from an etleneum payment", id)
+		p.Logf("parsed id is not an etleneum payment (%s) - continue", id)
 		return continueHTLC
 	}
 
 	if ok {
+		preimage := hex.EncodeToString(makePreimage(id))
+		p.Logf("call went ok. we have a preimage: %s - resolve", preimage)
 		return map[string]interface{}{
 			"result":      "resolve",
-			"payment_key": makePreimage(id),
+			"payment_key": preimage,
 		}
 	} else {
 		// in case of call execution failure we just fail the payment
+		p.Logf("call failed - fail")
 		return failHTLC
 	}
 }
@@ -137,18 +156,19 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	logger = logger.With().Str("ct", call.ContractId).Logger()
 
 	if call.Msatoshi+call.Cost > msatoshi {
-		// TODO: this is the place where we would handle MPP payments
+		// TODO: this is the place where we should handle MPP payments
+		logger.Warn().Int64("got", msatoshi).Int64("needed", call.Msatoshi+call.Cost).
+			Msg("insufficient payment amount")
 		return false
 	}
-
-	// adjust call size as people may have paid more (in lnurl-pay for example)
-	call.Msatoshi = msatoshi
+	// if msatoshi is bigger than needed we take it as a donation
 
 	txn, err := pg.BeginTxx(context.TODO(),
 		&sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		logger.Warn().Err(err).Msg("transaction start failed")
-		dispatchContractEvent(call.ContractId, ctevent{callId, call.ContractId, err.Error(), "internal"}, "call-error")
+		dispatchContractEvent(call.ContractId,
+			ctevent{callId, call.ContractId, err.Error(), "internal"}, "call-error")
 		return false
 	}
 	defer txn.Rollback()
@@ -159,7 +179,8 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	err = runCall(call, txn)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
-		dispatchContractEvent(call.ContractId, ctevent{callId, call.ContractId, err.Error(), "runtime"}, "call-error")
+		dispatchContractEvent(call.ContractId,
+			ctevent{callId, call.ContractId, err.Error(), "runtime"}, "call-error")
 
 		return false
 	}

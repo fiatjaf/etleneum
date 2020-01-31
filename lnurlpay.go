@@ -37,8 +37,11 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	ctid := vars["ctid"]
 	method := vars["method"]
 
-	// if not given default to zero but let the person choose on lnurl-pay ui
+	// if not given default to 1msat and let the person choose on lnurl-pay UI
 	msatoshi, _ := strconv.ParseInt(vars["msatoshi"], 10, 64)
+	if msatoshi == 0 {
+		msatoshi = 1
+	}
 
 	logger := log.With().Str("ctid", ctid).Bool("lnurl", true).Logger()
 
@@ -95,7 +98,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 
 	min := call.Msatoshi
 	max := call.Msatoshi
-	if max == 0 {
+	if call.Msatoshi == 1 {
 		min = 1
 		max = 1000000
 	}
@@ -129,6 +132,20 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		logger.Error().Err(err).Msg("translate invoice")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))
 		return
+	}
+
+	// update the call saved on redis so we can check values paid later
+	if msatoshi != 0 && call.Msatoshi != msatoshi {
+		call.Msatoshi = msatoshi
+
+		_, err = saveCallOnRedis(*call)
+		if err != nil {
+			logger.Error().Err(err).Interface("call", call).
+				Msg("failed to save call on redis after lnurl-pay step 2")
+			json.NewEncoder(w).Encode(
+				lnurl.ErrorResponse("Failed to save call with new amount."))
+			return
+		}
 	}
 
 	json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
