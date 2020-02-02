@@ -36,12 +36,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	ctid := vars["ctid"]
 	method := vars["method"]
-
-	// if not given default to 1msat and let the person choose on lnurl-pay UI
 	msatoshi, _ := strconv.ParseInt(vars["msatoshi"], 10, 64)
-	if msatoshi == 0 {
-		msatoshi = 1
-	}
 
 	logger := log.With().Str("ctid", ctid).Bool("lnurl", true).Logger()
 
@@ -96,11 +91,15 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	min := call.Msatoshi
-	max := call.Msatoshi
-	if call.Msatoshi == 1 {
+	var min, max int64
+	if call.Msatoshi == 0 && vars["msatoshi"] != "0" {
+		// if amount is not given let the person choose on lnurl-pay UI
 		min = 1
-		max = 1000000
+		max = 100000000
+	} else {
+		// otherwise make the lnurl params be the full main_price + cost
+		min = call.Msatoshi + call.Cost
+		max = call.Msatoshi + call.Cost
 	}
 
 	json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
@@ -113,9 +112,8 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 }
 
 func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	callid := vars["callid"]
-	msatoshi, _ := strconv.ParseInt(vars["msatoshi"], 10, 64)
+	callid := mux.Vars(r)["callid"]
+	msatoshi, _ := strconv.ParseInt(r.URL.Query().Get("amount"), 10, 64)
 
 	logger := log.With().Str("callid", callid).Logger()
 
@@ -125,18 +123,17 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))
 		return
 	}
-	descriptionHash := sha256.Sum256([]byte(lnurlCallMetadata(call)))
 
-	pr, err := makeInvoice(call.Id, "", &descriptionHash, msatoshi, call.Cost)
-	if err != nil {
-		logger.Error().Err(err).Msg("translate invoice")
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))
-		return
-	}
-
-	// update the call saved on redis so we can check values paid later
-	if msatoshi != 0 && call.Msatoshi != msatoshi {
+	// update the call saved on redis so we can check values paid later.
+	// this is only needed if the lnurl-pay params sent before were variable
+	//   and the user has chosen them in the wallet (i.e., they were not hardcoded
+	//   in the lnurl itself.
+	if call.Msatoshi == 0 && msatoshi != (call.Msatoshi+call.Cost) {
+		// to make the lnurl wallet happy, we'll generate an invoice for
+		//   the exact msatoshi amount chosen in the screen, costs will be
+		//   appended as fees in the last hop shadow channel.
 		call.Msatoshi = msatoshi
+		call.Cost = getCallCosts(*call)
 
 		_, err = saveCallOnRedis(*call)
 		if err != nil {
@@ -146,6 +143,14 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 				lnurl.ErrorResponse("Failed to save call with new amount."))
 			return
 		}
+	}
+
+	descriptionHash := sha256.Sum256([]byte(lnurlCallMetadata(call)))
+	pr, err := makeInvoice(call.Id, "", &descriptionHash, msatoshi, call.Cost)
+	if err != nil {
+		logger.Error().Err(err).Msg("translate invoice")
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))
+		return
 	}
 
 	json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{

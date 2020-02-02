@@ -167,6 +167,8 @@ func server() {
 	router.Path("/~/refunds").Methods("GET").HandlerFunc(listRefunds)
 	router.Path("/lnurl/contract/{ctid}/call/{method}/{msatoshi}").
 		Methods("GET").HandlerFunc(lnurlPayParams)
+	router.Path("/lnurl/contract/{ctid}/call/{method}").
+		Methods("GET").HandlerFunc(lnurlPayParams)
 	router.Path("/lnurl/call/{callid}").Methods("GET").HandlerFunc(lnurlPayValues)
 	router.Path("/lnurl/refund").Methods("GET").HandlerFunc(lnurlRefund)
 	router.Path("/lnurl/refund/callback").Methods("GET").HandlerFunc(lnurlRefundCallback)

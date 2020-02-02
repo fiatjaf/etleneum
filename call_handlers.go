@@ -83,8 +83,8 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 			call.Id,
 			s.ServiceId+" "+call.Method+" ["+call.ContractId+"]["+call.Id+"]",
 			nil,
-			call.Msatoshi,
-			call.Cost,
+			call.Msatoshi+call.Cost,
+			0,
 		)
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to make invoice.")

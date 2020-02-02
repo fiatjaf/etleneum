@@ -23,7 +23,7 @@ func makeInvoice(
 	id string, // call or contract id: pubkey, scid and preimage based on this
 	desc string,
 	deschash *[32]byte,
-	msatoshi int64,
+	main_price int64, // in msatoshi
 	cost int64, // will be added as routing fees in the last channel
 ) (bolt11 string, err error) {
 	preimage := makePreimage(id)
@@ -34,10 +34,6 @@ func makeInvoice(
 	ournodeid, err := btcec.ParsePubKey(nodeid, btcec.S256())
 	if err != nil {
 		return "", fmt.Errorf("error parsing our own nodeid: %w", err)
-	}
-
-	if msatoshi == 0 {
-		msatoshi = 1
 	}
 
 	var addDescription func(*zpay32.Invoice)
@@ -60,7 +56,7 @@ func makeInvoice(
 				CLTVExpiryDelta:           2,
 			},
 		}),
-		zpay32.Amount(lnwire.MilliSatoshi(msatoshi)),
+		zpay32.Amount(lnwire.MilliSatoshi(main_price)),
 		zpay32.Expiry(time.Hour*24),
 		zpay32.Features(&lnwire.FeatureVector{
 			RawFeatureVector: lnwire.NewRawFeatureVector(
