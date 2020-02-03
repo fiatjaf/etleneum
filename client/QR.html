@@ -27,6 +27,17 @@
   a {
     display: block;
   }
+  textarea {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 100%;
+    overflow: hidden;
+    height: 4.5em;
+  }
 </style>
 
-<div><a href="lightning:{value}" id="c-{id}"></a></div>
+<div>
+  <a href="lightning:{value}" id="c-{id}"></a>
+  <textarea readonly>{value}</textarea>
+</div>
