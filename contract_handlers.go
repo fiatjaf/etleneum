@@ -164,9 +164,7 @@ func deleteContract(w http.ResponseWriter, r *http.Request) {
 	// can only delete on free mode
 	if s.FreeMode {
 		_, err = pg.Exec(`
-WITH del_r AS (
-  DELETE FROM refunds
-), del_t AS (
+WITH del_t AS (
   DELETE FROM internal_transfers
   WHERE call_id IN (SELECT id FROM calls WHERE contract_id = $1)
 ), del_c AS (

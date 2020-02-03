@@ -126,7 +126,7 @@ def init_db():
 
     # destroy db
     end = subprocess.run(
-        "psql {url} -c 'drop table if exists withdrawals cascade; drop table if exists internal_transfers cascade; drop table if exists calls cascade; drop table if exists contracts cascade; drop table if exists accounts cascade; drop table if exists refunds cascade;'".format(
+        "psql {url} -c 'drop table if exists withdrawals cascade; drop table if exists internal_transfers cascade; drop table if exists calls cascade; drop table if exists contracts cascade; drop table if exists accounts cascade;'".format(
             url=db
         ),
         shell=True,

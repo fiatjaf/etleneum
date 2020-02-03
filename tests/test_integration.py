@@ -1,103 +1,12 @@
-import os
 import json
 import datetime
 import urllib3
 import hashlib
 import subprocess
 from pathlib import Path
-from binascii import unhexlify
 
 import requests
 import sseclient
-
-
-def test_contract_failure_and_refund(etleneum, lightnings):
-    etleneum_proc, url = etleneum
-    _, [rpc_a, rpc_b] = lightnings
-
-    # there are zero contracts
-    r = requests.get(url + "/~/contracts")
-    assert r.ok
-    assert r.json() == {"ok": True, "value": []}
-
-    # try to create a contract with invalid lua code and fail
-    r = requests.post(
-        url + "/~/contract",
-        json={
-            "name": "qwe",
-            "readme": "owwiawjhebqwljebqlejbqwelkjqwbelkqwbelqkwjbeqlwkjebqwlkjebqwlkjebqwlkjebqlk",
-            "code": """
-  function __init__
-    return {}
-  end
-        """,
-        },
-    )
-
-    # create a contract with valid lua, but then fail when executing __init__
-    r = requests.post(
-        url + "/~/contract",
-        json={
-            "name": "qwe",
-            "readme": "owwiqwkjebqlwkjebqwebqwlkejbqwlkejbqwklejbqwklejbqwklebqwlkebqwklejbqwkljeb",
-            "code": "function __init__ () return banana() end",
-        },
-    )
-    assert r.ok
-    ctid = r.json()["value"]["id"]
-    bolt11 = r.json()["value"]["invoice"]
-
-    # start listening for contract events
-    sse = sseclient.SSEClient(
-        urllib3.PoolManager().request(
-            "GET", url + "/~~~/contract/" + ctid, preload_content=False
-        )
-    ).events()
-
-    # pay
-    payment = rpc_b.pay(bolt11)
-    preimage = payment["payment_preimage"]
-
-    # should run and fail
-    assert next(sse).event == "call-run-event"
-    ev = next(sse)
-    assert ev.event == "contract-error"
-    assert json.loads(ev.data)["id"] == ctid
-    assert json.loads(ev.data)["kind"] == "runtime"
-
-    # there are still zero contracts in the list
-    r = requests.get(url + "/~/contracts")
-    assert r.ok
-    assert r.json() == {"ok": True, "value": []}
-
-    # there's a pending refund
-    r = requests.get(url + "/~/refunds")
-    assert r.ok
-    data = r.json()
-    assert data["ok"]
-    assert len(data["value"]) == 1
-
-    refund = data["value"][0]
-    assert refund["claimed"] == False
-    assert refund["fulfilled"] == False
-    assert (
-        refund["msatoshi"]
-        == payment["msatoshi"] - int(os.getenv("INITIAL_CONTRACT_COST_SATOSHIS")) * 1000
-    )
-    assert refund["hash"] == hashlib.sha256(unhexlify(preimage)).hexdigest()
-
-    # withdraw refund
-    r = requests.get(url + "/lnurl/refund?preimage=" + preimage)
-    assert r.ok
-    assert (
-        r.json()["maxWithdrawable"] == r.json()["minWithdrawable"] == refund["msatoshi"]
-    )
-    bolt11 = rpc_b.invoice(
-        refund["msatoshi"], "withdraw-refund", r.json()["defaultDescription"]
-    )["bolt11"]
-    r = requests.get(r.json()["callback"] + "?k1=" + preimage + "&pr=" + bolt11)
-    assert r.json()["status"] == "OK"
-    assert rpc_b.waitinvoice("withdraw-refund")["label"] == "withdraw-refund"
 
 
 def test_everything_else(etleneum, lightnings):
@@ -375,42 +284,6 @@ end
             current_call_n += 1
         else:
             assert ev.event == "call-error"
-
-            # perform a refund
-            r = requests.get(url + "/~/refunds")
-            data = r.json()
-            assert len(data["value"]) == 1
-            refund = data["value"][0]
-            assert refund["claimed"] == False
-            assert refund["fulfilled"] == False
-            assert refund["msatoshi"] == msatoshi
-            assert refund["hash"] == payment["payment_hash"]
-            r = requests.get(
-                url + "/lnurl/refund?preimage=" + payment["payment_preimage"]
-            )
-            assert r.ok
-            assert (
-                r.json()["maxWithdrawable"]
-                == r.json()["minWithdrawable"]
-                == refund["msatoshi"]
-            )
-            bolt11 = rpc_b.invoice(
-                refund["msatoshi"],
-                "withdraw-refund-" + callid,
-                r.json()["defaultDescription"],
-            )["bolt11"]
-            r = requests.get(
-                r.json()["callback"]
-                + "?k1="
-                + payment["payment_preimage"]
-                + "&pr="
-                + bolt11
-            )
-            assert r.json()["status"] == "OK"
-            assert (
-                rpc_b.waitinvoice("withdraw-refund-" + callid)["label"]
-                == "withdraw-refund-" + callid
-            )
 
         # check contract state and funds after
         r = requests.get(url + "/~/contract/" + ctid)

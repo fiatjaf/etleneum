@@ -11,3 +11,4 @@ __pycache__
 browserify-cache.json
 runcall
 static/*bundle*
+.pyre

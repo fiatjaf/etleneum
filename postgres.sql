@@ -71,17 +71,6 @@ CREATE TABLE withdrawals (
   bolt11 text NOT NULL
 );
 
-CREATE TABLE refunds (
-  -- when a call fails the payer may get its satoshis back
-  -- anyone providing the preimage is fine.
-  payment_hash text PRIMARY KEY,
-  time timestamp NOT NULL DEFAULT now(),
-  msatoshi int NOT NULL, -- does not include the fixed costs of the call
-  claimed boolean NOT NULL DEFAULT false,
-  fulfilled bool NOT NULL DEFAULT false,
-  bolt11 text
-);
-
 CREATE FUNCTION funds(contracts) RETURNS bigint AS $$
   SELECT (
     SELECT coalesce(sum(msatoshi), 0)

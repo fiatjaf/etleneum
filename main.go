@@ -164,14 +164,11 @@ func server() {
 	router.Path("/~~~/contract/{ctid}").Methods("GET").HandlerFunc(contractStream)
 	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
 	router.Path("/~/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
-	router.Path("/~/refunds").Methods("GET").HandlerFunc(listRefunds)
 	router.Path("/lnurl/contract/{ctid}/call/{method}/{msatoshi}").
 		Methods("GET").HandlerFunc(lnurlPayParams)
 	router.Path("/lnurl/contract/{ctid}/call/{method}").
 		Methods("GET").HandlerFunc(lnurlPayParams)
 	router.Path("/lnurl/call/{callid}").Methods("GET").HandlerFunc(lnurlPayValues)
-	router.Path("/lnurl/refund").Methods("GET").HandlerFunc(lnurlRefund)
-	router.Path("/lnurl/refund/callback").Methods("GET").HandlerFunc(lnurlRefundCallback)
 	router.Path("/~~~/session").Methods("GET").HandlerFunc(lnurlSession)
 	router.Path("/lnurl/auth").Methods("GET").HandlerFunc(lnurlAuth)
 	router.Path("/~/session/refresh").Methods("GET").HandlerFunc(refreshBalance)
