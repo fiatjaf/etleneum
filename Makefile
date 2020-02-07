@@ -16,3 +16,8 @@ deploy_test: etleneum
 	ssh root@nusakan-58 'systemctl stop etleneum-test'
 	scp etleneum nusakan-58:etleneum-test/etleneum
 	ssh root@nusakan-58 'systemctl start etleneum-test'
+
+deploy: etleneum
+	ssh root@aspidiske-402 'systemctl stop lightningd'
+	scp etleneum aspidiske-402:lightning/plugins/etleneum
+	ssh root@aspidiske-402 'systemctl start lightningd'

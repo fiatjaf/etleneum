@@ -111,10 +111,11 @@ func runCall(
 		Int64("funds", initialFunds).
 		Msg("running code")
 
+	actualCode := contract.Code + "\nreturn " + call.Method + "()"
+
 	// globals
 	lunatico.SetGlobals(L, map[string]interface{}{
-		"code":                        contract.Code,
-		"method":                      call.Method,
+		"code":                        actualCode,
 		"state":                       currentstate,
 		"payload":                     payload,
 		"msatoshi":                    call.Msatoshi,
@@ -284,13 +285,13 @@ function count ()
 end
 debug.sethook(count, 'c')
 
-ret = load(code .. '\nreturn ' .. method .. '()', 'call', 't', sandbox_env)()
+ret = load(code, 'call', 't', sandbox_env)()
 state = sandbox_env.contract.state
     `
 
 	err = L.DoString(code)
 	if err != nil {
-		st := stackTraceWithCode(err.Error(), contract.Code)
+		st := stackTraceWithCode(err.Error(), actualCode)
 		log.Print(st)
 		err = errors.New(st)
 		return
