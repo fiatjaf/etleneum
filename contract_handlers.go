@@ -135,8 +135,13 @@ func getContractState(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 
-	if jqfilter, ok := mux.Vars(r)["jq"]; ok {
-		if result, err := runJQ(r.Context(), []byte(state), jqfilter); err == nil {
+	if jqfilter, ok := mux.Vars(r)["jq"]; ok && strings.TrimSpace(jqfilter) != "" {
+		if result, err := runJQ(r.Context(), []byte(state), jqfilter); err != nil {
+			log.Warn().Err(err).Str("f", jqfilter).Str("state", string(state)).
+				Msg("error applying jq filter")
+			jsonError(w, "error applying jq filter", 400)
+			return
+		} else {
 			jresult, _ := json.Marshal(result)
 			state = sqlxtypes.JSONText(jresult)
 		}
