@@ -12,7 +12,7 @@ import (
 )
 
 var continueHTLC = map[string]interface{}{"result": "continue"}
-var failHTLC = map[string]interface{}{"result": "fail", "failure_code": 16399}
+var failHTLC = map[string]interface{}{"result": "fail", "failure_code": 16392}
 
 func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	amount := params.Get("htlc.amount").String()
