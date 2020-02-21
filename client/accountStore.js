@@ -1,6 +1,7 @@
 /** @format */
 
 import {readable} from 'svelte/store'
+import * as toast from './toast'
 
 const initial = {
   lnurl: {auth: null, withdraw: null},
@@ -70,6 +71,9 @@ function startEventSource() {
     let data = JSON.parse(e.data)
     current = {...current, balance: data.new_balance}
     storeSet(current)
+  })
+  es.addEventListener('error', e => {
+    toast.error(e.data)
   })
 }
 
