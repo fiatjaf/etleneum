@@ -276,9 +276,9 @@ VALUES ($1, $2, false, $3)
 
 	// actually send the payment
 	go func() {
-		payresp, err := ln.Call("waitpay", bolt11)
+		payresp, err := ln.Call("pay", bolt11)
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
-			Msg("withdraw waitpay result")
+			Msg("withdraw pay result")
 
 		if payresp.Get("status").String() == "complete" {
 			// mark as fulfilled
