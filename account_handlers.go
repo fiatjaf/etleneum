@@ -280,8 +280,7 @@ VALUES ($1, $2, false, $3)
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
 			Msg("withdraw pay result")
 
-		switch payresp.Get("status").String() {
-		case "complete":
+		if payresp.Get("status").String() == "complete" {
 			// mark as fulfilled
 			_, err := pg.Exec(`UPDATE withdrawals SET fulfilled = true WHERE bolt11 = $1`, bolt11)
 			if err != nil {
@@ -294,7 +293,11 @@ VALUES ($1, $2, false, $3)
 				ies.(eventsource.EventSource).SendEventMessage(
 					"Payment failed.", "error", "")
 			}
-		case "failed":
+
+			return
+		}
+
+		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() == "failed" {
 			// delete attempt since it has undoubtely failed
 			_, err := pg.Exec(`DELETE FROM withdrawals WHERE bolt11 = $1`, bolt11)
 			if err != nil {
@@ -308,10 +311,6 @@ VALUES ($1, $2, false, $3)
 					`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`,
 					"withdraw", "")
 			}
-		case "pending":
-			// do nothing as the payment is still in progress
-			// this should never happen because "pay" should never return
-			// until it completely fails or succeeds, but still
 		}
 	}()
 
