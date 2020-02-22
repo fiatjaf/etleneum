@@ -276,7 +276,7 @@ VALUES ($1, $2, false, $3)
 
 	// actually send the payment
 	go func() {
-		payresp, err := ln.Call("pay", bolt11)
+		payresp, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay", bolt11)
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
 			Msg("withdraw pay result")
 
