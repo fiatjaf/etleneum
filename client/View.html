@@ -27,6 +27,7 @@
   var payloadfieldtypes = {}
 
   var nextcall
+  var withamount = true
   resetNextCall()
 
   onMount(() => {
@@ -137,9 +138,11 @@
     resetNextCall()
   }
 
-  function lnurlpay(nextcall) {
+  function lnurlpay(nextcall, withamount = true) {
+    let amountpath = withamount ? `/${nextcall.msatoshi}` : ''
+
     var url = new URL(
-      `/lnurl/contract/${params.ctid}/call/${nextcall.method}/${nextcall.msatoshi}`,
+      `/lnurl/contract/${params.ctid}/call/${nextcall.method}${amountpath}`,
       location
     )
     var qs = new URLSearchParams()
@@ -344,7 +347,13 @@
       <p>(includes <b>secret</b> auth token)</p>
       {/if}
       <div class="center">
-        <QR value="{lnurlpay(nextcall)}" size="{200}" />
+        <QR value="{lnurlpay(nextcall, withamount)}" size="{200}" />
+      </div>
+      <div>
+        <label
+          ><input type="checkbox" bind:checked="{withamount}" /> with
+          amount</label
+        >
       </div>
     </div>
     {/if} {/if}
