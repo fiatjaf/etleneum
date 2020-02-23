@@ -17,6 +17,11 @@ var failHTLC = map[string]interface{}{"result": "fail", "failure_code": 16392}
 func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	amount := params.Get("htlc.amount").String()
 	scid := params.Get("onion.short_channel_id").String()
+	if scid == "0x0x0" {
+		// payment coming to this node, accept it
+		return continueHTLC
+	}
+
 	hash := params.Get("htlc.payment_hash").String()
 
 	p.Logf("got HTLC. amount=%s short_channel_id=%s hash=%s", amount, scid, hash)
