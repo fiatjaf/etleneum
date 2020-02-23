@@ -337,7 +337,7 @@
       <div><button>prepare call</button></div>
       {/if}
     </form>
-    {/if} {#if nextcall.method}
+    {/if} {#if nextcall.method && !nextcall.invoice}
     <div id="lnurl-pay">
       <h3>reusable lnurl-pay for this call</h3>
       {#if nextcall.includeCallerSession}
