@@ -47,11 +47,15 @@ type StuffBeingCreated struct {
 }
 
 type ContractEvent struct {
-	Kind     string         `db:"kind" json:"kind"`
-	Call     string         `db:"call" json:"call"`
-	Time     time.Time      `db:"time" json:"time"`
-	Msatoshi int            `db:"msatoshi" json:"msatoshi"`
-	Data     types.JSONText `db:"data" json:"data"`
+	Contract  string         `db:"contract" json:"contract"`
+	Call      string         `db:"call" json:"call"`
+	Method    string         `db:"method" json:"method"`
+	Caller    *string        `db:"caller" json:"caller"`
+	Diff      string         `db:"diff" json:"diff"`
+	Payload   types.JSONText `db:"payload" json:"payload"`
+	Time      time.Time      `db:"time" json:"time"`
+	Msatoshi  int            `db:"msatoshi" json:"msatoshi"`
+	Transfers types.JSONText `db:"transfers" json:"transfers"`
 }
 
-const CONTRACTEVENTFIELDS = "kind, call, time, msatoshi, data"
+const CONTRACTEVENTFIELDS = "*"

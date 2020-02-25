@@ -196,7 +196,7 @@ func listEvents(w http.ResponseWriter, r *http.Request) {
 SELECT `+types.CONTRACTEVENTFIELDS+`
 FROM contract_events
 WHERE contract = $1
-ORDER BY time DESC, kind DESC
+ORDER BY time DESC
 LIMIT 50
     `, ctid)
 

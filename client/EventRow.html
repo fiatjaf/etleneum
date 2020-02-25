@@ -3,23 +3,29 @@
 <script>
   import Json from './Json.html'
 
+  export let contract
   export let event
 </script>
 
 <style>
   .event {
     display: grid;
-    grid-template-columns: 123px 123px 1fr 3fr 54px 123px;
+    grid-template-columns: 123px 1fr 1fr 235px;
   }
   .event > * {
     border: 1px solid var(--softblue);
-    padding: 1px 4px;
+    padding: 4px;
     margin: 2px;
     white-space: pre-wrap;
     word-wrap: break-word;
+    word-break: break-all;
     display: flex;
+    flex-direction: column;
     justify-items: center;
     align-items: center;
+  }
+  .event > * > * {
+    margin: 4px 0;
   }
   .event:hover > * {
     background-color: var(--lightgrey);
@@ -27,21 +33,28 @@
 </style>
 
 <div class="event">
-  <div>{event.call}</div>
-  <div>{event.time.split('T').join(' ').replace(/\..*/, '')}</div>
   <div>
-    {#if event.kind == 'call'}{event.data.method}{/if}
+    <div>
+      {#if event.contract !== contract}<a href="#/contract/{event.contract}"
+        >{event.contract}</a
+      >
+      / {/if}{event.call}
+    </div>
+    <div>{event.time.split('T').join(' ').replace(/\..*/, '')}</div>
+    <div>{event.caller || ''}</div>
   </div>
   <div>
-    {#if event.kind == 'call'}
-    <Json value="{event.data.payload}" closed />
-    {:else if event.kind == 'transfer_out'}transfer to{:else if event.kind ==
-    'transfer_in'}transfer from{:else if event.kind ==
-    'diff'}{event.data.diff}{/if}
+    <div>{event.method}({parseInt(event.msatoshi/1000)}sat)</div>
+    <Json value="{event.payload}" closed />
   </div>
-  <div>{#if event.kind != 'diff'}{parseInt(event.msatoshi/1000)} sat{/if}</div>
-  <div>
-    {#if event.kind == 'call'} {event.data.caller ? event.data.caller :
-    'anonymous'} {:else if event.kind == 'diff'}{:else} {event.data.other} {/if}
-  </div>
+  <div>{event.diff}</div>
+  <table>
+    {#each event.transfers as transfer}
+    <tr>
+      <td>{parseInt(transfer.msatoshi/1000)}sat</td>
+      <td>{transfer.direction === 'out' ? 'to' : 'from'}</td>
+      <td>{transfer.other}</td>
+    </tr>
+    {/each}
+  </table>
 </div>

@@ -361,7 +361,7 @@
   <div id="events">
     <h2>contract (recent) history</h2>
     {#each events as event}
-    <EventRow event="{event}" />
+    <EventRow contract="{params.ctid}" event="{event}" />
     {/each}
   </div>
 </main>

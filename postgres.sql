@@ -98,44 +98,27 @@ CREATE FUNCTION balance(accounts) RETURNS bigint AS $$
 $$ LANGUAGE SQL;
 
 CREATE VIEW contract_events AS
-    SELECT
-      contracts.id AS contract,
-      'call' AS kind,
-      calls.id AS call,
-      time,
-      msatoshi,
-      jsonb_build_object('method', method, 'payload', payload, 'caller', caller) AS data
-    FROM calls
-    INNER JOIN contracts on calls.contract_id = contracts.id
-  UNION ALL
-    SELECT
-      contracts.id AS contract,
-      'diff' AS kind,
-      calls.id AS call,
-      time,
-      0 AS msatoshi,
-      jsonb_build_object('diff', diff) AS data
-    FROM calls
-    INNER JOIN contracts on calls.contract_id = contracts.id
-    WHERE diff IS NOT NULL AND diff != ''
-  UNION ALL
-    SELECT
-      contracts.id AS contract,
-      'transfer_out' AS kind,
-      calls.id AS call,
-      calls.time AS time,
-      internal_transfers.msatoshi AS msatoshi,
-      jsonb_build_object('other', CASE WHEN to_account IS NOT NULL THEN to_account ELSE to_contract END) AS data
-    FROM internal_transfers
-    INNER JOIN calls ON internal_transfers.call_id = calls.id
-    INNER JOIN contracts ON calls.contract_id = contracts.id
-  UNION ALL
-    SELECT
-      contracts.id AS contract,
-      'transfer_in' AS kind,
-      internal_transfers.call_id AS call,
-      internal_transfers.time,
-      internal_transfers.msatoshi AS msatoshi,
-      jsonb_build_object('other', CASE WHEN from_account IS NOT NULL THEN from_account ELSE from_contract END) AS data
-    FROM internal_transfers
-    INNER JOIN contracts ON internal_transfers.to_contract = contracts.id;
+  SELECT
+    contract_id AS contract,
+    id AS call,
+    time,
+    msatoshi, method, payload, caller,
+    diff,
+    (
+      SELECT to_jsonb(array_agg(transfers))
+      FROM
+        (
+          SELECT 'out' AS direction, msatoshi,
+            CASE WHEN to_account IS NOT NULL THEN to_account ELSE to_contract END AS other
+          FROM internal_transfers
+          WHERE internal_transfers.call_id = calls.id
+            AND internal_transfers.from_contract = contract_id
+        UNION ALL
+          SELECT 'in' AS direction, msatoshi,
+            CASE WHEN from_account IS NOT NULL THEN from_account ELSE from_contract END AS other
+          FROM internal_transfers
+          WHERE internal_transfers.call_id = calls.id
+            AND internal_transfers.to_contract = contract_id
+        ) AS transfers
+    ) AS transfers
+    FROM calls;
