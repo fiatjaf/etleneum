@@ -157,5 +157,6 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		Routes:        make([][]lnurl.RouteInfo, 0),
 		PR:            pr,
 		SuccessAction: nil,
+		Disposable:    lnurl.FALSE,
 	})
 }
