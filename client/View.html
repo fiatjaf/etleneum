@@ -19,8 +19,6 @@
   var contract
   var events = []
 
-  var deletable = false
-
   var methods = []
   var usesauth = {}
   var payloadfields = {}
@@ -45,11 +43,6 @@
 
     r = await fetch('/~/contract/' + params.ctid + '/events')
     events = (await r.json()).value
-
-    deletable =
-      contract.funds === 0 &&
-      events.length < 4 &&
-      new Date() - new Date(Date.parse(contract.created_at)) < 3600000
   }
 
   function parseCode(code) {
@@ -270,7 +263,7 @@
 <main>
   <div id="status">
     <h1>
-      {contract.name} {#if window.location.host !== 'etleneum.com' || deletable}
+      {contract.name} {#if window.location.host !== 'etleneum.com'}
       <button on:click="{deleteContract}">delete</button>{/if}
     </h1>
     <div>{(contract.funds/1000).toFixed(3)} sat</div>
