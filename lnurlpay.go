@@ -1,21 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"image/draw"
-	"image/png"
 	_ "image/png"
 	"net/http"
 	"strconv"
 
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/go-lnurl"
-	"github.com/fogleman/gg"
-	"github.com/golang/freetype/truetype"
 	"github.com/gorilla/mux"
 	"github.com/lucsky/cuid"
 	"github.com/tidwall/gjson"
@@ -38,52 +32,6 @@ func lnurlCallMetadata(call *types.Call) string {
 	jmetadata, _ := json.Marshal(metadata)
 
 	return string(jmetadata)
-}
-
-func generateLnurlImage(contractId string, method string) (b64 string, err error) {
-	// load existing image
-	base, err := Asset("static/lnurlpayicon.png")
-	if err != nil {
-		return
-	}
-	img, err := png.Decode(bytes.NewBuffer(base))
-	if err != nil {
-		return
-	}
-
-	// load font to write
-	fontbytes, err := Asset("static/Inconsolata-Bold.ttf")
-	if err != nil {
-		return
-	}
-	f, err := truetype.Parse(fontbytes)
-	if err != nil {
-		return
-	}
-	face := truetype.NewFace(f, &truetype.Options{Size: 40})
-
-	// write using gg
-	bounds := img.Bounds()
-	dc := gg.NewContext(bounds.Max.X, bounds.Max.Y)
-	dc.DrawImage(img, 0, 0)
-	dc.SetFontFace(face)
-	dc.SetRGB255(210, 17, 224)
-	dc.DrawString(contractId, 17, 36)
-	dc.SetRGB255(255, 255, 255)
-	dc.DrawString(method+"()", 17, float64(bounds.Max.Y-18))
-
-	// encode to base64 png and return
-	out := bytes.Buffer{}
-	err = dc.EncodePNG(&out)
-	if err != nil {
-		return
-	}
-
-	return base64.StdEncoding.EncodeToString(out.Bytes()), nil
-}
-
-func addLabel(img draw.Image, label string, x, y int) {
-
 }
 
 func lnurlPayParams(w http.ResponseWriter, r *http.Request) {

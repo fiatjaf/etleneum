@@ -1,13 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
+	"github.com/fiatjaf/hashbow"
+	"github.com/fogleman/gg"
+	"github.com/golang/freetype/truetype"
 	"github.com/itchyny/gojq"
 	"github.com/yudai/gojsondiff"
 )
@@ -113,4 +120,81 @@ func runJQ(
 		return nil, err
 	}
 	return v, nil
+}
+
+func generateLnurlImage(contractId string, method string) (b64 string, err error) {
+	// load existing image
+	base, err := Asset("static/lnurlpayicon.png")
+	if err != nil {
+		return
+	}
+	img, err := png.Decode(bytes.NewBuffer(base))
+	if err != nil {
+		return
+	}
+
+	// load font to write
+	fontbytes, err := Asset("static/Inconsolata-Bold.ttf")
+	if err != nil {
+		return
+	}
+	f, err := truetype.Parse(fontbytes)
+	if err != nil {
+		return
+	}
+	face := truetype.NewFace(f, &truetype.Options{Size: 45})
+
+	// create new image with gg
+	bounds := img.Bounds()
+	dc := gg.NewContext(bounds.Max.X, bounds.Max.Y)
+	dc.DrawImage(img, 0, 0)
+
+	// apply filters
+	// contract filter
+	hexcolor := hashbow.Hashbow(contractId)
+	r, _ := strconv.ParseInt(hexcolor[1:3], 16, 64)
+	g, _ := strconv.ParseInt(hexcolor[3:5], 16, 64)
+	b, _ := strconv.ParseInt(hexcolor[5:7], 16, 64)
+	dc.SetRGBA255(int(r), int(g), int(b), 120)
+	dc.MoveTo(0, float64(bounds.Max.Y)*0.63)
+	dc.CubicTo(
+		float64(bounds.Max.X)*0.33, float64(bounds.Max.Y)*0.9,
+		float64(bounds.Max.X)*0.80, float64(bounds.Max.Y)*0.25,
+		float64(bounds.Max.X), float64(bounds.Max.Y)*0.3,
+	)
+	dc.LineTo(float64(bounds.Max.X), 0)
+	dc.LineTo(0, 0)
+	dc.Fill()
+
+	// method filter
+	hexcolor = hashbow.Hashbow(method)
+	r, _ = strconv.ParseInt(hexcolor[1:3], 16, 64)
+	g, _ = strconv.ParseInt(hexcolor[3:5], 16, 64)
+	b, _ = strconv.ParseInt(hexcolor[5:7], 16, 64)
+	dc.SetRGBA255(int(r), int(g), int(b), 120)
+	dc.MoveTo(0, float64(bounds.Max.Y)*0.63)
+	dc.CubicTo(
+		float64(bounds.Max.X)*0.33, float64(bounds.Max.Y)*0.9,
+		float64(bounds.Max.X)*0.80, float64(bounds.Max.Y)*0.25,
+		float64(bounds.Max.X), float64(bounds.Max.Y)*0.3,
+	)
+	dc.LineTo(float64(bounds.Max.X), float64(bounds.Max.Y))
+	dc.LineTo(0, float64(bounds.Max.Y))
+	dc.Fill()
+
+	// write contract id and method
+	dc.SetFontFace(face)
+	dc.SetRGB255(255, 255, 255)
+	w, _ := dc.MeasureString(contractId)
+	dc.DrawString(contractId, float64(bounds.Max.X)-17-w, 39)
+	dc.DrawString(method+"()", 17, float64(bounds.Max.Y-18))
+
+	// encode to base64 png and return
+	out := bytes.Buffer{}
+	err = dc.EncodePNG(&out)
+	if err != nil {
+		return
+	}
+
+	return base64.StdEncoding.EncodeToString(out.Bytes()), nil
 }
