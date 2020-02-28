@@ -58,4 +58,4 @@ type ContractEvent struct {
 	Transfers types.JSONText `db:"transfers" json:"transfers"`
 }
 
-const CONTRACTEVENTFIELDS = "*"
+const CONTRACTEVENTFIELDS = "contract, call, method, caller, COALESCE(diff, '') AS diff, payload, time, msatoshi, transfers"
