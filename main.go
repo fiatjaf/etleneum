@@ -155,6 +155,7 @@ func server() {
 	router.Path("/~/contract").Methods("POST").HandlerFunc(prepareContract)
 	router.Path("/~/contract/{ctid}").Methods("GET").HandlerFunc(getContract)
 	router.Path("/~/contract/{ctid}/state").Methods("GET").HandlerFunc(getContractState)
+	router.Path("/~/contract/{ctid}/state").Methods("POST").HandlerFunc(getContractState)
 	router.Path("/~/contract/{ctid}/state/{jq}").Methods("GET").HandlerFunc(getContractState)
 	router.Path("/~/contract/{ctid}/funds").Methods("GET").HandlerFunc(getContractFunds)
 	router.Path("/~/contract/{ctid}").Methods("DELETE").HandlerFunc(deleteContract)

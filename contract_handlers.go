@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -135,7 +136,16 @@ func getContractState(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 
-	if jqfilter, ok := mux.Vars(r)["jq"]; ok && strings.TrimSpace(jqfilter) != "" {
+	var jqfilter string
+	if r.Method == "GET" {
+		jqfilter, _ = mux.Vars(r)["jq"]
+	} else if r.Method == "POST" {
+		defer r.Body.Close()
+		b, _ := ioutil.ReadAll(r.Body)
+		jqfilter = string(b)
+	}
+
+	if strings.TrimSpace(jqfilter) != "" {
 		if result, err := runJQ(r.Context(), []byte(state), jqfilter); err != nil {
 			log.Warn().Err(err).Str("f", jqfilter).Str("state", string(state)).
 				Msg("error applying jq filter")
