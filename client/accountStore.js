@@ -1,6 +1,9 @@
 /** @format */
 
 import {readable} from 'svelte/store'
+import hmac from 'hmac'
+import shajs from 'sha.js'
+
 import * as toast from './toast'
 
 const initial = {
@@ -59,7 +62,7 @@ function startEventSource() {
       session: data.session || current.session,
       id: data.account,
       balance: data.balance,
-      token: data.token
+      secret: data.secret
     }
     storeSet(current)
 
@@ -78,3 +81,27 @@ function startEventSource() {
 }
 
 export default account
+
+export function hmacCall(contractId, call) {
+  var res = `${contractId}:${call.method}:${call.msatoshi},`
+
+  var keys = Object.keys(call.payload).sort()
+  for (let i = 0; i < keys.length; i++) {
+    let k = keys[i]
+    let v = call.payload[k]
+    res += `${k}=${v}`
+    res += ','
+  }
+
+  console.log(current.secret)
+  console.log(res)
+  console.log(
+    hmac(() => shajs('sha256'), 64, current.secret)
+      .update(res, 'utf8')
+      .digest('hex')
+  )
+
+  return hmac(() => shajs('sha256'), 64, current.secret)
+    .update(res, 'utf8')
+    .digest('hex')
+}

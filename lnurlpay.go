@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	_ "image/png"
@@ -44,21 +46,12 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 
 	qs := r.URL.Query()
 
-	// if the user has a personal token and wants to make an authenticated call
-	var caller string
-	if token := qs.Get("_token"); token != "" {
-		if account, ok := accountFromToken(token); ok {
-			caller = account
-		} else {
-			logger.Warn().Str("token", token).Msg("token mismatch")
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid token."))
-			return
-		}
-	}
-
 	// payload comes as query parameters
 	payload := make(map[string]interface{})
 	for k, _ := range qs {
+		if k[0] == '_' {
+			continue
+		}
 		v := gjson.Parse(qs.Get(k)).Value()
 		if v == nil {
 			v = qs.Get(k)
@@ -73,9 +66,24 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		Method:     method,
 		Msatoshi:   msatoshi,
 		Payload:    []byte(jpayload),
-		Caller:     caller,
 	}
 	call.Cost = getCallCosts(*call)
+
+	// if the user has hmac'ed this call we set them as the caller
+	if account := qs.Get("_account"); account != "" {
+		mac, _ := hex.DecodeString(qs.Get("_hmac"))
+		call.Caller = account // assume correct
+
+		// then verify
+		if !hmac.Equal(mac, hmacCall(call)) {
+			logger.Warn().Str("hmac", hex.EncodeToString(mac)).
+				Str("expected", hex.EncodeToString(hmacCall(call))).
+				Msg("hmac mismatch")
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid token."))
+			return
+		}
+	}
+
 	logger = logger.With().Str("callid", call.Id).Logger()
 
 	// verify call is valid as best as possible

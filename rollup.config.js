@@ -1,10 +1,11 @@
 /** @format */
 
 import shim from 'rollup-plugin-shim'
-import json from 'rollup-plugin-json'
+import json from '@rollup/plugin-json'
 import svelte from 'rollup-plugin-svelte'
-import resolve from 'rollup-plugin-node-resolve'
-import commonjs from 'rollup-plugin-commonjs'
+import resolve from '@rollup/plugin-node-resolve'
+import commonjs from '@rollup/plugin-commonjs'
+import inject from '@rollup/plugin-inject'
 import {terser} from 'rollup-plugin-terser'
 
 const production = !!process.env.PRODUCTION
@@ -45,7 +46,12 @@ export default {
         importee === 'svelte' || importee.startsWith('svelte/'),
       preferBuiltins: false
     }),
+
     commonjs(),
+
+    inject({
+      Buffer: ['buffer', 'Buffer']
+    }),
 
     // If we're building for production (npm run build
     // instead of npm run dev), minify

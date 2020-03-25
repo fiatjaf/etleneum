@@ -12,7 +12,7 @@
   import MultiField from './MultiField.html'
   import EventRow from './EventRow.html'
 
-  import account from './accountStore'
+  import account, {hmacCall} from './accountStore'
   import * as toast from './toast'
 
   export let params
@@ -58,7 +58,7 @@
       let start_function = line.match(/^function ([^_][_\w]+) *\( *\)/)
       if (start_function) {
         infunction = start_function[1]
-        fieldmap = {}
+        fleldmap = {}
       }
 
       if (infunction) {
@@ -143,7 +143,8 @@
       qs.set(k, nextcall.payload[k])
     }
     if (nextcall.includeCallerSession) {
-      qs.set('_token', $account.token)
+      qs.set('_account', $account.id)
+      qs.set('_hmac', hmacCall(contract.id, nextcall))
     }
     url.search = qs.toString()
 
