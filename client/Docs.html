@@ -397,9 +397,12 @@ end`
       the contract state, <code>Any</code>;
     </li>
     <li>
+      <code>POST</code>
+      <code>/~/contract/&lt;id&gt;/state</code> with &lt;jq_filter&gt; as the
+      body, or
       <code>GET</code>
-      <code>/~/contract/&lt;id&gt;/state/&lt;jq_filter&gt;</code> returns the
-      contract state after a
+      <code>/~/contract/&lt;id&gt;/state/&lt;jq_filter&gt;</code>
+      returns the contract state after a
       <a href="https://stedolan.github.io/jq/manual/">jq</a> filter has been
       applied to it, <code>Any</code>;
     </li>
@@ -477,7 +480,7 @@ end`
         </li>
         <li>
           <code
-            >auth: &#123;account: String, balance: Int, [session:
+            >auth: &#123;account: String, balance: Int, [secret:
             String]&#125;</code
           >;
         </li>
