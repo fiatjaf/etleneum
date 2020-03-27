@@ -105,7 +105,7 @@ CREATE VIEW contract_events AS
     msatoshi, method, payload, caller,
     diff,
     (
-      SELECT to_jsonb(array_agg(transfers))
+      SELECT coalesce(to_jsonb(array_agg(transfers)), '[]'::jsonb)
       FROM
         (
           SELECT 'out' AS direction, msatoshi,

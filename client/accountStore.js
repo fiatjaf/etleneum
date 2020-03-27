@@ -10,7 +10,8 @@ const initial = {
   lnurl: {auth: null, withdraw: null},
   session: window.localStorage.getItem('auth-session') || null,
   id: null,
-  balance: 0
+  balance: 0,
+  secret: ''
 }
 
 var current = {...initial}
@@ -92,14 +93,6 @@ export function hmacCall(contractId, call) {
     res += `${k}=${v}`
     res += ','
   }
-
-  console.log(current.secret)
-  console.log(res)
-  console.log(
-    hmac(() => shajs('sha256'), 64, current.secret)
-      .update(res, 'utf8')
-      .digest('hex')
-  )
 
   return hmac(() => shajs('sha256'), 64, current.secret)
     .update(res, 'utf8')

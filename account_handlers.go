@@ -79,7 +79,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 					Msg("failed to load account from session")
 				return
 			}
-			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`", "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
+			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": `+strconv.Itoa(acct.Balance)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
 		}()
 
 		// also renew his session
@@ -141,7 +141,7 @@ ON CONFLICT (lnurl_key)
 	}
 
 	// notify browser
-	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": "`+strconv.Itoa(acct.Balance)+`"}`, "auth", "")
+	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": `+strconv.Itoa(acct.Balance)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
@@ -166,7 +166,7 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ies, ok := userstreams.Get(session); ok {
-		ies.(eventsource.EventSource).SendEventMessage(`{"account": "`+accountId+`", "balance": "`+strconv.Itoa(balance)+`"}`, "auth", "")
+		ies.(eventsource.EventSource).SendEventMessage(`{"account": "`+accountId+`", "balance": `+strconv.Itoa(balance)+`, "secret": "`+getAccountSecret(accountId)+`"}`, "auth", "")
 	}
 
 	w.WriteHeader(200)

@@ -17,13 +17,17 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func lnurlCallMetadata(call *types.Call) string {
+func lnurlCallMetadata(call *types.Call, fixedAmount bool) string {
 	desc := fmt.Sprintf(`Call method "%s" on contract "%s" with payload %v`,
 		call.Method, call.ContractId, call.Payload)
 	if call.Caller != "" {
 		desc += fmt.Sprintf(" on behalf of account %s", call.Caller)
 	}
-	desc += fmt.Sprintf(" including %d msatoshi.", call.Msatoshi)
+	if fixedAmount {
+		desc += fmt.Sprintf(" including %d msatoshi.", call.Msatoshi)
+	} else {
+		desc += " with variadic amount."
+	}
 
 	metadata := [][]string{[]string{"text/plain", desc}}
 	if imageb64, err := generateLnurlImage(call.ContractId, call.Method); err == nil {
@@ -102,20 +106,23 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var min, max int64
+	var encodedMetadata string
 	if call.Msatoshi == 0 && vars["msatoshi"] != "0" {
 		// if amount is not given let the person choose on lnurl-pay UI
 		min = 1
 		max = 100000000
+		encodedMetadata = lnurlCallMetadata(call, false)
 	} else {
 		// otherwise make the lnurl params be the full main_price + cost
 		min = call.Msatoshi + call.Cost
 		max = call.Msatoshi + call.Cost
+		encodedMetadata = lnurlCallMetadata(call, true)
 	}
 
 	json.NewEncoder(w).Encode(lnurl.LNURLPayResponse1{
 		Tag:             "payRequest",
 		Callback:        s.ServiceURL + "/lnurl/call/" + call.Id,
-		EncodedMetadata: lnurlCallMetadata(call),
+		EncodedMetadata: encodedMetadata,
 		MinSendable:     min,
 		MaxSendable:     max,
 	})
@@ -133,6 +140,8 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))
 		return
 	}
+
+	var encodedMetadata string
 
 	// update the call saved on redis so we can check values paid later.
 	// this is only needed if the lnurl-pay params sent before were variable
@@ -153,9 +162,13 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 				lnurl.ErrorResponse("Failed to save call with new amount."))
 			return
 		}
+
+		encodedMetadata = lnurlCallMetadata(call, false)
+	} else {
+		encodedMetadata = lnurlCallMetadata(call, true)
 	}
 
-	descriptionHash := sha256.Sum256([]byte(lnurlCallMetadata(call)))
+	descriptionHash := sha256.Sum256([]byte(encodedMetadata))
 	pr, err := makeInvoice(call.Id, "", &descriptionHash, msatoshi, call.Cost)
 	if err != nil {
 		logger.Error().Err(err).Msg("translate invoice")
