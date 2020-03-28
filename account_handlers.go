@@ -12,6 +12,7 @@ import (
 
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/go-lnurl"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/lucsky/cuid"
 	"gopkg.in/antage/eventsource.v1"
 )
@@ -280,6 +281,10 @@ VALUES ($1, $2, false, $3)
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
 			Msg("withdraw pay result")
 
+		if _, ok := err.(lightning.ErrorCommand); ok {
+			goto failure
+		}
+
 		if payresp.Get("status").String() == "complete" {
 			// mark as fulfilled
 			_, err := pg.Exec(`UPDATE withdrawals SET fulfilled = true WHERE bolt11 = $1`, bolt11)
@@ -297,20 +302,22 @@ VALUES ($1, $2, false, $3)
 			return
 		}
 
-		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() == "failed" {
-			// delete attempt since it has undoubtely failed
-			_, err := pg.Exec(`DELETE FROM withdrawals WHERE bolt11 = $1`, bolt11)
-			if err != nil {
-				log.Error().Err(err).Str("accountId", accountId).
-					Msg("error deleting withdrawal attempt")
-			}
+		// call listpays to check failure
+		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() != "failed" {
+			// not a failure -- but also not a success
+			// we don't know what happened, maybe it's pending, so don't do anything
+			log.Debug().Str("bolt11", bolt11).
+				Msg("we don't know what happened with this payment")
+			return
+		}
 
-			// notify browser
-			if ies, ok := userstreams.Get(session); ok {
-				ies.(eventsource.EventSource).SendEventMessage(
-					`{"amount": `+strconv.Itoa(int(amount))+`, "new_balance": `+strconv.Itoa(balance)+`}`,
-					"withdraw", "")
-			}
+		// if we reached this point then it's a failure
+	failure:
+		// delete attempt since it has undoubtely failed
+		_, err = pg.Exec(`DELETE FROM withdrawals WHERE bolt11 = $1`, bolt11)
+		if err != nil {
+			log.Error().Err(err).Str("accountId", accountId).
+				Msg("error deleting withdrawal attempt")
 		}
 	}()
 
