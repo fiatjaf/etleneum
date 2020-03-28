@@ -71,54 +71,46 @@ CREATE TABLE withdrawals (
   bolt11 text NOT NULL
 );
 
-CREATE FUNCTION funds(contracts) RETURNS bigint AS $$
+CREATE OR REPLACE FUNCTION funds(contract contracts) RETURNS bigint AS $$
   SELECT (
     SELECT coalesce(sum(msatoshi), 0)
-    FROM calls WHERE calls.contract_id = $1.id
+    FROM calls WHERE calls.contract_id = contract.id
   ) - (
     SELECT coalesce(sum(msatoshi), 0)
-    FROM internal_transfers WHERE from_contract = $1.id
+    FROM internal_transfers WHERE from_contract = contract.id
   ) + (
     SELECT coalesce(sum(msatoshi), 0)
-    FROM internal_transfers WHERE to_contract = $1.id
+    FROM internal_transfers WHERE to_contract = contract.id
   );
 $$ LANGUAGE SQL;
 
-CREATE FUNCTION balance(accounts) RETURNS bigint AS $$
+CREATE OR REPLACE FUNCTION balance(account accounts) RETURNS bigint AS $$
   SELECT (
     SELECT coalesce(sum(msatoshi), 0)
-    FROM internal_transfers WHERE to_account = $1.id
+    FROM internal_transfers WHERE to_account = account.id
   ) - (
     SELECT coalesce(sum(msatoshi), 0)
-    FROM internal_transfers WHERE from_account = $1.id
+    FROM internal_transfers WHERE from_account = account.id
   ) - (
     SELECT coalesce(sum(msatoshi), 0)
-    FROM withdrawals WHERE account_id = $1.id
+    FROM withdrawals WHERE account_id = account.id
   );
 $$ LANGUAGE SQL;
 
-CREATE VIEW contract_events AS
-  SELECT
-    contract_id AS contract,
-    id AS call,
-    time,
-    msatoshi, method, payload, caller,
-    diff,
+CREATE OR REPLACE FUNCTION transfers(call text, contract text) RETURNS jsonb AS $$
+  SELECT coalesce(to_jsonb(array_agg(transfers)), '[]'::jsonb)
+  FROM
     (
-      SELECT coalesce(to_jsonb(array_agg(transfers)), '[]'::jsonb)
-      FROM
-        (
-          SELECT 'out' AS direction, msatoshi,
-            CASE WHEN to_account IS NOT NULL THEN to_account ELSE to_contract END AS other
-          FROM internal_transfers
-          WHERE internal_transfers.call_id = calls.id
-            AND internal_transfers.from_contract = contract_id
-        UNION ALL
-          SELECT 'in' AS direction, msatoshi,
-            CASE WHEN from_account IS NOT NULL THEN from_account ELSE from_contract END AS other
-          FROM internal_transfers
-          WHERE internal_transfers.call_id = calls.id
-            AND internal_transfers.to_contract = contract_id
-        ) AS transfers
+      SELECT 'out' AS direction, msatoshi,
+        CASE WHEN to_account IS NOT NULL THEN to_account ELSE to_contract END AS counterparty
+      FROM internal_transfers
+      WHERE internal_transfers.call_id = call
+        AND internal_transfers.from_contract = contract
+    UNION ALL
+      SELECT 'in' AS direction, msatoshi,
+        CASE WHEN from_account IS NOT NULL THEN from_account ELSE from_contract END AS counterparty
+      FROM internal_transfers
+      WHERE internal_transfers.call_id = call
+        AND internal_transfers.to_contract = contract
     ) AS transfers
-    FROM calls;
+$$ LANGUAGE SQL;

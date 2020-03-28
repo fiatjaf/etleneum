@@ -4,15 +4,15 @@
   import Json from './Json.html'
 
   export let contract
-  export let event
+  export let call
 </script>
 
 <style>
-  .event {
+  .call {
     display: grid;
     grid-template-columns: 123px 1fr 1fr 235px;
   }
-  .event > * {
+  .call > * {
     border: 1px solid var(--softblue);
     padding: 4px;
     margin: 2px;
@@ -24,36 +24,36 @@
     justify-items: center;
     align-items: center;
   }
-  .event > * > * {
+  .call > * > * {
     margin: 4px 0;
   }
-  .event:hover > * {
+  .call:hover > * {
     background-color: var(--lightgrey);
   }
 </style>
 
-<div class="event">
+<div class="call">
   <div>
     <div>
-      {#if event.contract !== contract}<a href="#/contract/{event.contract}"
-        >{event.contract}</a
+      {#if call.contract_id !== contract}<a href="#/contract/{call.contract}"
+        >{call.contract_id}</a
       >
-      / {/if}{event.call}
+      /{/if} <a href="#/call/{call.id}">{call.id}</a>
     </div>
-    <div>{event.time.split('T').join(' ').replace(/\..*/, '')}</div>
-    <div>{event.caller || ''}</div>
+    <div>{call.time.split('T').join(' ').replace(/\..*/, '')}</div>
+    <div>{call.caller || ''}</div>
   </div>
   <div>
-    <div>{event.method}({parseInt(event.msatoshi/1000)}sat)</div>
-    <Json value="{event.payload}" closed />
+    <div>{call.method}({parseInt(call.msatoshi/1000)}sat)</div>
+    <Json value="{call.payload}" closed />
   </div>
-  <div>{event.diff}</div>
+  <div>{call.diff}</div>
   <table>
-    {#each event.transfers as transfer}
+    {#each call.transfers as transfer}
     <tr>
       <td>{parseInt(transfer.msatoshi/1000)}sat</td>
       <td>{transfer.direction === 'out' ? 'to' : 'from'}</td>
-      <td>{transfer.other}</td>
+      <td>{transfer.counterparty}</td>
     </tr>
     {/each}
   </table>

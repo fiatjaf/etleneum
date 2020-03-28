@@ -30,9 +30,10 @@ type Call struct {
 	Cost       int64          `db:"cost" json:"cost"`         // msats to be paid to the platform
 	Caller     string         `db:"caller" json:"caller"`
 	Diff       string         `db:"diff" json:"diff"`
+	Transfers  types.JSONText `db:"transfers" json:"transfers"`
 }
 
-const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller, coalesce(diff, '') AS diff"
+const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller, coalesce(diff, '') AS diff, transfers(id, contract_id) AS transfers"
 
 type Account struct {
 	Id      string `db:"id" json:"id"`
@@ -45,17 +46,3 @@ type StuffBeingCreated struct {
 	Id      string `json:"id"`
 	Invoice string `json:"invoice"`
 }
-
-type ContractEvent struct {
-	Contract  string         `db:"contract" json:"contract"`
-	Call      string         `db:"call" json:"call"`
-	Method    string         `db:"method" json:"method"`
-	Caller    *string        `db:"caller" json:"caller"`
-	Diff      string         `db:"diff" json:"diff"`
-	Payload   types.JSONText `db:"payload" json:"payload"`
-	Time      time.Time      `db:"time" json:"time"`
-	Msatoshi  int            `db:"msatoshi" json:"msatoshi"`
-	Transfers types.JSONText `db:"transfers" json:"transfers"`
-}
-
-const CONTRACTEVENTFIELDS = "contract, call, method, caller, COALESCE(diff, '') AS diff, payload, time, msatoshi, transfers"

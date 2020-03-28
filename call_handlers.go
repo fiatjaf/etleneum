@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/fiatjaf/etleneum/types"
@@ -20,6 +21,7 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 SELECT `+types.CALLFIELDS+`
 FROM calls
 WHERE contract_id = $1
+   OR $1 IN (SELECT to_contract FROM internal_transfers it WHERE calls.id = it.call_id)
 ORDER BY time DESC
 LIMIT 50
         `, ctid)
@@ -110,13 +112,20 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 
 func getCall(w http.ResponseWriter, r *http.Request) {
 	callid := mux.Vars(r)["callid"]
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit == 0 {
+		limit = 50
+	}
 	logger := log.With().Str("callid", callid).Logger()
 
 	call := &types.Call{}
 	err = pg.Get(call, `
 SELECT `+types.CALLFIELDS+`
-FROM calls WHERE id = $1
-    `, callid)
+FROM calls
+WHERE id = $1
+ORDER BY time DESC
+LIMIT $2
+    `, callid, limit)
 	if err == sql.ErrNoRows {
 		call, err = callFromRedis(callid)
 		if err != nil {

@@ -351,15 +351,14 @@ end`
       <code>Call</code>:
       <code
         >&#123;id: String, time: String, method: String, payload: Any, matoshi:
-        Int, cost: Int, paid: Int&#125;</code
+        Int, cost: Int, diff: String, transfers: []Transfer&#125;</code
       >
     </li>
     <li>
-      <code>ContractEvent</code>:
+      <code>Transfer</code>:
       <code
-        >&#123;contract: String, call: String, kind: "call" | "transfer_in" |
-        "transfer_out", time: String, matoshi: Int, data: &#123;[method: String,
-        payload: Any, [caller: String]], [other: String]&#125;&#125;</code
+        >&#123;direction: "in" | "out", matoshi: Int, counterparty:
+        String&#125;</code
       >
     </li>
   </ul>
@@ -413,11 +412,6 @@ end`
     <li>
       <code>GET</code> <code>/~/contract/&lt;id&gt;/calls</code> lists all
       contract calls, sorted by most recent first, returns <code>Call</code>;
-    </li>
-    <li>
-      <code>GET</code> <code>/~/contract/&lt;id&gt;/events</code> lists all
-      contract events, sorted by most recent first, returns
-      <code>ContractEvent</code>;
     </li>
     <li>
       <code>SSE</code> <code>/~~~/contract/&lt;id&gt;</code> returns a
