@@ -46,7 +46,11 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	method := vars["method"]
 	msatoshi, _ := strconv.ParseInt(vars["msatoshi"], 10, 64)
 
-	logger := log.With().Str("ctid", ctid).Bool("lnurl", true).Logger()
+	logger := log.With().
+		Str("ctid", ctid).
+		Str("url", r.URL.String()).
+		Bool("lnurl", true).
+		Logger()
 
 	qs := r.URL.Query()
 
@@ -83,7 +87,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 			logger.Warn().Str("hmac", hex.EncodeToString(mac)).
 				Str("expected", hex.EncodeToString(hmacCall(call))).
 				Msg("hmac mismatch")
-			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid token."))
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid HMAC."))
 			return
 		}
 	}
@@ -179,7 +183,7 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
 		Routes:        make([][]lnurl.RouteInfo, 0),
 		PR:            pr,
-		SuccessAction: nil,
+		SuccessAction: lnurl.Action("", s.ServiceURL+"/#/call/"+call.Id),
 		Disposable:    lnurl.FALSE,
 	})
 }
