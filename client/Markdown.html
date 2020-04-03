@@ -1,7 +1,7 @@
 <!-- @format -->
 
 <script>
-  import {onMount, onDestroy} from 'svelte'
+  import {onMount} from 'svelte'
   import Markdown from 'markdown-it'
   import flua from 'flua'
 
@@ -36,6 +36,11 @@
       renderLuaSnippets(source.children[1].innerHTML, ctdata)
     )
     source.style.display = 'none'
+
+    return () => {
+      target.innerHTML = ''
+      source.style.display = ''
+    }
   })
 
   function toggle(e) {
@@ -43,11 +48,6 @@
     target.style.display = target.style.display === 'none' ? '' : 'none'
     source.style.display = target.style.display === 'none' ? '' : 'none'
   }
-
-  onDestroy(() => {
-    target.innerHTML = ''
-    source.style.display = ''
-  })
 </script>
 
 <style>

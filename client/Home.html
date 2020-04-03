@@ -1,7 +1,7 @@
 <!-- @format -->
 
 <script>
-  import {onMount, onDestroy} from 'svelte'
+  import {onMount} from 'svelte'
   import {blur} from 'svelte/transition'
 
   import account from './accountStore'
@@ -32,9 +32,10 @@
         visible = true
       }, 1)
     }, 4000)
-  })
-  onDestroy(() => {
-    clearInterval(intv)
+
+    return () => {
+      clearInterval(intv)
+    }
   })
 </script>
 

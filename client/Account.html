@@ -1,14 +1,13 @@
 <!-- @format -->
 
 <script>
-  import {onMount, onDestroy} from 'svelte'
+  import {onMount} from 'svelte'
   import PromiseWindow from 'promise-window'
 
   import * as toast from './toast'
   import QR from './QR.html'
   import account from './accountStore'
 
-  var unsubscribe = () => {}
   var es
 
   const SEEDAUTH = 'https://seed-auth.etleneum.com'
@@ -16,7 +15,7 @@
   var popupBlocked = false
 
   onMount(() => {
-    unsubscribe = account.subscribe(({session}) => {
+    let unsubscribe = account.subscribe(({session}) => {
       if (session && !es) {
         es = new EventSource('/~~~/session?src=comp&session=' + session)
         es.onerror = e => console.log('Account component sse error', e.data)
@@ -27,13 +26,13 @@
         })
       }
     })
-  })
 
-  onDestroy(() => {
-    if (es) {
-      es.close()
+    return () => {
+      if (es) {
+        es.close()
+      }
+      unsubscribe()
     }
-    unsubscribe()
   })
 
   async function loginSeedAuth(e) {

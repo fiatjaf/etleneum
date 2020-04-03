@@ -1,7 +1,7 @@
 <!-- @format -->
 
 <script>
-  import {onMount, onDestroy} from 'svelte'
+  import {onMount} from 'svelte'
 
   import hljs from 'highlight.js/lib/highlight'
   import lua from 'highlight.js/lib/languages/lua'
@@ -18,11 +18,11 @@
     let highlighted = hljs.highlight('lua', source.innerHTML)
     target.innerHTML = highlighted.value.replace(/\&amp;/g, '&')
     source.style.display = 'none'
-  })
 
-  onDestroy(() => {
-    target.innerHTML = ''
-    source.style.display = ''
+    return () => {
+      target.innerHTML = ''
+      source.style.display = ''
+    }
   })
 </script>
 

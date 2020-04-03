@@ -2,7 +2,7 @@
 
 <script>
   import bech32 from 'bech32'
-  import {onMount, onDestroy} from 'svelte'
+  import {onMount} from 'svelte'
   import {replace, push} from 'svelte-spa-router'
 
   import QR from './QR.html'
@@ -201,13 +201,10 @@
       : JSON.stringify(nextcall.payload[pf])
   }
 
-  var es
   onMount(() => {
     startEventSource()
-  })
 
-  onDestroy(() => {
-    es.close()
+    return () => es.close()
   })
 
   function startEventSource() {
