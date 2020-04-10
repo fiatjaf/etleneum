@@ -142,7 +142,7 @@ func generateLnurlImage(contractId string, method string) (b64 string, err error
 	if err != nil {
 		return
 	}
-	face := truetype.NewFace(f, &truetype.Options{Size: 45})
+	face := truetype.NewFace(f, &truetype.Options{Size: 20})
 
 	// create new image with gg
 	bounds := img.Bounds()
@@ -186,8 +186,8 @@ func generateLnurlImage(contractId string, method string) (b64 string, err error
 	dc.SetFontFace(face)
 	dc.SetRGB255(255, 255, 255)
 	w, _ := dc.MeasureString(contractId)
-	dc.DrawString(contractId, float64(bounds.Max.X)-17-w, 39)
-	dc.DrawString(method+"()", 17, float64(bounds.Max.Y-18))
+	dc.DrawString(contractId, float64(bounds.Max.X)-8-w, 19)
+	dc.DrawString(method+"()", 8, float64(bounds.Max.Y-9))
 
 	// encode to base64 png and return
 	out := bytes.Buffer{}
