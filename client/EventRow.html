@@ -10,7 +10,7 @@
 <style>
   .call {
     display: grid;
-    grid-template-columns: 123px 1fr 1fr 235px;
+    grid-template-columns: 123px 1fr 235px;
   }
   .call > * {
     border: 1px solid var(--softblue);
@@ -35,7 +35,7 @@
 <div class="call">
   <div>
     <div>
-      {#if call.contract_id !== contract}<a href="#/contract/{call.contract}"
+      {#if call.contract_id !== contract}<a href="#/contract/{call.contract_id}"
         >{call.contract_id}</a
       >
       /{/if} <a href="#/call/{call.id}">{call.id}</a>
@@ -47,7 +47,6 @@
     <div>{call.method}({parseInt(call.msatoshi/1000)}sat)</div>
     <Json value="{call.payload}" closed />
   </div>
-  <div>{call.diff}</div>
   <table>
     {#each call.transfers as transfer}
     <tr>

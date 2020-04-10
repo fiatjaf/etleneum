@@ -33,7 +33,7 @@ type Call struct {
 	Transfers  types.JSONText `db:"transfers" json:"transfers"`
 }
 
-const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller, coalesce(diff, '') AS diff, transfers(id, contract_id) AS transfers"
+const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller, transfers(id, contract_id) AS transfers"
 
 type Account struct {
 	Id      string `db:"id" json:"id"`

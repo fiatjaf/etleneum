@@ -120,7 +120,7 @@ func getCall(w http.ResponseWriter, r *http.Request) {
 
 	call := &types.Call{}
 	err = pg.Get(call, `
-SELECT `+types.CALLFIELDS+`
+SELECT `+types.CALLFIELDS+`, coalesce(diff, '') AS diff
 FROM calls
 WHERE id = $1
 ORDER BY time DESC
