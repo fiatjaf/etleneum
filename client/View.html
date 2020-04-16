@@ -34,7 +34,7 @@
 
   async function loadContract() {
     let r = await fetch('/~/contract/' + params.ctid)
-    if (r.status == 404) replace('/notfound')
+    if (r.status == 404) return replace('/notfound')
     let ctdata = (await r.json()).value
     contract = ctdata
 
@@ -206,6 +206,8 @@
 
     return () => es.close()
   })
+
+  var es
 
   function startEventSource() {
     es = new EventSource('/~~~/contract/' + params.ctid)

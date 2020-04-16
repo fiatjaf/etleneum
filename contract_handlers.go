@@ -3,8 +3,10 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +17,24 @@ import (
 )
 
 func listContracts(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	// pagination
+	page, _ := strconv.Atoi(qs.Get("page"))
+	if page == 0 {
+		page = 1
+	}
+	offset := fmt.Sprintf("OFFSET %d", (page-1)*30)
+
+	// filtering
+	id := qs.Get("id")
+	where := ""
+	args := make([]interface{}, 0, 1)
+	if id != "" {
+		where = "WHERE id = $1"
+		args = append(args, id)
+	}
+
 	contracts := make([]types.Contract, 0)
 	err = pg.Select(&contracts, `
 SELECT id, name, readme, funds, ncalls FROM (
@@ -23,8 +43,10 @@ SELECT id, name, readme, funds, ncalls FROM (
     (SELECT count(*) FROM calls WHERE contract_id = c.id) AS ncalls
   FROM contracts AS c
 ) AS x
+`+where+`
 ORDER BY lastcalltime DESC, created_at DESC
-    `)
+LIMIT 30 `+offset+`
+    `, args...)
 	if err == sql.ErrNoRows {
 		contracts = make([]types.Contract, 0)
 	} else if err != nil {
@@ -128,8 +150,10 @@ WHERE id = $1`,
 }
 
 func getContractState(w http.ResponseWriter, r *http.Request) {
+	ctid := mux.Vars(r)["ctid"]
+
 	var state sqlxtypes.JSONText
-	err = pg.Get(&state, `SELECT state FROM contracts WHERE id = $1`, mux.Vars(r)["ctid"])
+	err = pg.Get(&state, `SELECT state FROM contracts WHERE id = $1`, ctid)
 	if err != nil {
 		jsonError(w, "contract not found", 404)
 		return
@@ -147,7 +171,8 @@ func getContractState(w http.ResponseWriter, r *http.Request) {
 
 	if strings.TrimSpace(jqfilter) != "" {
 		if result, err := runJQ(r.Context(), []byte(state), jqfilter); err != nil {
-			log.Warn().Err(err).Str("f", jqfilter).Str("state", string(state)).
+			log.Warn().Err(err).Str("ctid", ctid).
+				Str("f", jqfilter).Str("state", string(state)).
 				Msg("error applying jq filter")
 			jsonError(w, "error applying jq filter", 400)
 			return

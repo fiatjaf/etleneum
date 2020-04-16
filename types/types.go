@@ -8,10 +8,10 @@ import (
 
 type Contract struct {
 	Id        string         `db:"id" json:"id"` // used in the invoice label
-	Code      string         `db:"code" json:"code"`
+	Code      string         `db:"code" json:"code,omitempty"`
 	Name      string         `db:"name" json:"name"`
 	Readme    string         `db:"readme" json:"readme"`
-	State     types.JSONText `db:"state" json:"state"`
+	State     types.JSONText `db:"state" json:"state,omitempty"`
 	CreatedAt time.Time      `db:"created_at" json:"created_at"`
 
 	Funds  int64 `db:"funds" json:"funds"` // contract balance in msats
