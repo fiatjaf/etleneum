@@ -37,7 +37,7 @@ const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coal
 
 type Account struct {
 	Id      string `db:"id" json:"id"`
-	Balance int    `db:"balance" json:"balance"`
+	Balance int64  `db:"balance" json:"balance"`
 }
 
 const ACCOUNTFIELDS = "id, accounts.balance"
