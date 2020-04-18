@@ -311,11 +311,6 @@ VALUES ($1, $2, false, $3)
 					Msg("error marking payment as fulfilled")
 			}
 
-			// notify browser
-			if ies, ok := userstreams.Get(session); ok {
-				ies.(*sse.Streamer).SendString("", "error", "Payment failed.")
-			}
-
 			return
 		}
 
@@ -325,6 +320,12 @@ VALUES ($1, $2, false, $3)
 			// we don't know what happened, maybe it's pending, so don't do anything
 			log.Debug().Str("bolt11", bolt11).
 				Msg("we don't know what happened with this payment")
+
+			// notify browser
+			if ies, ok := userstreams.Get(session); ok {
+				ies.(*sse.Streamer).SendString("", "error", "We don't know what happened with the payment.")
+			}
+
 			return
 		}
 
@@ -335,6 +336,11 @@ VALUES ($1, $2, false, $3)
 		if err != nil {
 			log.Error().Err(err).Str("accountId", accountId).
 				Msg("error deleting withdrawal attempt")
+		}
+
+		// notify browser
+		if ies, ok := userstreams.Get(session); ok {
+			ies.(*sse.Streamer).SendString("", "error", "Payment failed.")
 		}
 	}()
 
