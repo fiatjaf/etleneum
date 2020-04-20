@@ -42,7 +42,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 			&eventsource.Settings{
 				Timeout:        5 * time.Second,
 				CloseOnTimeout: true,
-				IdleTimeout:    5 * time.Minute,
+				IdleTimeout:    1 * time.Minute,
 			},
 			func(r *http.Request) [][]byte {
 				return [][]byte{
