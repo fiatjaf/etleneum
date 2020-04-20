@@ -13,24 +13,12 @@ import (
 	"github.com/fiatjaf/etleneum/types"
 	"github.com/fiatjaf/go-lnurl"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
-	"github.com/julienschmidt/sse"
 	"github.com/lucsky/cuid"
+	"gopkg.in/antage/eventsource.v1"
 )
 
-type authEvent struct {
-	Session string `json:"session"`
-	Account string `json:"account"`
-	Balance int64  `json:"balance"`
-	Secret  string `json:"secret"`
-}
-
-type lnurlsEvent struct {
-	Auth     string `json:"auth"`
-	Withdraw string `json:"withdraw"`
-}
-
 func lnurlSession(w http.ResponseWriter, r *http.Request) {
-	var es *sse.Streamer
+	var es eventsource.EventSource
 	session := r.URL.Query().Get("session")
 
 	if session == "" {
@@ -44,22 +32,41 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 			// finally try to fetch an existing stream
 			ies, ok := userstreams.Get(session)
 			if ok {
-				es = ies.(*sse.Streamer)
+				es = ies.(eventsource.EventSource)
 			}
 		}
 	}
 
 	if es == nil {
-		es = sse.New()
-
+		es = eventsource.New(
+			&eventsource.Settings{
+				Timeout:        5 * time.Second,
+				CloseOnTimeout: true,
+				IdleTimeout:    300 * time.Minute,
+			},
+			func(r *http.Request) [][]byte {
+				return [][]byte{
+					[]byte("X-Accel-Buffering: no"),
+					[]byte("Cache-Control: no-cache"),
+					[]byte("Content-Type: text/event-stream"),
+					[]byte("Connection: keep-alive"),
+					[]byte("Access-Control-Allow-Origin: *"),
+				}
+			},
+		)
 		userstreams.Set(session, es)
 		go func() {
 			for {
 				time.Sleep(25 * time.Second)
-				es.SendString("", "keepalive", "")
+				es.SendEventMessage("", "keepalive", "")
 			}
 		}()
 	}
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		es.SendRetryMessage(3 * time.Second)
+	}()
 
 	accountId := rds.Get("auth-session:" + session).Val()
 	if accountId != "" {
@@ -67,20 +74,13 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			time.Sleep(2 * time.Second)
 			var acct types.Account
-			err := pg.Get(&acct,
-				`SELECT `+types.ACCOUNTFIELDS+` FROM accounts WHERE id = $1`,
-				accountId,
-			)
+			err := pg.Get(&acct, `SELECT `+types.ACCOUNTFIELDS+` FROM accounts WHERE id = $1`, accountId)
 			if err != nil {
 				log.Error().Err(err).Str("session", session).Str("id", accountId).
 					Msg("failed to load account from session")
 				return
 			}
-			es.SendJSON("", "auth", authEvent{
-				Account: acct.Id,
-				Balance: acct.Balance,
-				Secret:  getAccountSecret(acct.Id),
-			})
+			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": `+strconv.FormatInt(acct.Balance, 10)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
 		}()
 
 		// also renew his session
@@ -89,13 +89,10 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 
 	// always send lnurls because we need lnurl-withdraw even if we're logged already, obviously
 	go func() {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
 		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw?session=" + session)
-		es.SendJSON("", "lnurls", lnurlsEvent{
-			Auth:     auth,
-			Withdraw: withdraw,
-		})
+		es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
 	}()
 
 	es.ServeHTTP(w, r)
@@ -117,10 +114,9 @@ func lnurlAuth(w http.ResponseWriter, r *http.Request) {
 	session := k1
 	log.Debug().Str("session", session).Str("pubkey", key).Msg("valid login")
 
-	// there must be a valid auth session (meaning an sse client)
+	// there must be a valid auth session (meaning an eventsource client) one otherwise something is wrong
 	ies, ok := userstreams.Get(session)
 	if !ok {
-		// otherwise something is wrong
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("there's no browser session to authorize."))
 		return
 	}
@@ -146,12 +142,7 @@ ON CONFLICT (lnurl_key)
 	}
 
 	// notify browser
-	ies.(*sse.Streamer).SendJSON("", "auth", authEvent{
-		Session: k1,
-		Account: acct.Id,
-		Balance: acct.Balance,
-		Secret:  getAccountSecret(acct.Id),
-	})
+	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": `+strconv.FormatInt(acct.Balance, 10)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
@@ -168,7 +159,7 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get balance
-	var balance int64
+	var balance int
 	err = pg.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", accountId)
 	if err != nil {
 		w.WriteHeader(500)
@@ -176,11 +167,7 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ies, ok := userstreams.Get(session); ok {
-		ies.(*sse.Streamer).SendJSON("", "auth", authEvent{
-			Account: accountId,
-			Balance: balance,
-			Secret:  getAccountSecret(accountId),
-		})
+		ies.(eventsource.EventSource).SendEventMessage(`{"account": "`+accountId+`", "balance": `+strconv.Itoa(balance)+`, "secret": "`+getAccountSecret(accountId)+`"}`, "auth", "")
 	}
 
 	w.WriteHeader(200)
@@ -323,7 +310,7 @@ VALUES ($1, $2, false, $3)
 
 			// notify browser
 			if ies, ok := userstreams.Get(session); ok {
-				ies.(*sse.Streamer).SendString("", "error", "We don't know what happened with the payment.")
+				ies.(eventsource.EventSource).SendEventMessage("We don't know what happened with the payment.", "error", "")
 			}
 
 			return
@@ -340,7 +327,7 @@ VALUES ($1, $2, false, $3)
 
 		// notify browser
 		if ies, ok := userstreams.Get(session); ok {
-			ies.(*sse.Streamer).SendString("", "error", "Payment failed.")
+			ies.(eventsource.EventSource).SendEventMessage("Payment failed.", "error", "")
 		}
 	}()
 

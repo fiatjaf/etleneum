@@ -1,11 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/julienschmidt/sse"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 type ctevent struct {
@@ -16,30 +17,52 @@ type ctevent struct {
 }
 
 func dispatchContractEvent(contractId string, ev ctevent, typ string) {
+	jpayload, _ := json.Marshal(ev)
+	payload := string(jpayload)
+
 	if ies, ok := contractstreams.Get(contractId); ok {
-		ies.(*sse.Streamer).SendJSON("", typ, ev)
+		ies.(eventsource.EventSource).SendEventMessage(payload, typ, "")
 	}
 }
 
 func contractStream(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 
-	var es *sse.Streamer
+	var es eventsource.EventSource
 	ies, ok := contractstreams.Get(ctid)
 
 	if !ok {
-		es = sse.New()
-
+		es = eventsource.New(
+			&eventsource.Settings{
+				Timeout:        5 * time.Second,
+				CloseOnTimeout: true,
+				IdleTimeout:    300 * time.Minute,
+			},
+			func(r *http.Request) [][]byte {
+				return [][]byte{
+					[]byte("X-Accel-Buffering: no"),
+					[]byte("Cache-Control: no-cache"),
+					[]byte("Content-Type: text/event-stream"),
+					[]byte("Connection: keep-alive"),
+					[]byte("Access-Control-Allow-Origin: *"),
+				}
+			},
+		)
 		go func() {
 			for {
 				time.Sleep(25 * time.Second)
-				es.SendString("", "keepalive", "")
+				es.SendEventMessage("", "keepalive", "")
 			}
 		}()
 		contractstreams.Set(ctid, es)
 	} else {
-		es = ies.(*sse.Streamer)
+		es = ies.(eventsource.EventSource)
 	}
+
+	go func() {
+		time.Sleep(1 * time.Second)
+		es.SendRetryMessage(3 * time.Second)
+	}()
 
 	es.ServeHTTP(w, r)
 }
