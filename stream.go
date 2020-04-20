@@ -36,7 +36,7 @@ func contractStream(w http.ResponseWriter, r *http.Request) {
 			&eventsource.Settings{
 				Timeout:        5 * time.Second,
 				CloseOnTimeout: true,
-				IdleTimeout:    300 * time.Minute,
+				IdleTimeout:    5 * time.Minute,
 			},
 			func(r *http.Request) [][]byte {
 				return [][]byte{
