@@ -16,6 +16,11 @@ func listCalls(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 	logger := log.With().Str("ctid", ctid).Logger()
 
+	limit := r.URL.Query().Get("limit")
+	if limit == "" {
+		limit = "50"
+	}
+
 	calls := make([]types.Call, 0)
 	err = pg.Select(&calls, `
 SELECT `+types.CALLFIELDS+`
@@ -23,8 +28,8 @@ FROM calls
 WHERE contract_id = $1
    OR $1 IN (SELECT to_contract FROM internal_transfers it WHERE calls.id = it.call_id)
 ORDER BY time DESC
-LIMIT 50
-        `, ctid)
+LIMIT $2
+        `, ctid, limit)
 	if err == sql.ErrNoRows {
 		calls = make([]types.Call, 0)
 	} else if err != nil {
