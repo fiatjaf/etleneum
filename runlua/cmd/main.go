@@ -49,7 +49,7 @@ func main() {
 			Value: "{}",
 			Usage: "Payload to send with the call as a JSON string.",
 		},
-		cli.IntFlag{
+		cli.Float64Flag{
 			Name:  "satoshis",
 			Value: 0,
 			Usage: "Satoshis to include in the call.",
@@ -110,10 +110,14 @@ func main() {
 			func() (contractFunds int, err error) { return contractFunds, nil },
 			func(target string, msat int) (msatoshiSent int, err error) {
 				contractFunds -= int64(msat)
+				fmt.Fprintf(os.Stderr, "%dmsat sent to %s\n", msat, target)
 				return msat, nil
 			},
 			func() (userBalance int, err error) { return 99999, nil },
-			func(target string, msat int) (msatoshiSent int, err error) { return msat, nil },
+			func(target string, msat int) (msatoshiSent int, err error) {
+				fmt.Fprintf(os.Stderr, "%dmsat sent to %s\n", msat, target)
+				return msat, nil
+			},
 			types.Contract{
 				Code:  string(bcontractCode),
 				State: sqlxtypes.JSONText([]byte(c.String("state"))),
@@ -121,7 +125,7 @@ func main() {
 			},
 			types.Call{
 				Id:       "callid",
-				Msatoshi: 1000 * c.Int64("satoshis"),
+				Msatoshi: int64(1000 * c.Float64("satoshis")),
 				Method:   c.String("method"),
 				Payload:  sqlxtypes.JSONText([]byte(c.String("payload"))),
 				Caller:   c.String("caller"),
