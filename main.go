@@ -57,6 +57,14 @@ var userstreams = cmap.New()
 var contractstreams = cmap.New()
 
 func main() {
+	http.DefaultClient = &http.Client{Transport: &http.Transport{
+		MaxIdleConns:        10,
+		MaxConnsPerHost:     10,
+		MaxIdleConnsPerHost: 2,
+		IdleConnTimeout:     10 * time.Second,
+		DisableCompression:  true,
+	}}
+
 	if isRunningAsPlugin() {
 		p := plugin.Plugin{
 			Name:    "etleneum",

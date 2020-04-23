@@ -24,6 +24,7 @@ func lua_keybase_lookup(provider, name string) (username string, err error) {
 		log.Print(err)
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -45,6 +46,8 @@ func lua_keybase_verify_signature(username, text, sig string) (ok bool, err erro
 	if err != nil {
 		return false, err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		return false, fmt.Errorf("keybase returned status code %d", resp.StatusCode)
 	}

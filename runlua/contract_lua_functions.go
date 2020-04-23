@@ -38,6 +38,7 @@ func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 			log.Warn().Err(err).Msg("http: failed to create request")
 			return
 		}
+		defer req.Body.Close()
 
 		for _, headermap := range headers {
 			for k, v := range headermap {
