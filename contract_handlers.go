@@ -145,6 +145,8 @@ WHERE id = $1`,
 		return
 	}
 
+	parseContractCode(ct)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: ct})
 }

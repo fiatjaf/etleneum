@@ -19,18 +19,22 @@
   var contract
   var calls = []
 
-  var methods = []
-  var usesauth = {}
   var payloadfields = {}
-  var payloadfieldtypes = {}
-
   var nextcall
   var withamount = true
   resetNextCall()
 
-  onMount(() => {
-    loadContract()
-  })
+  $: nextmethod = (() => {
+    if (nextcall && contract) {
+      for (let i = 0; i < contract.methods.length; i++) {
+        if (contract.methods[i].name === nextcall.method) {
+          return contract.methods[i]
+        }
+      }
+    }
+  })()
+
+  onMount(loadContract)
 
   async function loadContract() {
     let r = await fetch('/~/contract/' + params.ctid)
@@ -38,45 +42,10 @@
     let ctdata = (await r.json()).value
     contract = ctdata
 
-    parseCode(contract.code)
     resetNextCall()
 
     r = await fetch('/~/contract/' + params.ctid + '/calls')
     calls = (await r.json()).value
-  }
-
-  function parseCode(code) {
-    methods = []
-    code.replace(/[\n^]function +([^_][\w_]+) *\(/g, (_, methodName) =>
-      methods.push(methodName)
-    )
-
-    usesauth = {}
-    var infunction = null
-    var fieldmap = null
-    code.split('\n').forEach(line => {
-      let start_function = line.match(/^function ([^_][_\w]+) *\( *\)/)
-      if (start_function) {
-        infunction = start_function[1]
-        fieldmap = {}
-      }
-
-      if (infunction) {
-        if (line.match(/\b(account.send|account.id|account.get_balance)\b/)) {
-          usesauth[infunction] = true
-        }
-
-        line.replace(/\bcall.payload\.([\w_]+)/g, (_, pf) => {
-          fieldmap[pf] = true
-        })
-      }
-
-      if (line.match(/^end\b/) && infunction) {
-        payloadfields[infunction] = Object.keys(fieldmap || {})
-        infunction = null
-        fieldmap = null
-      }
-    })
   }
 
   function resetNextCall(id) {
@@ -279,7 +248,7 @@
   </div>
   <div id="action">
     <h2>make a call</h2>
-    {#if methods.length == 0 }
+    {#if contract.methods.length == 0 }
     <p>apparently this contract has no callable methods</p>
     {:else} {#if nextcall.invoice}
     <div class="center">
@@ -290,28 +259,28 @@
     {:else}
     <form on:submit="{prepareCall}">
       <div class="label">
-        method: {#if nextcall.method}<b>{nextcall.method}</b>{:else}none
+        method: {#if nextmethod}<b>{nextmethod.name}</b>{:else}none
         selected{/if}
         <div class="select">
-          {#each methods as method (method)}
+          {#each contract.methods as method (method.name)}
           <button
             on:click="{setMethod}"
-            class:enabled="{method === nextcall.method}"
+            class:enabled="{method.name === nextcall.method}"
           >
-            {method}
+            {method.name}
           </button>
           {/each}
         </div>
-        {#if usesauth[nextcall.method]}
+        {#if nextmethod && nextmethod.auth}
         <div>apparently this method requires you to be authenticated</div>
         {/if}
       </div>
-      {#if nextcall.method}
+      {#if nextmethod}
       <label>
         satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
         on:input="{setMsatoshi}" />
       </label>
-      {#each (payloadfields[nextcall.method] || []) as pf (pf)}
+      {#each nextmethod.params as pf (pf)}
       <label>
         {pf}:
         <MultiField
@@ -333,7 +302,7 @@
       <div><button>prepare call</button></div>
       {/if}
     </form>
-    {/if} {#if nextcall.method && !nextcall.invoice}
+    {/if} {#if nextmethod && !nextcall.invoice}
     <div id="lnurl-pay">
       <h3>reusable lnurl-pay for this call</h3>
       {#if nextcall.includeCallerSession}

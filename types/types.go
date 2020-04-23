@@ -14,8 +14,15 @@ type Contract struct {
 	State     types.JSONText `db:"state" json:"state,omitempty"`
 	CreatedAt time.Time      `db:"created_at" json:"created_at"`
 
-	Funds  int64 `db:"funds" json:"funds"` // contract balance in msats
-	NCalls int   `db:"ncalls" json:"ncalls,omitempty"`
+	Funds   int64    `db:"funds" json:"funds"` // contract balance in msats
+	NCalls  int      `db:"ncalls" json:"ncalls,omitempty"`
+	Methods []Method `db:"-" json:"methods"`
+}
+
+type Method struct {
+	Name   string   `json:"name"`
+	Params []string `json:"params"`
+	Auth   bool     `json:"auth"`
 }
 
 const CONTRACTFIELDS = "id, code, name, readme, state, created_at"
