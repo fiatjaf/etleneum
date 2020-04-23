@@ -64,7 +64,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 		es.SendRetryMessage(3 * time.Second)
 	}()
 
@@ -72,7 +72,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	if accountId != "" {
 		// we're logged already, so send account information
 		go func() {
-			time.Sleep(2 * time.Second)
+			time.Sleep(200 * time.Millisecond)
 			var acct types.Account
 			err := pg.Get(&acct, `SELECT `+types.ACCOUNTFIELDS+` FROM accounts WHERE id = $1`, accountId)
 			if err != nil {
@@ -89,9 +89,10 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 
 	// always send lnurls because we need lnurl-withdraw even if we're logged already, obviously
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(200 * time.Millisecond)
 		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
 		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw?session=" + session)
+
 		es.SendEventMessage(`{"auth": "`+auth+`", "withdraw": "`+withdraw+`"}`, "lnurls", "")
 	}()
 
