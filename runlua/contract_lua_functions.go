@@ -54,7 +54,7 @@ func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
 			return
 		}
 
-		if resp.StatusCode >= 400 {
+		if resp.StatusCode >= 300 {
 			log.Debug().Err(err).Int("code", resp.StatusCode).Msg("http: got bad status")
 			err = errors.New("response status code: " + strconv.Itoa(resp.StatusCode))
 			return

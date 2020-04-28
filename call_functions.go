@@ -92,6 +92,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 	// actually run the call
 	dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, "", "start"}, "call-run-event")
 	newStateO, err := runlua.RunCall(
+		log,
 		&callPrinter{call.ContractId, call.Id},
 		func(r *http.Request) (*http.Response, error) { return http.DefaultClient.Do(r) },
 

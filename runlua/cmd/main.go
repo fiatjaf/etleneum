@@ -8,12 +8,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"syscall"
 
 	"github.com/fiatjaf/etleneum/runlua"
 	"github.com/fiatjaf/etleneum/types"
 	sqlxtypes "github.com/jmoiron/sqlx/types"
+	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
 )
+
+var devNull = os.NewFile(uintptr(syscall.Stderr), "/dev/null")
+var log = zerolog.New(devNull).Output(zerolog.ConsoleWriter{Out: devNull})
 
 func main() {
 	app := cli.NewApp()
@@ -29,7 +34,11 @@ func main() {
 		cli.StringFlag{
 			Name:  "state",
 			Value: "{}",
-			Usage: "Current contract state as JSON string.",
+			Usage: "Current contract state as JSON string. Ignored when statefile is given.",
+		},
+		cli.StringFlag{
+			Name:  "statefile",
+			Usage: "File with the initial JSON state which will be overwritten.",
 		},
 		cli.IntFlag{
 			Name:  "funds",
@@ -98,7 +107,20 @@ func main() {
 
 		contractFunds := c.Int64("funds") * 1000
 
+		var statejson []byte
+		stateFile := c.String("statefile")
+		if stateFile != "" {
+			statejson, err = ioutil.ReadFile(stateFile)
+			if err != nil {
+				fmt.Fprintf(app.ErrWriter, "failed to read state file '%s'.", stateFile)
+				os.Exit(1)
+			}
+		} else {
+			statejson = []byte(c.String("state"))
+		}
+
 		state, err := runlua.RunCall(
+			log,
 			os.Stderr,
 			returnHttp,
 			func(_ string) (interface{}, int64, error) {
@@ -120,7 +142,7 @@ func main() {
 			},
 			types.Contract{
 				Code:  string(bcontractCode),
-				State: sqlxtypes.JSONText([]byte(c.String("state"))),
+				State: sqlxtypes.JSONText(statejson),
 				Funds: contractFunds,
 			},
 			types.Call{
@@ -136,7 +158,18 @@ func main() {
 			os.Exit(3)
 		}
 
-		json.NewEncoder(app.Writer).Encode(state)
+		if stateFile != "" {
+			f, err := os.Create(stateFile)
+			if err != nil {
+				fmt.Fprintf(app.ErrWriter,
+					"failed to write state to file '%s'.", stateFile)
+				os.Exit(4)
+			}
+			defer f.Close()
+			json.NewEncoder(f).Encode(state)
+		} else {
+			json.NewEncoder(app.Writer).Encode(state)
+		}
 
 		return nil
 	}

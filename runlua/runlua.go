@@ -1,11 +1,11 @@
 package runlua
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/aarzilli/golua/lua"
@@ -15,9 +15,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var log zerolog.Logger
 
 func RunCall(
+	logger zerolog.Logger,
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int64, error),
@@ -29,6 +30,7 @@ func RunCall(
 	contract types.Contract,
 	call types.Call,
 ) (stateAfter interface{}, err error) {
+	log = logger
 	completedOk := make(chan bool, 1)
 	failed := make(chan error, 1)
 
@@ -140,7 +142,16 @@ func runCall(
 			actualArgs := make([]interface{}, len(args)*2+1)
 			i := 0
 			for _, arg := range args {
-				actualArgs[i] = arg
+				var v interface{}
+				switch arg.(type) {
+				case string, int, int64, float64, bool:
+					v = arg
+				default:
+					j, _ := json.Marshal(arg)
+					v = string(j)
+				}
+
+				actualArgs[i] = v
 				actualArgs[i+1] = "\t"
 				i += 2
 			}

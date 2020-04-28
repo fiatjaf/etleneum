@@ -49,7 +49,7 @@ func diffDeltaOneliner(prefix string, idelta gojsondiff.Delta) (lines []string) 
 			lines = append(lines, fmt.Sprintf("- %s", key))
 		case *gojsondiff.Deleted:
 			key = key + delta.PrePosition().String()
-			lines = append(lines, fmt.Sprintf("- %s", key[:len(key)-1]))
+			lines = append(lines, fmt.Sprintf("- %s", key[:len(key)]))
 		}
 	}
 
