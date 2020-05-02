@@ -71,7 +71,7 @@ CREATE TABLE withdrawals (
   bolt11 text NOT NULL
 );
 
-CREATE OR REPLACE FUNCTION funds(contract contracts) RETURNS bigint AS $$
+CREATE OR REPLACE FUNCTION funds(contract contracts) RETURNS numeric(13) AS $$
   SELECT (
     SELECT coalesce(sum(msatoshi), 0)
     FROM calls WHERE calls.contract_id = contract.id
@@ -84,7 +84,7 @@ CREATE OR REPLACE FUNCTION funds(contract contracts) RETURNS bigint AS $$
   );
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION balance(account accounts) RETURNS bigint AS $$
+CREATE OR REPLACE FUNCTION balance(account accounts) RETURNS numeric(13) AS $$
   SELECT (
     SELECT coalesce(sum(msatoshi), 0)
     FROM internal_transfers WHERE to_account = account.id
