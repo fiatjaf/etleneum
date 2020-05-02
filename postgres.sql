@@ -26,8 +26,8 @@ CREATE TABLE calls (
   contract_id text NOT NULL REFERENCES contracts (id) ON DELETE CASCADE,
   method text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}',
-  msatoshi int NOT NULL DEFAULT 0,
-  cost int NOT NULL,
+  msatoshi numeric(13) NOT NULL DEFAULT 0,
+  cost numeric(13) NOT NULL,
   caller text REFERENCES accounts(id),
   diff text,
 
@@ -42,7 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_calls_by_contract ON calls (contract_id, time);
 CREATE TABLE internal_transfers (
   call_id text NOT NULL REFERENCES calls (id),
   time timestamp NOT NULL DEFAULT now(),
-  msatoshi int NOT NULL,
+  msatoshi numeric(13) NOT NULL,
   from_contract text REFERENCES contracts(id),
   from_account text REFERENCES accounts(id),
   to_account text REFERENCES accounts(id),
@@ -66,7 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_internal_transfers_to_account ON internal_transfe
 CREATE TABLE withdrawals (
   account_id text NOT NULL REFERENCES accounts(id),
   time timestamp NOT NULL DEFAULT now(),
-  msatoshi int NOT NULL,
+  msatoshi numeric(13) NOT NULL,
   fulfilled bool NOT NULL,
   bolt11 text NOT NULL
 );
