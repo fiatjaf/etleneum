@@ -60,11 +60,14 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		if k[0] == '_' {
 			continue
 		}
-		v := gjson.Parse(qs.Get(k)).Value()
-		if v == nil {
-			v = qs.Get(k)
+
+		v := qs.Get(k)
+		if gjson.Valid(v) {
+			payload[k] = gjson.Parse(v).Value()
+		} else {
+			payload[k] = v
 		}
-		payload[k] = v
+
 	}
 	jpayload, _ := json.Marshal(payload)
 
@@ -86,6 +89,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		if !hmac.Equal(mac, hmacCall(call)) {
 			logger.Warn().Str("hmac", hex.EncodeToString(mac)).
 				Str("expected", hex.EncodeToString(hmacCall(call))).
+				Str("serialized", callHmacString(call)).
 				Msg("hmac mismatch")
 			json.NewEncoder(w).Encode(lnurl.ErrorResponse("Invalid HMAC."))
 			return
@@ -146,6 +150,7 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var encodedMetadata string
+	var lastHopFee int64
 
 	// update the call saved on redis so we can check values paid later.
 	// this is only needed if the lnurl-pay params sent before were variable
@@ -157,6 +162,7 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		//   appended as fees in the last hop shadow channel.
 		call.Msatoshi = msatoshi
 		call.Cost = getCallCosts(*call)
+		lastHopFee = call.Cost
 
 		_, err = saveCallOnRedis(*call)
 		if err != nil {
@@ -170,10 +176,11 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		encodedMetadata = lnurlCallMetadata(call, false)
 	} else {
 		encodedMetadata = lnurlCallMetadata(call, true)
+		lastHopFee = 0
 	}
 
 	descriptionHash := sha256.Sum256([]byte(encodedMetadata))
-	pr, err := makeInvoice(call.Id, "", &descriptionHash, msatoshi, call.Cost)
+	pr, err := makeInvoice(call.Id, "", &descriptionHash, msatoshi, lastHopFee)
 	if err != nil {
 		logger.Error().Err(err).Msg("translate invoice")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))
