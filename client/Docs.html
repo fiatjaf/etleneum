@@ -377,16 +377,20 @@ end`
         <li>
           <code
             >call-run-event: &#123;id: String, contract_id: String, kind:
-            "start" | "print" | "run" String, message: String&#125;</code
+            "start" | "print" | "run" String, message: String, method:
+            String&#125;</code
           >;
         </li>
         <li>
-          <code>call-made: &#123;id: String, contract_id: String&#125;</code>;
+          <code
+            >call-made: &#123;id: String, contract_id: String, method:
+            String&#125;</code
+          >;
         </li>
         <li>
           <code
             >call-error: &#123;id: String, contract_id: String, kind: "internal"
-            | "runtime", message: String&#125;</code
+            | "runtime", message: String, method: String&#125;</code
           >;
         </li>
       </ul>

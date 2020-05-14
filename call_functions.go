@@ -92,10 +92,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 	}
 
 	// actually run the call
-	dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, "", "start"}, "call-run-event")
+	dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, call.Method, "", "start"}, "call-run-event")
 	newStateO, err := runlua.RunCall(
 		log,
-		&callPrinter{call.ContractId, call.Id},
+		&callPrinter{call.ContractId, call.Id, call.Method},
 		func(r *http.Request) (*http.Response, error) { return http.DefaultClient.Do(r) },
 
 		// get external contract
@@ -195,7 +195,7 @@ VALUES ($1, $2, $3, $4)
 				return 0, fmt.Errorf("insufficient contract funds, needed %d msat more", -funds)
 			}
 
-			dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, fmt.Sprintf("contract.send(%s, %d)", target, msat), "function"}, "call-run-event")
+			dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, call.Method, fmt.Sprintf("contract.send(%s, %d)", target, msat), "function"}, "call-run-event")
 			return msat, nil
 		},
 
@@ -237,7 +237,7 @@ VALUES ($1, $2, $3, $4)
 				return 0, fmt.Errorf("insufficient account balance, needed %d msat more", -balance)
 			}
 
-			dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, fmt.Sprintf("account.send(%s, %d)", target, msat), "function"}, "call-run-event")
+			dispatchContractEvent(call.ContractId, ctevent{call.Id, call.ContractId, call.Method, fmt.Sprintf("account.send(%s, %d)", target, msat), "function"}, "call-run-event")
 			return msat, nil
 		},
 		ct,
