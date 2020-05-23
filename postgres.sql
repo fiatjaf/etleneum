@@ -98,7 +98,7 @@ CREATE OR REPLACE FUNCTION balance(account accounts) RETURNS numeric(13) AS $$
 $$ LANGUAGE SQL;
 
 CREATE OR REPLACE FUNCTION transfers(call text, contract text) RETURNS jsonb AS $$
-  SELECT coalesce(to_jsonb(array_agg(transfers)), '[]'::jsonb)
+  SELECT coalesce(jsonb_agg(transfers), '[]'::jsonb)
   FROM
     (
       SELECT 'out' AS direction, msatoshi,
