@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/fiatjaf/etleneum/types"
+	"gopkg.in/antage/eventsource.v1"
 )
 
 func getAccountSecret(account string) string {
@@ -45,4 +46,19 @@ func callHmacString(call *types.Call) (res string) {
 	}
 
 	return
+}
+
+func notifyHistory(es eventsource.EventSource, accountId string) {
+	var history []types.AccountHistoryEntry
+	err := pg.Select(&history,
+		`SELECT `+types.ACCOUNTHISTORYFIELDS+`
+         FROM account_history WHERE account_id = $1`,
+		accountId)
+	if err != nil {
+		log.Error().Err(err).Str("id", accountId).
+			Msg("failed to load account history from session")
+		return
+	}
+	jhistory, _ := json.Marshal(history)
+	es.SendEventMessage(string(jhistory), "history", "")
 }

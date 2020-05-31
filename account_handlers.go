@@ -72,7 +72,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	if accountId != "" {
 		// we're logged already, so send account information
 		go func() {
-			time.Sleep(200 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			var acct types.Account
 			err := pg.Get(&acct, `SELECT `+types.ACCOUNTFIELDS+` FROM accounts WHERE id = $1`, accountId)
 			if err != nil {
@@ -83,13 +83,20 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": `+strconv.FormatInt(acct.Balance, 10)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
 		}()
 
-		// also renew his session
+		// we're logged already, so send history
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			notifyHistory(es, accountId)
+		}()
+
+		// also renew this session
 		rds.Expire("auth-session:"+session, time.Hour*24*30)
 	}
 
-	// always send lnurls because we need lnurl-withdraw even if we're logged already, obviously
+	// always send lnurls because we need lnurl-withdraw even if we're
+	// logged already
 	go func() {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		auth, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/auth?tag=login&k1=" + session)
 		withdraw, _ := lnurl.LNURLEncode(s.ServiceURL + "/lnurl/withdraw?session=" + session)
 
@@ -142,8 +149,13 @@ ON CONFLICT (lnurl_key)
 		return
 	}
 
+	es := ies.(eventsource.EventSource)
+
 	// notify browser
-	ies.(eventsource.EventSource).SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": `+strconv.FormatInt(acct.Balance, 10)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
+	es.SendEventMessage(`{"session": "`+k1+`", "account": "`+acct.Id+`", "balance": `+strconv.FormatInt(acct.Balance, 10)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
+
+	// also send history
+	notifyHistory(es, acct.Id)
 
 	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
@@ -161,7 +173,7 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 
 	// get balance
 	var balance int
-	err = pg.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", accountId)
+	err = pg.Get(&balance, "SELECT balance($1)", accountId)
 	if err != nil {
 		w.WriteHeader(500)
 		return
@@ -186,15 +198,15 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get balance
-	var balance int
-	err = pg.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", accountId)
+	var balance int64
+	err = pg.Get(&balance, "SELECT balance($1)", accountId)
 	if err != nil {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("error fetching " + accountId + " balance."))
 		return
 	}
 
 	if balance < 10000 {
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("the minimum withdrawal is 10 sat, your balance is " + strconv.Itoa(balance) + " msat."))
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("the minimum withdrawal is 10 sat, your balance is " + strconv.FormatInt(balance, 10) + " msat."))
 		return
 	}
 
@@ -257,7 +269,7 @@ VALUES ($1, $2, false, $3)
 
 	// check balance afterwards
 	var balance int
-	err = txn.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", accountId)
+	err = txn.Get(&balance, "SELECT balance($1)", accountId)
 	if err != nil {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
 		return

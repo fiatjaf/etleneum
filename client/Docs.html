@@ -301,7 +301,8 @@ end`
       <code>Call</code>:
       <code
         >&#123;id: String, time: String, method: String, payload: Any, matoshi:
-        Int, cost: Int, diff: String, transfers: []Transfer, ran: Bool&#125;</code
+        Int, cost: Int, diff: String, transfers: []Transfer, ran:
+        Bool&#125;</code
       >
     </li>
     <li>
@@ -310,6 +311,10 @@ end`
         >&#123;direction: "in" | "out", matoshi: Int, counterparty:
         String&#125;</code
       >
+    </li>
+    <li>
+      <code>AccountHistoryEntry</code>:
+      <code>&#123;msatoshi: Int, time: String, counterparty: String&#125;</code>
     </li>
   </ul>
   <h2>Endpoints</h2>
@@ -432,6 +437,7 @@ end`
             String]&#125;</code
           >;
         </li>
+        <li><code>history: &#123;[]AccountHistoryEntry&#125;</code>;</li>
         <li>
           <code>withdraw: &#123;amount: Int, new_balance: Int&#125;</code>;
         </li>

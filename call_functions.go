@@ -22,14 +22,6 @@ func getCallCosts(c types.Call) int64 {
 	chars := int64(len(string(c.Payload)))
 	cost += 20 * chars // 70 msatoshi for each character in the payload
 
-	// to help cover withdraw fees later we charge a percent of the
-	// amount of satoshis included
-	if c.Msatoshi > 10000000 {
-		cost += int64(float64(c.Msatoshi) / 250)
-	} else {
-		cost += int64(float64(c.Msatoshi) / 100)
-	}
-
 	return cost
 }
 
@@ -204,7 +196,7 @@ VALUES ($1, $2, $3, $4)
 			if call.Caller == "" {
 				return 0, errors.New("no account")
 			}
-			err = txn.Get(&userBalance, "SELECT accounts.balance FROM accounts WHERE id = $1", call.Caller)
+			err = txn.Get(&userBalance, "SELECT balance($1)", call.Caller)
 			return
 		},
 
@@ -229,7 +221,7 @@ VALUES ($1, $2, $3, $4)
 			}
 
 			var balance int
-			err = txn.Get(&balance, "SELECT accounts.balance FROM accounts WHERE id = $1", ct.Id)
+			err = txn.Get(&balance, "SELECT balance($1)", ct.Id)
 			if err != nil {
 				return
 			}

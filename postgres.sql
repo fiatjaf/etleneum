@@ -63,14 +63,6 @@ CREATE INDEX IF NOT EXISTS idx_internal_transfers_to_contract ON internal_transf
 CREATE INDEX IF NOT EXISTS idx_internal_transfers_from_account ON internal_transfers (from_account);
 CREATE INDEX IF NOT EXISTS idx_internal_transfers_to_account ON internal_transfers (to_account);
 
-CREATE TABLE withdrawals (
-  account_id text NOT NULL REFERENCES accounts(id),
-  time timestamp NOT NULL DEFAULT now(),
-  msatoshi numeric(13) NOT NULL,
-  fulfilled bool NOT NULL,
-  bolt11 text NOT NULL
-);
-
 CREATE OR REPLACE FUNCTION funds(contract contracts) RETURNS numeric(13) AS $$
   SELECT (
     SELECT coalesce(sum(msatoshi), 0)
@@ -84,17 +76,38 @@ CREATE OR REPLACE FUNCTION funds(contract contracts) RETURNS numeric(13) AS $$
   );
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION balance(account accounts) RETURNS numeric(13) AS $$
-  SELECT (
-    SELECT coalesce(sum(msatoshi), 0)
-    FROM internal_transfers WHERE to_account = account.id
-  ) - (
-    SELECT coalesce(sum(msatoshi), 0)
-    FROM internal_transfers WHERE from_account = account.id
-  ) - (
-    SELECT coalesce(sum(msatoshi), 0)
-    FROM withdrawals WHERE account_id = account.id
-  );
+CREATE TABLE withdrawals (
+  account_id text NOT NULL REFERENCES accounts(id),
+  time timestamp NOT NULL DEFAULT now(),
+  msatoshi numeric(13) NOT NULL,
+  fulfilled bool NOT NULL,
+  bolt11 text NOT NULL
+);
+
+CREATE OR REPLACE VIEW account_history (
+  time,
+  account_id,
+  msatoshi,
+  counterparty
+) AS
+  SELECT * FROM (
+    SELECT time, from_account, -msatoshi, coalesce(to_contract, to_account)
+    FROM internal_transfers
+    WHERE from_account IS NOT NULL
+  UNION ALL
+    SELECT time, to_account, msatoshi, coalesce(from_contract, from_account)
+    FROM internal_transfers
+    WHERE to_account IS NOT NULL
+  UNION ALL
+    SELECT time, account_id, -msatoshi, 'withdrawal'
+    FROM withdrawals
+  )u ORDER BY time DESC
+;
+
+CREATE OR REPLACE FUNCTION balance(id text) RETURNS numeric(13) AS $$
+  SELECT (coalesce(sum(msatoshi), 0) * 0.99)::numeric(13)
+  FROM account_history
+  WHERE account_id = id;
 $$ LANGUAGE SQL;
 
 CREATE OR REPLACE FUNCTION transfers(call text, contract text) RETURNS jsonb AS $$

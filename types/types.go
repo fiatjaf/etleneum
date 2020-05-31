@@ -48,7 +48,15 @@ type Account struct {
 	Balance int64  `db:"balance" json:"balance"`
 }
 
-const ACCOUNTFIELDS = "id, accounts.balance"
+const ACCOUNTFIELDS = "id, balance(id)"
+
+type AccountHistoryEntry struct {
+	Time         time.Time `db:"time" json:"time"`
+	Msatoshi     int64     `db:"msatoshi" json:"msatoshi"`
+	Counterparty string    `db:"counterparty" json:"counterparty"`
+}
+
+const ACCOUNTHISTORYFIELDS = "time, msatoshi, counterparty"
 
 type StuffBeingCreated struct {
 	Id      string `json:"id"`

@@ -87,18 +87,52 @@
   .awaiting-seed-auth img {
     width: 40%;
   }
+
+  #history {
+    margin-top: 33px;
+  }
+  #history caption {
+    font-size: 1.2em;
+    margin-bottom: 14px;
+  }
+  #history td {
+    padding: 0 5px;
+  }
+  #history td:nth-child(2) {
+    text-align:right;
+  }
 </style>
 
 <div class="center">
   {#if $account.id}
   <p>Logged as <b>{$account.id}</b>.</p>
-  <p>Your balance is <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.</p>
+  <p>Can withdraw <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.</p>
   {#if $account.balance > 0 && $account.lnurl.withdraw}
   <QR value="{$account.lnurl.withdraw}" />
   <p>Scan to withdraw.</p>
   {/if}
   <div><button on:click="{logout}">logout</button></div>
-  {:else if awaitingSeedAuth}
+  {#if $account.history.length}
+  <table id="history">
+    <caption>
+      Transaction history
+    </caption>
+    {#each $account.history as entry}
+    <tr>
+      <td>{entry.time.split('T').join(' ').replace(/\..*/, '')}</td>
+      <td><b>{entry.msatoshi / 1000}sat</b></td>
+      <td>
+        {#if entry.counterparty[0] == 'c'}
+        <a href="#/contract/{entry.counterparty}">
+          {entry.counterparty}
+        </a>
+        {:else} {entry.counterparty} {/if}
+      </td>
+    </tr>
+    {/each}
+  </table>
+
+  {/if} {:else if awaitingSeedAuth}
   <div class="awaiting-seed-auth"><img src="/static/rings.svg" /></div>
   Waiting for login on popup {:else if $account.lnurl.auth}
   <h2>lnurl login</h2>

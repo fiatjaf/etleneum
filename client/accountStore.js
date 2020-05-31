@@ -11,7 +11,8 @@ const initial = {
   session: window.localStorage.getItem('auth-session') || null,
   id: null,
   balance: 0,
-  secret: ''
+  secret: '',
+  history: []
 }
 
 var current = {...initial}
@@ -70,6 +71,11 @@ function startEventSource() {
     if (data.session) {
       window.localStorage.setItem('auth-session', data.session)
     }
+  })
+  es.addEventListener('history', e => {
+    let data = JSON.parse(e.data)
+    current.history = data
+    storeSet(current)
   })
   es.addEventListener('withdraw', e => {
     let data = JSON.parse(e.data)
