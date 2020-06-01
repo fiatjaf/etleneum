@@ -180,7 +180,7 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 	}
 
 	descriptionHash := sha256.Sum256([]byte(encodedMetadata))
-	pr, err := makeInvoice(call.Id, "", &descriptionHash, msatoshi, lastHopFee)
+	pr, err := makeInvoice(call.ContractId, call.Id, "", &descriptionHash, msatoshi, lastHopFee)
 	if err != nil {
 		logger.Error().Err(err).Msg("translate invoice")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("Failed to fetch call data."))

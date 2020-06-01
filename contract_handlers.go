@@ -95,6 +95,7 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 	} else {
 		invoice, err = makeInvoice(
 			ct.Id,
+			ct.Id,
 			s.ServiceId+" __init__ ["+ct.Id+"]",
 			nil,
 			getContractCost(*ct),

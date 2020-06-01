@@ -20,14 +20,15 @@ const BOGUS_INVOICE = "lnbcrt1231230p1pwccq4app53nrqyuwmhkcsqqq8qnqvka0njqt0q0w9
 var BOGUS_SECRET = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 func makeInvoice(
-	id string, // call or contract id: pubkey, scid and preimage based on this
+	ctid string, // pubkey is based on this
+	id string, // call or contract id: scid and preimage based on this
 	desc string,
 	deschash *[32]byte,
 	main_price int64, // in msatoshi
 	cost int64, // will be added as routing fees in the last channel
 ) (bolt11 string, err error) {
+	sk, _ := makeKeys(ctid)
 	preimage := makePreimage(id)
-	sk, _ := makeKeys(id)
 	channelid := makeShortChannelId(id)
 
 	nodeid, _ := hex.DecodeString(s.NodeId)

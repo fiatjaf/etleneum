@@ -87,6 +87,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		}()
 	} else {
 		invoice, err = makeInvoice(
+			call.ContractId,
 			call.Id,
 			s.ServiceId+" "+call.Method+" ["+call.ContractId+"]["+call.Id+"]",
 			nil,
