@@ -6,20 +6,22 @@ import shajs from 'sha.js'
 
 import * as toast from './toast'
 
-const initial = {
-  lnurl: {auth: null, withdraw: null},
-  session: window.localStorage.getItem('auth-session') || null,
-  id: null,
-  balance: 0,
-  secret: '',
-  history: []
+function getInitial() {
+  return {
+    lnurl: {auth: null, withdraw: null},
+    session: window.localStorage.getItem('auth-session') || null,
+    id: null,
+    balance: 0,
+    secret: '',
+    history: []
+  }
 }
 
-var current = {...initial}
+var current = getInitial()
 var es
 var storeSet = () => {}
 
-const account = readable(initial, set => {
+const account = readable(current, set => {
   storeSet = set
   startEventSource()
 
@@ -33,16 +35,13 @@ account.refresh = function() {
 }
 
 account.reset = function() {
-  window.localStorage.removeItem('auth-session')
-  current = {...initial}
-  storeSet(current)
-
   if (es) {
     es.close()
-    window.localStorage.removeItem('auth-session')
-    current = {...initial}
-    storeSet(current)
   }
+
+  window.localStorage.removeItem('auth-session')
+  current = getInitial()
+  storeSet(current)
 
   startEventSource()
 }
