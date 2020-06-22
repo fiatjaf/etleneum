@@ -1,0 +1,9 @@
+Terms of Service
+
+All satoshis sent to this website are to be considered donations.
+Any functionality that allows you to withdraw satoshis from this website can be suspended at any time.
+
+Privacy Policy
+
+The only data that is collected is the data you send during method calls that is shown publicly on the website.
+Identities aren't represented internally by anything else than the public key supplied by your authentication agent and the short id shown in the website.
