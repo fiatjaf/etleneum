@@ -78,7 +78,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 		Msatoshi:   msatoshi,
 		Payload:    []byte(jpayload),
 	}
-	call.Cost = getCallCosts(*call)
+	call.Cost = getCallCosts(*call, false)
 
 	// if the user has hmac'ed this call we set them as the caller
 	if account := qs.Get("_account"); account != "" {
@@ -161,7 +161,7 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 		//   the exact msatoshi amount chosen in the screen, costs will be
 		//   appended as fees in the last hop shadow channel.
 		call.Msatoshi = msatoshi
-		call.Cost = getCallCosts(*call)
+		call.Cost = getCallCosts(*call, true)
 		lastHopFee = call.Cost
 
 		_, err = saveCallOnRedis(*call)

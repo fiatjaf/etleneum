@@ -55,7 +55,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	}
 	call.ContractId = ctid
 	call.Id = "r" + cuid.Slug()
-	call.Cost = getCallCosts(*call)
+	call.Cost = getCallCosts(*call, false)
 	logger = logger.With().Str("callid", call.Id).Logger()
 
 	// if the user has authorized and want to make an authenticated call

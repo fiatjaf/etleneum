@@ -16,11 +16,13 @@ import (
 	"github.com/yudai/gojsondiff"
 )
 
-func getCallCosts(c types.Call) int64 {
+func getCallCosts(c types.Call, isLnurl bool) int64 {
 	cost := s.FixedCallCostSatoshis * 1000 // a fixed cost of 1 satoshi by default
 
-	chars := int64(len(string(c.Payload)))
-	cost += 20 * chars // 70 msatoshi for each character in the payload
+	if !isLnurl {
+		chars := int64(len(string(c.Payload)))
+		cost += 50 * chars // 50 msatoshi for each character in the payload
+	}
 
 	return cost
 }
