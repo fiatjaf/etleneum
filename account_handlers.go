@@ -256,11 +256,13 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("bolt11", bolt11).Str("account", accountId).Int64("amount", amount).
 		Msg("got a withdraw payment request")
 
+	fee := int64(float64(amount)/0.995) - amount
+
 	// add a pending withdrawal
 	_, err = txn.Exec(`
-INSERT INTO withdrawals (account_id, msatoshi, fulfilled, bolt11)
-VALUES ($1, $2, false, $3)
-    `, accountId, amount, bolt11)
+INSERT INTO withdrawals (account_id, msatoshi, fee_msat, fulfilled, bolt11)
+VALUES ($1, $2, $3, false, $4)
+    `, accountId, amount, fee, bolt11)
 	if err != nil {
 		log.Warn().Err(err).Msg("error inserting withdrawal")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))

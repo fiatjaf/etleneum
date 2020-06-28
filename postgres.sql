@@ -80,6 +80,7 @@ CREATE TABLE withdrawals (
   account_id text NOT NULL REFERENCES accounts(id),
   time timestamp NOT NULL DEFAULT now(),
   msatoshi numeric(13) NOT NULL,
+  fee_msat int NOT NULL DEFAULT 0,
   fulfilled bool NOT NULL,
   bolt11 text NOT NULL
 );
@@ -99,7 +100,7 @@ CREATE OR REPLACE VIEW account_history (
     FROM internal_transfers
     WHERE to_account IS NOT NULL
   UNION ALL
-    SELECT time, account_id, -msatoshi, 'withdrawal'
+    SELECT time, account_id, -msatoshi-fee_msat, 'withdrawal'
     FROM withdrawals
   )u ORDER BY time DESC
 ;
