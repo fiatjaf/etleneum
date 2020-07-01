@@ -294,9 +294,11 @@ VALUES ($1, $2, $3, false, $4)
 	go func() {
 		payresp, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay",
 			map[string]interface{}{
-				"bolt11":     bolt11,
-				"label":      "etleneum withdraw " + accountId,
-				"use_shadow": false,
+				"bolt11":        bolt11,
+				"label":         "etleneum withdraw " + accountId,
+				"use_shadow":    false,
+				"maxfeepercent": 0.3,
+				"exemptfee":     0,
 			})
 		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
 			Msg("withdraw pay result")
