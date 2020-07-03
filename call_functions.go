@@ -21,7 +21,7 @@ func getCallCosts(c types.Call, isLnurl bool) int64 {
 
 	if !isLnurl {
 		chars := int64(len(string(c.Payload)))
-		cost += 50 * chars // 50 msatoshi for each character in the payload
+		cost += 10 * chars // 50 msatoshi for each character in the payload
 	}
 
 	return cost
