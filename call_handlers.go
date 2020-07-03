@@ -162,6 +162,17 @@ func patchCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// authenticated calls can only be modified by an authenticated session
+	if call.Caller != "" {
+		if session := r.URL.Query().Get("session"); session != "" {
+			accountId, err := rds.Get("auth-session:" + session).Result()
+			if err != nil || accountId != call.Caller {
+				jsonError(w, "only the author can patch an authenticated call.", 401)
+				return
+			}
+		}
+	}
+
 	patch := make(map[string]interface{})
 	err = json.NewDecoder(r.Body).Decode(&patch)
 	if err != nil {
