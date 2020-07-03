@@ -62,7 +62,7 @@ func makeInvoice(
 		zpay32.Features(&lnwire.FeatureVector{
 			RawFeatureVector: lnwire.NewRawFeatureVector(
 				lnwire.PaymentAddrOptional,
-				lnwire.MPPOptional,
+				lnwire.TLVOnionPayloadOptional,
 			),
 		}),
 		zpay32.PaymentAddr(BOGUS_SECRET),
