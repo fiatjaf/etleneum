@@ -136,6 +136,14 @@ func parseShortChannelId(scid uint64) (id string, ok bool) {
 	return id, true
 }
 
+func encodeShortChannelId(scid uint64) string {
+	block := strconv.FormatUint((scid>>40)&0xFFFFFF, 10)
+	tx := strconv.FormatUint((scid>>16)&0xFFFFFF, 10)
+	out := strconv.FormatUint(scid&0xFFFF, 10)
+
+	return block + "x" + tx + "x" + out
+}
+
 func decodeShortChannelId(scid string) (uint64, error) {
 	spl := strings.Split(scid, "x")
 

@@ -184,6 +184,8 @@ func server() {
 	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
 	router.Path("/~/session/logout").Methods("POST").HandlerFunc(logout)
 	router.Path("/^/webhook/github").Methods("POST").HandlerFunc(handleGitHubWebhook)
+	router.Path("/_/decode-scid/{scid}").Methods("GET").HandlerFunc(handleDecodeScid)
+	router.Path("/_/call-details/{callid}").Methods("GET").HandlerFunc(handleCallDetails)
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{
