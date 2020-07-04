@@ -215,7 +215,7 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 		Callback:           fmt.Sprintf("%s/lnurl/withdraw/callback", s.ServiceURL),
 		K1:                 session,
 		MaxWithdrawable:    int64(balance),
-		MinWithdrawable:    10000,
+		MinWithdrawable:    100000,
 		DefaultDescription: fmt.Sprintf("etleneum.com %s balance withdraw", accountId),
 		Tag:                "withdrawRequest",
 	})
@@ -256,7 +256,7 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("bolt11", bolt11).Str("account", accountId).Int64("amount", amount).
 		Msg("got a withdraw payment request")
 
-	fee := int64(float64(amount)/0.995) - amount
+	fee := int64(float64(amount)/0.997) - amount
 
 	// add a pending withdrawal
 	_, err = txn.Exec(`
