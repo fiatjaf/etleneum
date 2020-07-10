@@ -159,7 +159,7 @@ func runCall(
 			fmt.Fprint(printToDestination, actualArgs...)
 		},
 		"sha256": lua_sha256,
-		"cuid":   cuid.New,
+		"cuid":   cuid.Slug,
 	})
 
 	code := `
