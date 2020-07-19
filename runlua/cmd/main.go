@@ -63,6 +63,11 @@ func main() {
 			Value: 0,
 			Usage: "Satoshis to include in the call.",
 		},
+		cli.Int64Flag{
+			Name:  "msatoshi",
+			Value: 0,
+			Usage: "Msatoshi to include in the call.",
+		},
 		cli.StringSliceFlag{
 			Name:  "http",
 			Usage: "HTTP response to mock. Can be called multiple times. Will return the multiple values in order to each HTTP call made by the contract.",
@@ -119,6 +124,11 @@ func main() {
 			statejson = []byte(c.String("state"))
 		}
 
+		msatoshi := c.Int64("msatoshi")
+		if msatoshi == 0 {
+			msatoshi = int64(1000 * c.Float64("satoshis"))
+		}
+
 		state, err := runlua.RunCall(
 			log,
 			os.Stderr,
@@ -147,7 +157,7 @@ func main() {
 			},
 			types.Call{
 				Id:       "callid",
-				Msatoshi: int64(1000 * c.Float64("satoshis")),
+				Msatoshi: msatoshi,
 				Method:   c.String("method"),
 				Payload:  sqlxtypes.JSONText([]byte(c.String("payload"))),
 				Caller:   c.String("caller"),
