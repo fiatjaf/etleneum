@@ -239,6 +239,15 @@ end`
           returns it's SHA256, hex-encoded.
         </li>
         <li><code>cuid: () => String</code>, generates a random id;</li>
+        <li>
+          <code
+            >parse_bolt11: (pr: String) => (inv: &#123;payee: String, expiry:
+            Int, routes: Array, currency: String, msatoshi: Int, created_at:
+            Int, description: String, payment_hash: String,
+            min_final_cltv_expiry: Int&#125;, error)</code
+          >, parses a bolt11 invoice (and checks signatures, as this has not
+          many more uses besides checking signatures);
+        </li>
       </ul>
     </li>
     <li>

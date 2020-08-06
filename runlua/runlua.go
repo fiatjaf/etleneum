@@ -158,8 +158,9 @@ func runCall(
 			actualArgs[i] = "\n"
 			fmt.Fprint(printToDestination, actualArgs...)
 		},
-		"sha256": lua_sha256,
-		"cuid":   cuid.Slug,
+		"sha256":       lua_sha256,
+		"cuid":         cuid.Slug,
+		"parse_bolt11": lua_parse_bolt11,
 	})
 
 	code := `
@@ -203,6 +204,7 @@ sandbox_env = {
     sha256 = sha256,
     cuid = cuid,
     print = print,
+    parse_bolt11 = parse_bolt11,
   },
   contract = {
     id = current_contract,

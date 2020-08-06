@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+
+	decodepay "github.com/fiatjaf/ln-decodepay"
 )
 
 func make_lua_http(makeRequest func(*http.Request) (*http.Response, error)) (
@@ -118,4 +120,15 @@ func lua_sha256(preimage string) (hash string, err error) {
 	}
 	hash = hex.EncodeToString(h.Sum(nil))
 	return hash, nil
+}
+
+func lua_parse_bolt11(bolt11 string) (map[string]interface{}, error) {
+	inv, err := decodepay.Decodepay(bolt11)
+	if err != nil {
+		return nil, err
+	}
+	jinv, _ := json.Marshal(inv)
+	minv := make(map[string]interface{})
+	json.Unmarshal(jinv, &minv)
+	return minv, nil
 }

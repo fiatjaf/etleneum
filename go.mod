@@ -10,6 +10,7 @@ require (
 	github.com/fiatjaf/go-lnurl v1.0.0
 	github.com/fiatjaf/hashbow v1.0.0
 	github.com/fiatjaf/lightningd-gjson-rpc v1.0.0
+	github.com/fiatjaf/ln-decodepay v1.0.0
 	github.com/fiatjaf/lunatico v1.0.0
 	github.com/fogleman/gg v1.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
