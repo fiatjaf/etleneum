@@ -54,6 +54,27 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 
 	qs := r.URL.Query()
 
+	// fixed minSendable, maxSendable
+	var defaultMinSendable int64 = 1
+	var defaultMaxSendable int64 = 1000000000
+	var err error
+	if min := qs.Get("_minsendable"); min != "" {
+		defaultMinSendable, err = strconv.ParseInt(min, 10, 64)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("_minsendable param is invalid."))
+			return
+		}
+		qs.Del("_minsendable")
+	}
+	if max := qs.Get("_maxsendable"); max != "" {
+		defaultMaxSendable, err = strconv.ParseInt(max, 10, 64)
+		if err != nil {
+			json.NewEncoder(w).Encode(lnurl.ErrorResponse("_maxsendable param is invalid."))
+			return
+		}
+		qs.Del("_maxsendable")
+	}
+
 	// payload comes as query parameters
 	payload := make(map[string]interface{})
 	for k, _ := range qs {
@@ -117,8 +138,8 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	var encodedMetadata string
 	if call.Msatoshi == 0 && vars["msatoshi"] != "0" {
 		// if amount is not given let the person choose on lnurl-pay UI
-		min = 1
-		max = 100000000
+		min = defaultMinSendable
+		max = defaultMaxSendable
 		encodedMetadata = lnurlCallMetadata(call, false)
 	} else {
 		// otherwise make the lnurl params be the full main_price + cost
