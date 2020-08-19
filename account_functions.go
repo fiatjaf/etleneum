@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -54,11 +55,14 @@ func notifyHistory(es eventsource.EventSource, accountId string) {
 		`SELECT `+types.ACCOUNTHISTORYFIELDS+`
          FROM account_history WHERE account_id = $1`,
 		accountId)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		log.Error().Err(err).Str("id", accountId).
 			Msg("failed to load account history from session")
 		return
+	} else if err != sql.ErrNoRows {
+		es.SendEventMessage("[]", "history", "")
+	} else {
+		jhistory, _ := json.Marshal(history)
+		es.SendEventMessage(string(jhistory), "history", "")
 	}
-	jhistory, _ := json.Marshal(history)
-	es.SendEventMessage(string(jhistory), "history", "")
 }

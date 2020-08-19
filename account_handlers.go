@@ -319,7 +319,7 @@ VALUES ($1, $2, $3, false, $4)
 		}
 
 		// call listpays to check failure
-		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() != "failed" {
+		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() > 0 && listpays.Get("pays.0.status").String() != "failed" {
 			// not a failure -- but also not a success
 			// we don't know what happened, maybe it's pending, so don't do anything
 			log.Debug().Str("bolt11", bolt11).
