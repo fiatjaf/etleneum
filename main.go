@@ -70,9 +70,6 @@ func main() {
 			Name:    "etleneum",
 			Version: "v2.0",
 			Dynamic: true,
-			Options: []plugin.Option{
-				{"etleneum-envfile", "string", "", "Path to the file containing everything"},
-			},
 			Hooks: []plugin.Hook{
 				{
 					"htlc_accepted",
@@ -81,20 +78,17 @@ func main() {
 			},
 			OnInit: func(p *plugin.Plugin) {
 				// set environment from envfile (hack)
-				if envpath, err := p.Args.String("etleneum-envfile"); err == nil {
-					if !filepath.IsAbs(envpath) {
-						// expand tlspath from lightning dir
-						envpath = filepath.Join(filepath.Dir(p.Client.Path), envpath)
-					}
-
-					if _, err := os.Stat(envpath); err != nil {
-						log.Fatal().Err(err).Str("path", envpath).Msg("envfile not found")
-					}
-
-					godotenv.Load(envpath)
-				} else {
-					log.Fatal().Err(err).Msg("specify etleneum-envfile")
+				envpath := "etleneum.env"
+				if !filepath.IsAbs(envpath) {
+					// expand tlspath from lightning dir
+					envpath = filepath.Join(filepath.Dir(p.Client.Path), envpath)
 				}
+
+				if _, err := os.Stat(envpath); err != nil {
+					log.Fatal().Err(err).Str("path", envpath).Msg("envfile not found")
+				}
+
+				godotenv.Load(envpath)
 
 				// globalize the lightning rpc client
 				ln = p.Client

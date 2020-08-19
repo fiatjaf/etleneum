@@ -18,6 +18,5 @@ deploy_test: etleneum
 	ssh root@nusakan-58 'systemctl start etleneum-test'
 
 deploy: etleneum
-	ssh root@aspidiske-402 'systemctl stop lightningd'
-	scp etleneum aspidiske-402:lightning/plugins/etleneum
-	ssh root@aspidiske-402 'systemctl start lightningd'
+	scp etleneum aspidiske-402:.lightning/plugins/etleneum-new
+	ssh aspidiske-402 'lightning/cli/lightning-cli plugin stop etleneum; mv .lightning/plugins/etleneum-new .lightning/plugins/etleneum; lightning/cli/lightning-cli plugin start $$HOME/.lightning/plugins/etleneum'
