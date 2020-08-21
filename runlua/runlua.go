@@ -270,9 +270,9 @@ sandbox_env = {
   keybase = {
     verify = function (username, text_or_bundle, signature_block)
       if not signature_block then
-        return keybase._verify_bundle(username, text_or_bundle)
+        return keybase_verify_bundle(username, text_or_bundle)
       end
-      return keybase._verify(username, text_or_bundle, signature_block)
+      return keybase_verify(username, text_or_bundle, signature_block)
     end,
     extract_message = keybase_extract_message,
     lookup = keybase_lookup,
