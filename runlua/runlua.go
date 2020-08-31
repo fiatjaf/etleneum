@@ -179,6 +179,7 @@ sandbox_env = {
   tostring = tostring,
   type = type,
   unpack = unpack,
+  utf8 = utf8,
   string = { byte = string.byte, char = string.char, find = string.find,
       format = string.format, gmatch = string.gmatch, gsub = string.gsub,
       len = string.len, lower = string.lower, match = string.match,
