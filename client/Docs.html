@@ -25,8 +25,8 @@ function getmoney ()
   if not money_to_get then
     money_to_get = 10000 -- default to 10 sat
   end
-  if money_to_get > 10000 then
-    money_to_get = 10000 -- the amount is limited to 100 sat
+  if money_to_get > 100000 then
+    money_to_get = 100000 -- the amount is limited to 100 sat
   end
 
   -- this sends the money to the account balance of the caller
