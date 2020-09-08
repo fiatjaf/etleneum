@@ -3,8 +3,8 @@ all: etleneum runcall
 etleneum: $(shell find . -name "*.go") bindata.go
 	go build -ldflags="-s -w" -o ./etleneum
 
-runcall: runlua/runlua.go runlua/cmd/main.go
-	cd runlua/cmd && go build -o ../../runcall
+runcall: runlua/runlua.go runlua/cmd/runcall/main.go
+	cd runlua/cmd/runcall && go build -o ../../../runcall
 
 bindata.go: static/bundle.js static/index.html static/global.css static/bundle.css
 	go-bindata -o bindata.go static/...
