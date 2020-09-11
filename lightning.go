@@ -98,6 +98,9 @@ func makeShortChannelId(id string) (scid uint64) {
 	// so there are room for 10 characters, which is what we need to fit a cuid slug.
 	// since the cuid slug can be between 7 and 10, we also accomodate for blank
 	// strings at the end by having an empty character ('_') encoded in 6 bits too.
+	// BUG: because of the monotonically increasing counter used in cuids, they don't
+	// have a limit of characters, it can increase indefinitely, so after some hundred
+	// calls it will get to 11 characters and this will break. a restart fixes it.
 	arreda := 60
 	for _, letter := range []byte(id) {
 		n := bytes.Index(SHORT_CHANNEL_ID_CHARACTERS, []uint8{letter})
