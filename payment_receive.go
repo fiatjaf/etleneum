@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"strconv"
@@ -50,6 +51,17 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		return continueHTLC
 	}
 
+	// ensure that we can derive the correct preimage for this payment
+	preimage := makePreimage(id)
+	preimageHex := hex.EncodeToString(preimage)
+	derivedHash := sha256.Sum256(preimage)
+	derivedHashHex := hex.EncodeToString(derivedHash[:])
+	if hash != derivedHashHex {
+		p.Logf("we have a preimage %s, but its hash %s didn't match the expected hash %s - continue", preimageHex, derivedHashHex, hash)
+		return continueHTLC
+	}
+
+	// run the call
 	if id[0] == 'c' {
 		ok = contractPaymentReceived(id, msatoshi)
 	} else if id[0] == 'r' {
@@ -60,12 +72,12 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 		return continueHTLC
 	}
 
+	// after the call succeeds, we resolve the payment
 	if ok {
-		preimage := hex.EncodeToString(makePreimage(id))
-		p.Logf("call went ok. we have a preimage: %s - resolve", preimage)
+		p.Logf("call went ok. we have a preimage: %s - resolve", preimageHex)
 		return map[string]interface{}{
 			"result":      "resolve",
-			"payment_key": preimage,
+			"payment_key": preimageHex,
 		}
 	} else {
 		// in case of call execution failure we just fail the payment
