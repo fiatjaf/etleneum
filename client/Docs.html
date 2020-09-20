@@ -53,12 +53,8 @@ end`
     other places on the internet and manage the contract funds. What we call
     <em>methods</em> are just Lua functions.
   </p>
-  <p>
-    See the following example of a simple "community faucet" contract code:
-  </p>
-  <LuaCode>
-    {faucetcode}
-  </LuaCode>
+  <p>See the following example of a simple "community faucet" contract code:</p>
+  <LuaCode> {faucetcode} </LuaCode>
   <p>
     The contract above allows generous rich people to put money in (by calling
     <code>fundfaucet</code> and including some satoshis in the call) and poor
@@ -159,9 +155,7 @@ end`
     </li>
   </ul>
   <h1 id="contract-api">Contract API</h1>
-  <p>
-    Contract code has access to the following globals:
-  </p>
+  <p>Contract code has access to the following globals:</p>
   <ul>
     <li>
       <code>call</code> table with fields:
@@ -218,12 +212,10 @@ end`
         <li>
           <code
             >call_external: (contract_id: String, method: String, payload: Any,
-            msatoshi: Int, params: {`{as: String?}`}) => ()</code
+            msatoshi: Int) => ()</code
           >, a function that calls a method on another contract -- each external
           call costs one satoshi and it must be manually included in the current
-          call, the <code>as</code> parameter could be either "contract" to make
-          the call as the contract or "user" to make the call as the current
-          user, or nil;
+          call;
         </li>
       </ul>
     </li>

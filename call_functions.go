@@ -76,10 +76,18 @@ WHERE id = $1`,
 	caller := sql.NullString{Valid: call.Caller != "", String: call.Caller}
 
 	// save call data even though we don't know if it will succeed or not (this is a transaction anyway)
-	_, err = txn.Exec(`
-INSERT INTO calls (id, contract_id, method, payload, cost, msatoshi, caller)
+	callerType := "account"
+	if call.Caller != "" && call.Caller[0] == 'c' {
+		callerType = "contract"
+	}
+
+	_, err = txn.Exec(fmt.Sprintf(`
+INSERT INTO calls (id, contract_id, method, payload, cost, msatoshi, caller_%s)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, call.Id, call.ContractId, call.Method, call.Payload, call.Cost, call.Msatoshi, caller)
+    `, callerType),
+		call.Id, call.ContractId,
+		call.Method, call.Payload, call.Cost, call.Msatoshi,
+		caller)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", call.Id).Msg("database error")
 		return
@@ -107,7 +115,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 		},
 
 		// call external method
-		func(externalContractId string, method string, payload interface{}, msatoshi int64, account string) (err error) {
+		func(externalContractId string, method string, payload interface{}, msatoshi int64) (err error) {
 			jpayload, _ := json.Marshal(payload)
 
 			// build the call
@@ -118,7 +126,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 				Payload:    jpayload,
 				Msatoshi:   msatoshi,
 				Cost:       1000, // only the fixed cost, the other costs are included
-				Caller:     account,
+				Caller:     call.ContractId,
 			}
 
 			// pay for the call (by extracting the fixed cost from call satoshis)

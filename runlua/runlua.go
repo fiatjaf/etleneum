@@ -22,7 +22,7 @@ func RunCall(
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int64, error),
-	callExternalMethod func(string, string, interface{}, int64, string) error,
+	callExternalMethod func(string, string, interface{}, int64) error,
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -71,7 +71,7 @@ func runCall(
 	printToDestination io.Writer,
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int64, error),
-	callExternalMethod func(string, string, interface{}, int64, string) error,
+	callExternalMethod func(string, string, interface{}, int64) error,
 	getContractFunds func() (int, error),
 	sendFromContract func(target string, sats int) (int, error),
 	getCurrentAccountBalance func() (int, error),
@@ -233,14 +233,8 @@ sandbox_env = {
       end
       return state, funds
     end,
-    call_external = function (contract, method, payload, msatoshi, params)
-      local as = nil
-      if account_id and params.as == 'caller' then
-        as = account_id
-      elseif params.as == 'contract' then
-        as = current_contract
-      end
-      local err = call_external_method(contract, method, payload, msatoshi, as)
+    call_external = function (contract, method, payload, msatoshi)
+      local err = call_external_method(contract, method, payload, msatoshi)
       if err ~= nil then
         error(err)
       end

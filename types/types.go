@@ -41,7 +41,7 @@ type Call struct {
 	Ran        bool           `db:"ran" json:"ran"`
 }
 
-const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller, '') AS caller, transfers(id, contract_id) AS transfers, true AS ran"
+const CALLFIELDS = "id, time, contract_id, method, payload, msatoshi, cost, coalesce(caller_account, coalesce(caller_contract, '')) AS caller, transfers(id, contract_id) AS transfers, true AS ran"
 
 type Account struct {
 	Id      string `db:"id" json:"id"`

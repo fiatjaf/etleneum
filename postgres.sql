@@ -28,7 +28,8 @@ CREATE TABLE calls (
   payload jsonb NOT NULL DEFAULT '{}',
   msatoshi numeric(13) NOT NULL DEFAULT 0,
   cost numeric(13) NOT NULL,
-  caller text REFERENCES accounts(id),
+  caller_account text REFERENCES accounts(id),
+  caller_contract text REFERENCES contracts(id),
   diff text,
 
   CONSTRAINT method_exists CHECK (method != ''),
