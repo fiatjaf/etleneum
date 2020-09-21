@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcutil"
 	decodepay "github.com/fiatjaf/ln-decodepay"
 )
 
@@ -131,4 +133,9 @@ func lua_parse_bolt11(bolt11 string) (map[string]interface{}, error) {
 	minv := make(map[string]interface{})
 	json.Unmarshal(jinv, &minv)
 	return minv, nil
+}
+
+func lua_check_btc_address(address string) error {
+	_, err := btcutil.DecodeAddress(address, &chaincfg.MainNetParams)
+	return err
 }

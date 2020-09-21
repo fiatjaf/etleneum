@@ -240,6 +240,10 @@ end`
           >, parses a bolt11 invoice (and checks signatures, as this has not
           many more uses besides checking signatures);
         </li>
+        <li>
+          <code>check_address: (addr: String) => error</code>, checks if the
+          given string is a valid Bitcoin address, returns nil if it is valid;
+        </li>
       </ul>
     </li>
     <li>
