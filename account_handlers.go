@@ -256,13 +256,13 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("bolt11", bolt11).Str("account", accountId).Int64("amount", amount).
 		Msg("got a withdraw payment request")
 
-	fee := int64(float64(amount)/0.997) - amount
+	reservefee := int64(float64(amount) * 0.004)
 
 	// add a pending withdrawal
 	_, err = txn.Exec(`
 INSERT INTO withdrawals (account_id, msatoshi, fee_msat, fulfilled, bolt11)
 VALUES ($1, $2, $3, false, $4)
-    `, accountId, amount, fee, bolt11)
+    `, accountId, amount, reservefee, bolt11)
 	if err != nil {
 		log.Warn().Err(err).Msg("error inserting withdrawal")
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
@@ -300,7 +300,8 @@ VALUES ($1, $2, $3, false, $4)
 				"maxfeepercent": 0.3,
 				"exemptfee":     0,
 			})
-		log.Debug().Err(err).Str("resp", payresp.String()).Str("account", accountId).Str("bolt11", bolt11).
+		log.Debug().Err(err).Str("resp", payresp.String()).
+			Str("account", accountId).Str("bolt11", bolt11).
 			Msg("withdraw pay result")
 
 		if _, ok := err.(lightning.ErrorCommand); ok {
@@ -308,8 +309,18 @@ VALUES ($1, $2, $3, false, $4)
 		}
 
 		if payresp.Get("status").String() == "complete" {
+			// calculate actual fee
+			lnfee := payresp.Get("msatoshi_sent").Int() - payresp.Get("msatoshi").Int()
+			platformfee := int64(payresp.Get("msatoshi").Float() * 0.001)
+			fee := lnfee + platformfee
+
 			// mark as fulfilled
-			_, err := pg.Exec(`UPDATE withdrawals SET fulfilled = true WHERE bolt11 = $1`, bolt11)
+			_, err := pg.Exec(`
+                UPDATE withdrawals
+                SET fulfilled = true
+                  , fee = $2
+                WHERE bolt11 = $1
+            `, bolt11, fee)
 			if err != nil {
 				log.Error().Err(err).Str("accountId", accountId).
 					Msg("error marking payment as fulfilled")

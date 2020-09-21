@@ -88,6 +88,13 @@
     width: 40%;
   }
 
+  #balance-notice {
+    font-size: 12px;
+    margin: 0 auto 30px;
+    max-width: 400px;
+    text-align: justify;
+  }
+
   #history {
     margin-top: 33px;
   }
@@ -99,7 +106,7 @@
     padding: 0 5px;
   }
   #history td:nth-child(2) {
-    text-align:right;
+    text-align: right;
   }
 </style>
 
@@ -107,6 +114,12 @@
   {#if $account.id}
   <p>Logged as <b>{$account.id}</b>.</p>
   <p>Can withdraw <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.</p>
+  <p id="balance-notice">
+    Your balance is shown here subtracted of an amount of
+    <em>0.4%</em> reserved to pay for the Lightning withdraw costs. The actual
+    fee (probably less than 0.4%) will be applied once the withdraw is
+    completed. Besides that a <em>0.1%</em> platform fee will also be applied.
+  </p>
   {#if $account.balance > 0 && $account.lnurl.withdraw}
   <QR value="{$account.lnurl.withdraw}" />
   <p>Scan to withdraw.</p>
@@ -123,9 +136,7 @@
       <td><b>{entry.msatoshi / 1000}sat</b></td>
       <td>
         {#if entry.counterparty[0] == 'c'}
-        <a href="#/contract/{entry.counterparty}">
-          {entry.counterparty}
-        </a>
+        <a href="#/contract/{entry.counterparty}"> {entry.counterparty} </a>
         {:else} {entry.counterparty} {/if}
       </td>
     </tr>
