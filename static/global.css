@@ -28,6 +28,9 @@ a {
 a:hover {
   text-decoration: underline;
 }
+img {
+  max-width: 100%;
+}
 textarea {
   background: transparent;
   white-space: pre-wrap;
