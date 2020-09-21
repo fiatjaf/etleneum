@@ -107,7 +107,7 @@ CREATE OR REPLACE VIEW account_history (
 ;
 
 CREATE OR REPLACE FUNCTION balance(id text) RETURNS numeric(13) AS $$
-  SELECT (coalesce(sum(msatoshi), 0) * 0.997)::numeric(13)
+  SELECT (coalesce(sum(msatoshi), 0) * 0.996)::numeric(13)
   FROM account_history
   WHERE account_id = id;
 $$ LANGUAGE SQL;
