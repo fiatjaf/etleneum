@@ -318,7 +318,7 @@ VALUES ($1, $2, $3, false, $4)
 			_, err := pg.Exec(`
                 UPDATE withdrawals
                 SET fulfilled = true
-                  , fee = $2
+                  , fee_msat = $2
                 WHERE bolt11 = $1
             `, bolt11, fee)
 			if err != nil {
