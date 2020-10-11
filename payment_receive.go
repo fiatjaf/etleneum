@@ -58,7 +58,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	derivedHash := sha256.Sum256(preimage)
 	derivedHashHex := hex.EncodeToString(derivedHash[:])
 	if hash != derivedHashHex {
-		p.Logf("we have a preimage %s, but its hash %s didn't match the expected hash %s - continue", preimageHex, derivedHashHex, hash)
+		p.Logf("we have a preimage %s, but its hash %s didn't match the expected hash %s - fail with incorrect_or_unknown_payment_details", preimageHex, derivedHashHex, hash)
 		return failUnknown
 	}
 
@@ -95,7 +95,7 @@ func contractPaymentReceived(contractId string, msatoshi int64) (ok bool) {
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to fetch contract from redis to activate")
 		dispatchContractEvent(contractId,
-			ctevent{contractId, "", "", err.Error(), "internal"}, "contract-error")
+			ctevent{contractId, "", "", 0, err.Error(), "internal"}, "contract-error")
 		return false
 	}
 
@@ -108,7 +108,7 @@ func contractPaymentReceived(contractId string, msatoshi int64) (ok bool) {
 	if err != nil {
 		logger.Warn().Err(err).Msg("transaction start failed")
 		dispatchContractEvent(contractId,
-			ctevent{contractId, "", "", err.Error(), "internal"}, "contract-error")
+			ctevent{contractId, "", "", 0, err.Error(), "internal"}, "contract-error")
 		return false
 	}
 	defer txn.Rollback()
@@ -121,7 +121,7 @@ VALUES ($1, $2, $3, $4, '{}')
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to save contract on database")
 		dispatchContractEvent(contractId,
-			ctevent{contractId, "", "", err.Error(), "internal"}, "contract-error")
+			ctevent{contractId, "", "", 0, err.Error(), "internal"}, "contract-error")
 		return false
 	}
 
@@ -138,7 +138,7 @@ VALUES ($1, $2, $3, $4, '{}')
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
 		dispatchContractEvent(contractId,
-			ctevent{contractId, "", call.Method, err.Error(), "runtime"}, "contract-error")
+			ctevent{contractId, "", call.Method, 0, err.Error(), "runtime"}, "contract-error")
 		return false
 	}
 
@@ -150,7 +150,7 @@ VALUES ($1, $2, $3, $4, '{}')
 	}
 
 	dispatchContractEvent(contractId,
-		ctevent{contractId, "", call.Method, "", ""}, "contract-created")
+		ctevent{contractId, "", call.Method, 0, "", ""}, "contract-created")
 	logger.Info().Msg("contract is live")
 
 	// saved. delete from redis.
@@ -186,7 +186,7 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	if err != nil {
 		logger.Warn().Err(err).Msg("transaction start failed")
 		dispatchContractEvent(call.ContractId,
-			ctevent{callId, call.ContractId, call.Method, err.Error(), "internal"}, "call-error")
+			ctevent{callId, call.ContractId, call.Method, call.Msatoshi, err.Error(), "internal"}, "call-error")
 		return false
 	}
 	defer txn.Rollback()
@@ -198,7 +198,7 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
 		dispatchContractEvent(call.ContractId,
-			ctevent{callId, call.ContractId, call.Method, err.Error(), "runtime"}, "call-error")
+			ctevent{callId, call.ContractId, call.Method, call.Msatoshi, err.Error(), "runtime"}, "call-error")
 
 		return false
 	}
@@ -211,7 +211,7 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	}
 
 	dispatchContractEvent(call.ContractId,
-		ctevent{callId, call.ContractId, call.Method, "", ""}, "call-made")
+		ctevent{callId, call.ContractId, call.Method, call.Msatoshi, "", ""}, "call-made")
 
 	// saved. delete from redis.
 	rds.Del("call:" + call.Id)

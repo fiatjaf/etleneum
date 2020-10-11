@@ -136,7 +136,7 @@ func main() {
 			func(_ string) (interface{}, int64, error) {
 				return nil, 0, errors.New("no external contracts in test environment")
 			},
-			func(_, _ string, _ interface{}, _ int64, _ string) error {
+			func(_, _ string, _ interface{}, _ int64) error {
 				return errors.New("no external contracts in test environment")
 			},
 			func() (contractFunds int, err error) { return contractFunds, nil },

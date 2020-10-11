@@ -13,6 +13,7 @@ type ctevent struct {
 	Id         string `json:"id"`
 	ContractId string `json:"contract_id,omitempty"`
 	Method     string `json:"method,omitempty"`
+	Msatoshi   int64  `json:"msatoshi,omitempty"`
 	Message    string `json:"message,omitempty"`
 	Kind       string `json:"kind,omitempty"`
 }
@@ -75,6 +76,6 @@ type callPrinter struct {
 }
 
 func (cp *callPrinter) Write(data []byte) (n int, err error) {
-	dispatchContractEvent(cp.ContractId, ctevent{cp.CallId, cp.ContractId, cp.Method, string(data), "print"}, "call-run-event")
+	dispatchContractEvent(cp.ContractId, ctevent{cp.CallId, cp.ContractId, cp.Method, 0, string(data), "print"}, "call-run-event")
 	return len(data), nil
 }
