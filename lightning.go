@@ -15,11 +15,10 @@ import (
 	"github.com/lightningnetwork/lnd/zpay32"
 )
 
-const BOGUS_INVOICE = "lnbcrt1231230p1pwccq4app53nrqyuwmhkcsqqq8qnqvka0njqt0q0w9ujjlu565yumcgjya7m7qdp8vakx7cnpdss8wctjd45kueeqd9ejqcfqdphkz7qxqgzay8dellcqp2r34dm702mtt9luaeuqfza47ltalrwk8jrwalwf5ncrkgm6v6kmm3cuwuhyhtkpyzzmxun8qz9qtx6hvwfltqnd6wvpkch2u3acculmqpk4d20k"
-
 var BOGUS_SECRET = [32]byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3}
 
 func makeInvoice(
+	isFreeMode bool, // should be true only on dev environments and test.etleneum.com
 	ctid string, // pubkey is based on this
 	id string, // call or contract id: scid and preimage based on this
 	desc string,
@@ -31,10 +30,20 @@ func makeInvoice(
 	preimage := makePreimage(id)
 	channelid := makeShortChannelId(id)
 
-	nodeid, _ := hex.DecodeString(s.NodeId)
-	ournodeid, err := btcec.ParsePubKey(nodeid, btcec.S256())
-	if err != nil {
-		return "", fmt.Errorf("error parsing our own nodeid: %w", err)
+	var network *chaincfg.Params
+	var ournodeid *btcec.PublicKey
+	if isFreeMode {
+		network = &chaincfg.RegressionNetParams
+		sk, _ := btcec.NewPrivateKey(btcec.S256())
+		ournodeid = sk.PubKey()
+	} else {
+		network = &chaincfg.MainNetParams
+		nodeid, _ := hex.DecodeString(s.NodeId)
+		ournodeid, err = btcec.ParsePubKey(nodeid, btcec.S256())
+		if err != nil {
+			return "", fmt.Errorf("error parsing our own nodeid: %w", err)
+		}
+
 	}
 
 	var addDescription func(*zpay32.Invoice)
@@ -45,7 +54,7 @@ func makeInvoice(
 	}
 
 	invoice, err := zpay32.NewInvoice(
-		&chaincfg.Params{Bech32HRPSegwit: "bc"},
+		network,
 		sha256.Sum256(preimage),
 		time.Now(),
 		zpay32.RouteHint([]zpay32.HopHint{

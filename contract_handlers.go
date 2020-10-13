@@ -83,29 +83,26 @@ func prepareContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var invoice string
+	invoice, err := makeInvoice(
+		s.FreeMode,
+		ct.Id,
+		ct.Id,
+		s.ServiceId+" __init__ ["+ct.Id+"]",
+		nil,
+		getContractCost(*ct),
+		0,
+	)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to make invoice.")
+		jsonError(w, "failed to make invoice", 500)
+		return
+	}
 	if s.FreeMode {
-		invoice = BOGUS_INVOICE
-
 		// wait 10 seconds and notify this payment was received
 		go func() {
 			time.Sleep(5 * time.Second)
 			contractPaymentReceived(ct.Id, getContractCost(*ct))
 		}()
-	} else {
-		invoice, err = makeInvoice(
-			ct.Id,
-			ct.Id,
-			s.ServiceId+" __init__ ["+ct.Id+"]",
-			nil,
-			getContractCost(*ct),
-			0,
-		)
-		if err != nil {
-			log.Warn().Err(err).Msg("failed to make invoice.")
-			jsonError(w, "failed to make invoice", 500)
-			return
-		}
 	}
 
 	_, err = saveContractOnRedis(*ct)

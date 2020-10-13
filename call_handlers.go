@@ -76,29 +76,26 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var invoice string
+	invoice, err := makeInvoice(
+		s.FreeMode,
+		call.ContractId,
+		call.Id,
+		s.ServiceId+" "+call.Method+" ["+call.ContractId+"]["+call.Id+"]",
+		nil,
+		call.Msatoshi+call.Cost,
+		0,
+	)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to make invoice.")
+		jsonError(w, "failed to make invoice, please try again", 500)
+		return
+	}
 	if s.FreeMode {
-		invoice = BOGUS_INVOICE
-
 		// wait 5 seconds and notify this payment was received
 		go func() {
 			time.Sleep(5 * time.Second)
 			callPaymentReceived(call.Id, call.Msatoshi+call.Cost)
 		}()
-	} else {
-		invoice, err = makeInvoice(
-			call.ContractId,
-			call.Id,
-			s.ServiceId+" "+call.Method+" ["+call.ContractId+"]["+call.Id+"]",
-			nil,
-			call.Msatoshi+call.Cost,
-			0,
-		)
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to make invoice.")
-			jsonError(w, "failed to make invoice, please try again", 500)
-			return
-		}
 	}
 
 	_, err = saveCallOnRedis(*call)
