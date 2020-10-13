@@ -13,9 +13,9 @@ static/bundle.js: $(shell find client)
 	./node_modules/.bin/rollup -c
 
 deploy_test: etleneum
-	ssh root@nusakan-58 'systemctl stop etleneum-test'
-	scp etleneum nusakan-58:etleneum-test/etleneum
-	ssh root@nusakan-58 'systemctl start etleneum-test'
+	ssh root@fuyue-421 'systemctl stop etleneum-test'
+	scp etleneum fuyue-421:etleneum-test/etleneum
+	ssh root@fuyue-421 'systemctl start etleneum-test'
 
 deploy: etleneum
 	scp etleneum aspidiske-402:.lightning/plugins/etleneum-new
