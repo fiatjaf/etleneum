@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/aarzilli/golua v0.0.0-20190714183732-fc27908ace94
+	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200515232429-9f0179fd2c46
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/elazarl/go-bindata-assetfs v1.0.0
@@ -23,6 +24,7 @@ require (
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.7.0
+	github.com/lightningnetwork/lightning-onion v1.0.1
 	github.com/lightningnetwork/lnd v0.10.1-beta
 	github.com/lucsky/cuid v1.0.2
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
