@@ -66,3 +66,27 @@ func notifyHistory(es eventsource.EventSource, accountId string) {
 		es.SendEventMessage(string(jhistory), "history", "")
 	}
 }
+
+func deleteFailedWithdrawals() error {
+	var bolt11s []string
+	err := pg.Select(&bolt11s, `SELECT bolt11 FROM withdrawals WHERE NOT fulfilled`)
+	if err != nil {
+		return err
+	}
+
+	for _, bolt11 := range bolt11s {
+		listpays, err := ln.Call("listpays", bolt11)
+		if err != nil {
+			return err
+		}
+		if listpays.Get("pays.#").Int() == 0 || listpays.Get("pays.0.status").String() == "failed" {
+			// delete failed withdraw attempt
+			pg.Exec("DELETE FROM withdrawals WHERE bolt11 = $1 AND NOT fulfilled", bolt11)
+		} else if listpays.Get("pays.0.status").String() == "complete" {
+			// mark as not pending anymore
+			pg.Exec("UPDATE withdrawals SET fulfilled = true WHERE bolt11 = $1 AND NOT fulfilled", bolt11)
+		}
+	}
+
+	return nil
+}

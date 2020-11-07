@@ -14,6 +14,7 @@ import (
 	"github.com/fiatjaf/go-lnurl"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/lucsky/cuid"
+	"github.com/tidwall/gjson"
 	"gopkg.in/antage/eventsource.v1"
 )
 
@@ -292,6 +293,10 @@ VALUES ($1, $2, $3, false, $4)
 
 	// actually send the payment
 	go func() {
+		var (
+			listpays gjson.Result
+		)
+
 		payresp, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay",
 			map[string]interface{}{
 				"bolt11":        bolt11,
@@ -330,7 +335,8 @@ VALUES ($1, $2, $3, false, $4)
 		}
 
 		// call listpays to check failure
-		if listpays, _ := ln.Call("listpays", bolt11); listpays.Get("pays.#").Int() > 0 && listpays.Get("pays.0.status").String() != "failed" {
+		listpays, _ = ln.Call("listpays", bolt11)
+		if listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() != "failed" {
 			// not a failure -- but also not a success
 			// we don't know what happened, maybe it's pending, so don't do anything
 			log.Debug().Str("bolt11", bolt11).
@@ -342,9 +348,13 @@ VALUES ($1, $2, $3, false, $4)
 			}
 
 			return
+		} else if listpays.Get("pays.#").Int() > 1 {
+			// this should not happen
+			log.Debug().Str("bolt11", bolt11).Msg("this should not happen")
+			return
 		}
 
-		// if we reached this point then it's a failure
+		// if we reached this point then it's because the payment has failed
 	failure:
 		// delete attempt since it has undoubtely failed
 		_, err = pg.Exec(`DELETE FROM withdrawals WHERE bolt11 = $1`, bolt11)
