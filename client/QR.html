@@ -20,9 +20,11 @@
   })
 
   afterUpdate(() => {
-    container.removeChild(qr)
-    qr = makeQR()
-    container.appendChild(qr)
+    try {
+      container.removeChild(qr)
+      qr = makeQR()
+      container.appendChild(qr)
+    } catch (err) {}
   })
 
   function makeQR() {
