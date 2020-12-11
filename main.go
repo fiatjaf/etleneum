@@ -51,7 +51,7 @@ var s Settings
 var pg *sqlx.DB
 var ln *lightning.Client
 var rds *redis.Client
-var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stderr})
+var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
 var httpPublic = &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""}
 var userstreams = cmap.New()
 var contractstreams = cmap.New()
