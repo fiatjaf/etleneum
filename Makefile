@@ -13,10 +13,10 @@ static/bundle.js: $(shell find client)
 	./node_modules/.bin/rollup -c
 
 deploy_test: etleneum
-	ssh root@fuyue-421 'systemctl stop etleneum-test'
-	scp etleneum fuyue-421:etleneum-test/etleneum
-	ssh root@fuyue-421 'systemctl start etleneum-test'
+	ssh root@hulsmann 'systemctl stop etleneum-test'
+	scp etleneum hulsmann:etleneum-test/etleneum
+	ssh root@hulsmann 'systemctl start etleneum-test'
 
 deploy: etleneum
-	scp etleneum aspidiske-402:.lightning/plugins/etleneum-new
-	ssh aspidiske-402 'lightning/cli/lightning-cli plugin stop etleneum; mv .lightning/plugins/etleneum-new .lightning/plugins/etleneum; lightning/cli/lightning-cli plugin start $$HOME/.lightning/plugins/etleneum'
+	rsync etleneum hulsmann:.lightning2/plugins/etleneum-new
+	ssh hulsmann 'ln2 plugin stop etleneum; mv .lightning2/plugins/etleneum-new .lightning2/plugins/etleneum; ln2 plugin start $$HOME/.lightning2/plugins/etleneum'
