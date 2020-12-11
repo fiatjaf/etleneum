@@ -7,6 +7,7 @@
   import * as toast from './toast'
   import QR from './QR.html'
   import account from './accountStore'
+  import fire from './fire'
 
   var es
 
@@ -137,6 +138,8 @@
       <td>
         {#if entry.counterparty[0] == 'c'}
         <a href="#/contract/{entry.counterparty}"> {entry.counterparty} </a>
+        {:else if entry.counterparty == 'burned'}
+        <img title="burned or used to pay for a call" src="{fire}" />
         {:else} {entry.counterparty} {/if}
       </td>
     </tr>

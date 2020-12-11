@@ -98,7 +98,7 @@ CREATE OR REPLACE VIEW account_history (
   counterparty
 ) AS
   SELECT * FROM (
-    SELECT time, from_account, -msatoshi, coalesce(to_contract, to_account)
+    SELECT time, from_account, -msatoshi, coalesce(to_contract, to_account, 'burned')
     FROM internal_transfers
     WHERE from_account IS NOT NULL
   UNION ALL

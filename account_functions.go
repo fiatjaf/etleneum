@@ -65,7 +65,7 @@ func notifyHistory(es eventsource.EventSource, accountId string) {
 		log.Error().Err(err).Str("id", accountId).
 			Msg("failed to load account history from session")
 		return
-	} else if err != sql.ErrNoRows {
+	} else if err == sql.ErrNoRows {
 		es.SendEventMessage("[]", "history", "")
 	} else {
 		jhistory, _ := json.Marshal(history)
