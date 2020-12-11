@@ -12,6 +12,7 @@ function getInitial() {
     session: window.localStorage.getItem('auth-session') || null,
     id: null,
     balance: 0,
+    can_withdraw: 0,
     secret: '',
     history: []
   }
@@ -30,11 +31,11 @@ const account = readable(current, set => {
   }
 })
 
-account.refresh = function() {
+account.refresh = function () {
   window.fetch('/~/refresh?session=' + current.session)
 }
 
-account.reset = function() {
+account.reset = function () {
   if (es) {
     es.close()
   }
@@ -63,6 +64,7 @@ function startEventSource() {
       session: data.session || current.session,
       id: data.account,
       balance: data.balance,
+      can_withdraw: data.can_withdraw,
       secret: data.secret
     }
     storeSet(current)
@@ -78,7 +80,11 @@ function startEventSource() {
   })
   es.addEventListener('withdraw', e => {
     let data = JSON.parse(e.data)
-    current = {...current, balance: data.new_balance}
+    current = {
+      ...current,
+      balance: data.new_balance,
+      can_withdraw: data.new_can_withdraw
+    }
     storeSet(current)
   })
   es.addEventListener('error', e => {

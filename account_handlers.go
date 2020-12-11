@@ -80,7 +80,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 					Msg("failed to load account from session")
 				return
 			}
-			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": `+strconv.FormatInt(acct.Balance, 10)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
+			es.SendEventMessage(`{"account": "`+acct.Id+`", "balance": `+strconv.FormatInt(acct.Balance, 10)+`, "can_withdraw": `+strconv.FormatInt(balanceWithReserve(acct.Balance), 10)+`, "secret": "`+getAccountSecret(acct.Id)+`"}`, "auth", "")
 		}()
 
 		// we're logged already, so send history
@@ -172,7 +172,7 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// get balance
-	var balance int
+	var balance int64
 	err = pg.Get(&balance, "SELECT balance($1)", accountId)
 	if err != nil {
 		w.WriteHeader(500)
@@ -180,7 +180,7 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if ies, ok := userstreams.Get(session); ok {
-		ies.(eventsource.EventSource).SendEventMessage(`{"account": "`+accountId+`", "balance": `+strconv.Itoa(balance)+`, "secret": "`+getAccountSecret(accountId)+`"}`, "auth", "")
+		ies.(eventsource.EventSource).SendEventMessage(`{"account": "`+accountId+`", "balance": `+strconv.FormatInt(balance, 10)+`, "can_withdraw": `+strconv.FormatInt(balanceWithReserve(balance), 10)+`, "secret": "`+getAccountSecret(accountId)+`"}`, "auth", "")
 	}
 
 	w.WriteHeader(200)
@@ -204,6 +204,7 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("error fetching " + accountId + " balance."))
 		return
 	}
+	balance = balanceWithReserve(balance)
 
 	if balance < 10000 {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("the minimum withdrawal is 10 sat, your balance is " + strconv.FormatInt(balance, 10) + " msat."))

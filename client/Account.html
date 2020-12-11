@@ -114,12 +114,17 @@
 <div class="center">
   {#if $account.id}
   <p>Logged as <b>{$account.id}</b>.</p>
-  <p>Can withdraw <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.</p>
+  <p>Actual balance <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.</p>
+  <p>
+    Can withdraw
+    <b>{($account.can_withdraw / 1000).toFixed(3)}</b> satoshi.
+  </p>
   <p id="balance-notice">
-    Your balance is shown here subtracted of an amount of
-    <em>0.4%</em> reserved to pay for the Lightning withdraw costs. The actual
-    fee (probably less than 0.4%) will be applied once the withdraw is
-    completed. Besides that a <em>0.1%</em> platform fee will also be applied.
+    The withdraw amount is your balance subtracted of an amount of
+    <em>0.7%</em> reserved to pay for the Lightning withdraw costs. The actual
+    fee (probably less than that) will be applied once the withdraw is completed
+    so you'll have more money. Besides that a <em>0.1%</em> platform fee will
+    also be applied.
   </p>
   {#if $account.balance > 0 && $account.lnurl.withdraw}
   <QR value="{$account.lnurl.withdraw}" />
