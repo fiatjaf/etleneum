@@ -256,7 +256,7 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 	log.Debug().Str("bolt11", bolt11).Str("account", accountId).Int64("amount", amount).
 		Msg("got a withdraw payment request")
 
-	reservefee := int64(float64(amount) * 0.004)
+	reservefee := int64(float64(amount) * 0.007)
 
 	// add a pending withdrawal
 	_, err = txn.Exec(`
@@ -300,9 +300,9 @@ VALUES ($1, $2, $3, false, $4)
 			map[string]interface{}{
 				"bolt11":        bolt11,
 				"label":         "etleneum withdraw " + accountId,
-				"use_shadow":    false,
-				"maxfeepercent": 0.3,
+				"maxfeepercent": 0.7,
 				"exemptfee":     0,
+				"retry_for":     20,
 			})
 		log.Debug().Err(err).Str("resp", payresp.String()).
 			Str("account", accountId).Str("bolt11", bolt11).
