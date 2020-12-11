@@ -13,6 +13,12 @@ import (
 	"gopkg.in/antage/eventsource.v1"
 )
 
+func loadAccount(accountId string) (types.Account, error) {
+	var acct types.Account
+	err := pg.Get(&acct, `SELECT `+types.ACCOUNTFIELDS+` FROM accounts WHERE id = $1`, accountId)
+	return acct, err
+}
+
 func getAccountSecret(account string) string {
 	hash := sha256.Sum256([]byte(account + "-" + s.SecretKey))
 	return hex.EncodeToString(hash[:])

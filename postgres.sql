@@ -48,10 +48,15 @@ CREATE TABLE internal_transfers (
   from_account text REFERENCES accounts(id),
   to_account text REFERENCES accounts(id),
   to_contract text REFERENCES contracts(id),
+  to_burn bool,
 
-  CONSTRAINT one_receiver CHECK (
-    (to_contract IS NOT NULL AND to_contract != '' AND to_account IS NULL) OR
-    (to_contract IS NULL AND to_account IS NOT NULL AND to_account != '')
+  CONSTRAINT one_receiver_or_burn CHECK (
+    (to_burn = false AND
+        to_contract IS NOT NULL AND to_contract != '' AND to_account IS NULL) OR
+    (to_burn = false AND
+        to_contract IS NULL AND to_account IS NOT NULL AND to_account != '') OR
+    (to_burn = true AND
+        to_contract IS NULL AND to_account IS NULL)
   ),
   CONSTRAINT one_sender CHECK (
     (from_contract IS NOT NULL AND from_contract != '' AND from_account IS NULL) OR

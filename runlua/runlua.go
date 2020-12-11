@@ -109,7 +109,6 @@ func runCall(
 		Str("caller", call.Caller).
 		Int64("msatoshi", call.Msatoshi).
 		Interface("payload", payload).
-		Interface("state", currentstate).
 		Int64("funds", initialFunds).
 		Msg("running code")
 

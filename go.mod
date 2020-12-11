@@ -23,6 +23,7 @@ require (
 	github.com/joho/godotenv v1.3.0
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.7.0
 	github.com/lightningnetwork/lightning-onion v1.0.1
 	github.com/lightningnetwork/lnd v0.10.1-beta

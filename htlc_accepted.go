@@ -208,7 +208,7 @@ VALUES ($1, $2, $3, $4, '{}')
 		Cost:       getContractCost(*ct),
 	}
 
-	err = runCall(call, txn)
+	err = runCall(call, txn, false)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
 		dispatchContractEvent(contractId,
@@ -268,7 +268,7 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	logger.Info().Interface("call", call).Msg("call being made")
 
 	// a normal call
-	err = runCall(call, txn)
+	err = runCall(call, txn, false)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
 		dispatchContractEvent(call.ContractId,

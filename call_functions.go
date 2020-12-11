@@ -58,7 +58,7 @@ func saveCallOnRedis(call types.Call) (jcall []byte, err error) {
 	return
 }
 
-func runCall(call *types.Call, txn *sqlx.Tx) (err error) {
+func runCall(call *types.Call, txn *sqlx.Tx, useBalance bool) (err error) {
 	// get contract data
 	var ct types.Contract
 	err = txn.Get(&ct, `
@@ -75,7 +75,8 @@ WHERE id = $1`,
 	// caller can be either an account id or null
 	caller := sql.NullString{Valid: call.Caller != "", String: call.Caller}
 
-	// save call data even though we don't know if it will succeed or not (this is a transaction anyway)
+	// save call data even though we don't know if it will succeed or not
+	// (this is a transaction anyway)
 	callerType := "account"
 	if call.Caller != "" && call.Caller[0] == 'c' {
 		callerType = "contract"
@@ -91,6 +92,45 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 	if err != nil {
 		log.Warn().Err(err).Str("callid", call.Id).Msg("database error")
 		return
+	}
+
+	// pay for this with the caller's balance?
+	if call.Caller != "" && useBalance {
+		// burn amount corresponding to the call msatoshi + call cost.
+		// we don't transfer to the contract directly
+		// because the call already has the msatoshi amount assigned to it and that
+		// is already automatically added to the contract balance,
+		// so the contract would receive the money twice if we also did a transfer here.
+		_, err = txn.Exec(`
+INSERT INTO internal_transfers (call_id, msatoshi, from_account, to_burn)
+VALUES ($1, $2, $3, true)
+            `, call.Id, call.Msatoshi+call.Cost, call.Caller)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to burn call cost from account")
+			dispatchContractEvent(call.ContractId,
+				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
+					"database error", "internal"}, "call-error")
+			return
+		}
+
+		// check account balance
+		var balance int
+		err = txn.Get(&balance, "SELECT balance($1)", call.Caller)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to fetch account balance on call")
+			dispatchContractEvent(call.ContractId,
+				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
+					"database error", "internal"}, "call-error")
+			return
+		}
+		if balance < 0 {
+			log.Warn().Err(err).Msg("account has insufficient funds to execute call")
+			dispatchContractEvent(call.ContractId,
+				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
+					"", "balance"},
+				"call-error")
+			return
+		}
 	}
 
 	// actually run the call
@@ -153,7 +193,7 @@ VALUES ($1, $2, $3, $4)
 			}
 
 			// then run
-			err = runCall(externalCall, txn)
+			err = runCall(externalCall, txn, false)
 			if err != nil {
 				return err
 			}

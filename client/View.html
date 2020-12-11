@@ -69,12 +69,12 @@
       return
     }
 
-    let qr =
+    let qs =
       $account.session && includeCallerSession
         ? `?session=${$account.session}`
         : ''
 
-    let r = await fetch('/~/contract/' + params.ctid + '/call' + qr, {
+    let r = await fetch('/~/contract/' + params.ctid + '/call' + qs, {
       method: 'post',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -93,6 +93,37 @@
     let {id, invoice} = resp.value
     nextcall.invoice = invoice
     nextcall.id = id
+  }
+
+  async function executeWithBalance(e) {
+    e.preventDefault()
+
+    let {method, msatoshi, payload} = nextcall
+
+    if (!method) {
+      toast.warning('you must select a method to call!')
+      return
+    }
+
+    let qs = `?session=${$account.session}&use-balance=true`
+
+    let r = await fetch('/~/contract/' + params.ctid + '/call' + qs, {
+      method: 'post',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        method,
+        msatoshi,
+        payload
+      })
+    })
+    let resp = await r.json()
+
+    if (!resp.ok) {
+      toast.warning(resp.error)
+      return
+    }
+
+    resetNextCall()
   }
 
   function abandonCall(e) {
@@ -213,6 +244,8 @@
         toast.error(`internal error, please notify: ${data.message}`)
       } else if (data.kind === 'runtime') {
         toast.warning(`raised error: <pre>${data.message}</pre>`, 30000)
+      } else if (data.kind === 'balance') {
+        toast.warning(`balance is insufficient!`, 30000)
       }
 
       resetNextCall(data.id)
@@ -299,7 +332,14 @@
           bind:checked="{nextcall.includeCallerSession}"
         />
       </label>
-      <div><button>prepare call</button></div>
+      <div>
+        <button>prepare call</button>
+        {#if nextcall.includeCallerSession}
+        <button on:click="{executeWithBalance}">
+          execute using funds from balance
+        </button>
+        {/if }
+      </div>
       {/if}
     </form>
     {/if} {#if nextmethod && !nextcall.invoice}

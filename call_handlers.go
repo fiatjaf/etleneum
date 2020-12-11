@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -57,15 +58,33 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	call.Id = "r" + cuid.Slug()
 	call.Cost = getCallCosts(*call, false)
 	logger = logger.With().Str("callid", call.Id).Logger()
+	var useBalance bool
 
 	// if the user has authorized and want to make an authenticated call
 	if session := r.URL.Query().Get("session"); session != "" {
-		if accountId, err := rds.Get("auth-session:" + session).Result(); err != nil {
-			log.Warn().Err(err).Str("session", session).Msg("failed to get account for authenticated session")
+		accountId := rds.Get("auth-session:" + session).Val()
+		account, err := loadAccount(accountId)
+		if err != nil {
+			log.Warn().Err(err).Str("session", session).
+				Msg("failed to get account for authenticated session")
 			jsonError(w, "failed to get account for authenticated session", 400)
 			return
-		} else {
-			call.Caller = accountId
+		}
+
+		// here we have an account successfully fetched
+		call.Caller = account.Id
+
+		// if the user wants to pay for the call using funds from his balance
+		if _, ok := r.URL.Query()["use-balance"]; ok {
+			if call.Msatoshi+call.Cost > int64(float64(account.Balance)*1.004) {
+				log.Warn().Err(err).Interface("account", account).
+					Interface("call", call).
+					Msg("not enough funds")
+				jsonError(w, "not enough funds to use balance", 402)
+				return
+			}
+
+			useBalance = true
 		}
 	}
 
@@ -76,41 +95,88 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	invoice, err := makeInvoice(
-		s.FreeMode,
-		call.ContractId,
-		call.Id,
-		s.ServiceId+" "+call.Method+" ["+call.ContractId+"]["+call.Id+"]",
-		nil,
-		call.Msatoshi+call.Cost,
-		0,
-	)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to make invoice.")
-		jsonError(w, "failed to make invoice, please try again", 500)
-		return
-	}
-	if s.FreeMode {
-		// wait 5 seconds and notify this payment was received
-		go func() {
-			time.Sleep(5 * time.Second)
-			callPaymentReceived(call.Id, call.Msatoshi+call.Cost)
-		}()
-	}
+	// if useBalance then we try to run the call already
+	// and pay with funds from account balance
+	if useBalance {
+		// first create the transaction
+		txn, err := pg.BeginTxx(context.TODO(),
+			&sql.TxOptions{Isolation: sql.LevelSerializable})
+		if err != nil {
+			logger.Warn().Err(err).Msg("transaction start failed")
+			jsonError(w, "failed to start transaction", 500)
+			dispatchContractEvent(call.ContractId,
+				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
+					err.Error(), "internal"}, "call-error")
+			return
+		}
+		defer txn.Rollback()
 
-	_, err = saveCallOnRedis(*call)
-	if err != nil {
-		logger.Error().Err(err).Interface("call", call).
-			Msg("failed to save call on redis")
-		jsonError(w, "failed to save prepared call", 500)
-		return
-	}
+		logger.Info().Interface("call", call).Msg("call being made with balance funds")
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: types.StuffBeingCreated{
-		Id:      call.Id,
-		Invoice: invoice,
-	}})
+		err = runCall(call, txn, true)
+		if err != nil {
+			logger.Warn().Err(err).Msg("failed to run call")
+			jsonError(w, "failed to run call", 400)
+			dispatchContractEvent(call.ContractId,
+				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
+					err.Error(), "runtime"}, "call-error")
+			return
+		}
+
+		// commit
+		err = txn.Commit()
+		if err != nil {
+			log.Warn().Err(err).Str("call.id", call.Id).Msg("failed to commit call")
+			jsonError(w, "failed to commit call", 400)
+			dispatchContractEvent(call.ContractId,
+				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
+					"failed to commit call", "internal"}, "call-error")
+			return
+		}
+
+		// call was successful
+		dispatchContractEvent(call.ContractId,
+			ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi, "", ""},
+			"call-made")
+	} else {
+		// useBalance = false, so we just prepare the call and show an invoice
+		// make an invoice and save the prepared call
+		invoice, err := makeInvoice(
+			s.FreeMode,
+			call.ContractId,
+			call.Id,
+			s.ServiceId+" "+call.Method+" ["+call.ContractId+"]["+call.Id+"]",
+			nil,
+			call.Msatoshi+call.Cost,
+			0,
+		)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to make invoice.")
+			jsonError(w, "failed to make invoice, please try again", 500)
+			return
+		}
+		if s.FreeMode {
+			// wait 5 seconds and notify this payment was received
+			go func() {
+				time.Sleep(5 * time.Second)
+				callPaymentReceived(call.Id, call.Msatoshi+call.Cost)
+			}()
+		}
+
+		_, err = saveCallOnRedis(*call)
+		if err != nil {
+			logger.Error().Err(err).Interface("call", call).
+				Msg("failed to save call on redis")
+			jsonError(w, "failed to save prepared call", 500)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(Result{Ok: true, Value: types.StuffBeingCreated{
+			Id:      call.Id,
+			Invoice: invoice,
+		}})
+	}
 }
 
 func getCall(w http.ResponseWriter, r *http.Request) {

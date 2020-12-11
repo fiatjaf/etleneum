@@ -74,8 +74,7 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 		// we're logged already, so send account information
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			var acct types.Account
-			err := pg.Get(&acct, `SELECT `+types.ACCOUNTFIELDS+` FROM accounts WHERE id = $1`, accountId)
+			acct, err := loadAccount(accountId)
 			if err != nil {
 				log.Error().Err(err).Str("session", session).Str("id", accountId).
 					Msg("failed to load account from session")
