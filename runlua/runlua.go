@@ -61,7 +61,7 @@ func RunCall(
 	case failure := <-failed:
 		err = failure
 		return
-	case <-time.After(time.Second * 3):
+	case <-time.After(time.Second * 15):
 		err = errors.New("timeout!")
 		return
 	}

@@ -57,7 +57,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	call.ContractId = ctid
 	call.Id = "r" + cuid.Slug()
 	call.Cost = getCallCosts(*call, false)
-	logger = logger.With().Str("callid", call.Id).Logger()
+	logger = logger.With().Str("callid", call.Id).Str("method", call.Method).Logger()
 	var useBalance bool
 
 	// if the user has authorized and want to make an authenticated call
@@ -90,7 +90,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 
 	// verify call is valid as best as possible
 	if len(call.Method) == 0 || call.Method[0] == '_' {
-		logger.Warn().Err(err).Str("method", call.Method).Msg("invalid method")
+		logger.Warn().Err(err).Msg("invalid method")
 		jsonError(w, "invalid method", 400)
 		return
 	}
@@ -115,7 +115,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 
 		err = runCall(call, txn, true)
 		if err != nil {
-			logger.Warn().Err(err).Msg("failed to run call")
+			logger.Warn().Err(err).Str("payload", string(call.Payload)).Msg("failed to run call")
 			jsonError(w, "failed to run call", 400)
 			dispatchContractEvent(call.ContractId,
 				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,

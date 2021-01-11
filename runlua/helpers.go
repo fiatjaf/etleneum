@@ -14,7 +14,6 @@ func stackTraceWithCode(stacktrace string, code string) string {
 
 	stlines := strings.Split(stacktrace, "\n")
 	lines := strings.Split(code, "\n")
-	// result = append(result, stlines[0])
 
 	for i := 0; i < len(stlines); i++ {
 		stline := stlines[i]
