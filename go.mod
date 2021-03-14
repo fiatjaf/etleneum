@@ -42,3 +42,5 @@ require (
 	gopkg.in/redis.v5 v5.2.9
 	gopkg.in/urfave/cli.v1 v1.20.0
 )
+
+replace github.com/fiatjaf/go-lnurl => /home/fiatjaf/comp/go-lnurl

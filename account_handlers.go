@@ -187,13 +187,9 @@ func refreshBalance(w http.ResponseWriter, r *http.Request) {
 }
 
 func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
-	session := r.URL.Query().Get("session")
-
-	// get account id from session
-	accountId, err := rds.Get("auth-session:" + session).Result()
+	accountId, err := getAccountIdFromLNURLWithdraw(r)
 	if err != nil {
-		log.Error().Err(err).Str("session", session).Msg("failed to get session from redis on withdraw")
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("lnurl session " + session + " has expired."))
+		json.NewEncoder(w).Encode(err.Error())
 		return
 	}
 
@@ -212,26 +208,26 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(lnurl.LNURLWithdrawResponse{
-		LNURLResponse:      lnurl.LNURLResponse{Status: "OK"},
-		Callback:           fmt.Sprintf("%s/lnurl/withdraw/callback", s.ServiceURL),
-		K1:                 session,
+		LNURLResponse: lnurl.LNURLResponse{Status: "OK"},
+		Tag:           "withdrawRequest",
+		Callback: fmt.Sprintf("%s/lnurl/withdraw/callback?%s",
+			s.ServiceURL, r.URL.RawQuery),
+		K1:                 hex.EncodeToString(make([]byte, 32)), // we don't care
 		MaxWithdrawable:    int64(balance),
 		MinWithdrawable:    100000,
 		DefaultDescription: fmt.Sprintf("etleneum.com %s balance withdraw", accountId),
-		Tag:                "withdrawRequest",
+		BalanceCheck:       getStaticLNURLWithdraw(accountId),
 	})
 }
 
 func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
-	session := r.URL.Query().Get("k1")
-	bolt11 := r.URL.Query().Get("pr")
-
-	// get account id from session
-	accountId, err := rds.Get("auth-session:" + session).Result()
+	accountId, err := getAccountIdFromLNURLWithdraw(r)
 	if err != nil {
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("lnurl session " + session + " has expired."))
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse(err.Error()))
 		return
 	}
+
+	bolt11 := r.URL.Query().Get("pr")
 
 	// start withdrawal transaction
 	txn, err := pg.BeginTxx(context.TODO(), &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -343,7 +339,7 @@ VALUES ($1, $2, $3, false, $4)
 				Msg("we don't know what happened with this payment")
 
 			// notify browser
-			if ies, ok := userstreams.Get(session); ok {
+			if ies, ok := userstreams.Get(r.URL.Query().Get("session")); ok {
 				ies.(eventsource.EventSource).SendEventMessage("We don't know what happened with the payment.", "error", "")
 			}
 
@@ -364,7 +360,7 @@ VALUES ($1, $2, $3, false, $4)
 		}
 
 		// notify browser
-		if ies, ok := userstreams.Get(session); ok {
+		if ies, ok := userstreams.Get(r.URL.Query().Get("session")); ok {
 			ies.(eventsource.EventSource).SendEventMessage("Payment failed.", "error", "")
 		}
 	}()

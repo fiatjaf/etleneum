@@ -6,7 +6,9 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 
 	"github.com/fiatjaf/etleneum/types"
@@ -95,4 +97,45 @@ func deleteFailedWithdrawals() error {
 	}
 
 	return nil
+}
+
+func hmacAccount(accountId string) string {
+	mac := hmac.New(sha256.New, []byte(s.SecretKey))
+	mac.Write([]byte(accountId))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func getStaticLNURLWithdraw(accountId string) string {
+	return fmt.Sprintf("%s/lnurl/withdraw/static?acct=%s&hmac=%s",
+		s.ServiceURL, accountId, hmacAccount(accountId))
+}
+
+func getAccountIdFromLNURLWithdraw(r *http.Request) (string, error) {
+	qs := r.URL.Query()
+
+	// get account id from session
+	if session := qs.Get("session"); session != "" {
+		acct, err := rds.Get("auth-session:" + session).Result()
+		if err == nil {
+			return acct, nil
+		} else {
+			log.Error().Err(err).Str("session", session).
+				Msg("failed to get session from redis on withdraw")
+			return "", errors.New("lnurl session " + session + " has expired.")
+
+		}
+	}
+
+	if acct := qs.Get("acct"); acct != "" {
+		if hmacAccount(acct) == qs.Get("hmac") {
+			return acct, nil
+		} else {
+			log.Error().Err(err).Str("hmac", qs.Get("hmac")).Str("accountId", acct).
+				Msg("hmacAccount doesn't match supplied hmac param")
+			return "", errors.New("Invalid reusable lnurl-withdraw.")
+		}
+	}
+
+	log.Error().Err(err).Msg("lnurl-withdraw with no reference to any account")
+	return "", errors.New("Unexpected incomplete lnurl-withdraw.")
 }
