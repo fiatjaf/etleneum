@@ -63,7 +63,7 @@ func makeInvoice(
 				ChannelID:                 channelid,
 				FeeBaseMSat:               uint32(cost),
 				FeeProportionalMillionths: 0,
-				CLTVExpiryDelta:           2,
+				CLTVExpiryDelta:           144,
 			},
 		}),
 		zpay32.Amount(lnwire.MilliSatoshi(main_price)),
