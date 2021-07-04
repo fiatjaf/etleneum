@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/fiatjaf/etleneum/types"
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v36/github"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -182,7 +182,7 @@ func saveContractOnGitHub(ct *types.Contract) {
 	cttree, _, err := gh.Git.CreateTree(context.Background(),
 		s.GitHubRepoOwner, s.GitHubRepoName,
 		"",
-		[]github.TreeEntry{
+		[]*github.TreeEntry{
 			{
 				Mode:    github.String("100644"),
 				Type:    github.String("blob"),
@@ -211,7 +211,7 @@ func saveContractOnGitHub(ct *types.Contract) {
 	tree, _, err := gh.Git.CreateTree(context.Background(),
 		s.GitHubRepoOwner, s.GitHubRepoName,
 		*(*commit.Tree).SHA,
-		[]github.TreeEntry{
+		[]*github.TreeEntry{
 			{
 				Mode: github.String("040000"),
 				Type: github.String("tree"),
@@ -228,7 +228,7 @@ func saveContractOnGitHub(ct *types.Contract) {
 	newcommit, _, err := gh.Git.CreateCommit(context.Background(),
 		s.GitHubRepoOwner, s.GitHubRepoName,
 		&github.Commit{
-			Parents: []github.Commit{*commit},
+			Parents: []*github.Commit{commit},
 			Tree:    tree,
 			Message: github.String("created contract '" + ct.Name + "' (" + ct.Id + ")"),
 		},

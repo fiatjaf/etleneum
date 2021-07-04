@@ -15,15 +15,13 @@ require (
 	github.com/fiatjaf/lunatico v1.0.0
 	github.com/fogleman/gg v1.3.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/google/go-github v17.0.0+incompatible
-	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/google/go-github/v36 v36.0.0
 	github.com/gorilla/mux v1.7.4
 	github.com/itchyny/gojq v0.10.3
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/joho/godotenv v1.3.0
 	github.com/k0kubun/colorstring v0.0.0-20150214042306-9440f1994b88 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/kr/pretty v0.1.0
 	github.com/lib/pq v1.7.0
 	github.com/lightningnetwork/lightning-onion v1.0.1
 	github.com/lightningnetwork/lnd v0.10.1-beta
