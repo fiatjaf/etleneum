@@ -2,17 +2,15 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"strconv"
 	"time"
 
 	"github.com/aead/chacha20"
 	"github.com/btcsuite/btcd/btcec"
-	"github.com/fiatjaf/etleneum/types"
+	"github.com/fiatjaf/etleneum/data"
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
 	sphinx "github.com/lightningnetwork/lightning-onion"
 	"github.com/lightningnetwork/lnd/lnwire"
@@ -32,8 +30,8 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	hash := params.Get("htlc.payment_hash").String()
 
 	p.Logf("got HTLC. amount=%s short_channel_id=%s hash=%s", amount, scid, hash)
-	for rds == nil || pg == nil {
-		p.Log("htlc_accepted: waiting until redis and postgres are available.")
+	for rds == nil || data.Initialized {
+		p.Log("htlc_accepted: waiting until redis and filesystem are available.")
 		time.Sleep(1 * time.Second)
 	}
 
@@ -177,51 +175,39 @@ func contractPaymentReceived(contractId string, msatoshi int64) (ok bool) {
 		return false
 	}
 
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		logger.Warn().Err(err).Msg("transaction start failed")
-		dispatchContractEvent(contractId,
-			ctevent{contractId, "", "", 0, err.Error(), "internal"}, "contract-error")
-		return false
-	}
-	defer txn.Rollback()
+	data.Start()
 
 	// create initial contract
-	_, err = txn.Exec(`
-INSERT INTO contracts (id, name, readme, code, state)
-VALUES ($1, $2, $3, $4, '{}')
-    `, ct.Id, ct.Name, ct.Readme, ct.Code)
+	err = data.CreateContract(ct.Id, ct.Name, ct.Readme, ct.Code)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to save contract on database")
+		data.Abort()
 		dispatchContractEvent(contractId,
 			ctevent{contractId, "", "", 0, err.Error(), "internal"}, "contract-error")
 		return false
 	}
 
 	// instantiate call (the __init__ special kind)
-	call := &types.Call{
+	call := &data.Call{
 		ContractId: ct.Id,
 		Id:         ct.Id, // same
 		Method:     "__init__",
-		Payload:    []byte{},
+		Payload:    []byte("{}"),
 		Cost:       getContractCost(*ct),
 	}
 
-	err = runCall(call, txn, false)
+	err = runCallGlobal(call, false)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
+		data.Abort()
 		dispatchContractEvent(contractId,
-			ctevent{contractId, "", call.Method, 0, err.Error(), "runtime"}, "contract-error")
+			ctevent{contractId, "", call.Method, 0, err.Error(), "runtime"},
+			"contract-error")
 		return false
 	}
 
-	// commit contract call
-	err = txn.Commit()
-	if err != nil {
-		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to commit contract")
-		return false
-	}
+	// commit
+	data.Finish("contract " + ct.Id + " created.")
 
 	dispatchContractEvent(contractId,
 		ctevent{contractId, "", call.Method, 0, "", ""}, "contract-created")
@@ -229,9 +215,6 @@ VALUES ($1, $2, $3, $4, '{}')
 
 	// saved. delete from redis.
 	rds.Del("contract:" + contractId)
-
-	// save contract on github
-	saveContractOnGitHub(ct)
 
 	return true
 }
@@ -255,22 +238,14 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	}
 	// if msatoshi is bigger than needed we take it as a donation
 
-	txn, err := pg.BeginTxx(context.TODO(),
-		&sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		logger.Warn().Err(err).Msg("transaction start failed")
-		dispatchContractEvent(call.ContractId,
-			ctevent{callId, call.ContractId, call.Method, call.Msatoshi, err.Error(), "internal"}, "call-error")
-		return false
-	}
-	defer txn.Rollback()
-
+	data.Start()
 	logger.Info().Interface("call", call).Msg("call being made")
 
 	// a normal call
-	err = runCall(call, txn, false)
+	err = runCallGlobal(call, false)
 	if err != nil {
 		logger.Warn().Err(err).Msg("failed to run call")
+		data.Abort()
 		dispatchContractEvent(call.ContractId,
 			ctevent{callId, call.ContractId, call.Method, call.Msatoshi, err.Error(), "runtime"}, "call-error")
 
@@ -278,11 +253,7 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	}
 
 	// commit
-	err = txn.Commit()
-	if err != nil {
-		log.Warn().Err(err).Str("callid", call.Id).Msg("failed to commit call")
-		return false
-	}
+	data.Finish("call " + call.Id + " executed on contract " + call.ContractId + ".")
 
 	dispatchContractEvent(call.ContractId,
 		ctevent{callId, call.ContractId, call.Method, call.Msatoshi, "", ""}, "call-made")

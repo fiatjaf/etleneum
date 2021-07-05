@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/aarzilli/golua/lua"
-	"github.com/fiatjaf/etleneum/types"
+	"github.com/fiatjaf/etleneum/data"
 	"github.com/fiatjaf/lunatico"
 	"github.com/lucsky/cuid"
 	"github.com/rs/zerolog"
@@ -23,12 +23,11 @@ func RunCall(
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int64, error),
 	callExternalMethod func(string, string, interface{}, int64) error,
-	getContractFunds func() (int, error),
-	sendFromContract func(target string, sats int) (int, error),
-	getCurrentAccountBalance func() (int, error),
-	sendFromCurrentAccount func(target string, sats int) (int, error),
-	contract types.Contract,
-	call types.Call,
+	getContractFunds func() (int64, error),
+	sendFromContract func(target string, sats int64) (int64, error),
+	getCurrentAccountBalance func() (int64, error),
+	contract data.Contract,
+	call data.Call,
 ) (stateAfter interface{}, err error) {
 	log = logger
 	completedOk := make(chan bool, 1)
@@ -43,7 +42,6 @@ func RunCall(
 			getContractFunds,
 			sendFromContract,
 			getCurrentAccountBalance,
-			sendFromCurrentAccount,
 			contract,
 			call,
 		)
@@ -72,12 +70,11 @@ func runCall(
 	makeRequest func(*http.Request) (*http.Response, error),
 	getExternalContractData func(string) (interface{}, int64, error),
 	callExternalMethod func(string, string, interface{}, int64) error,
-	getContractFunds func() (int, error),
-	sendFromContract func(target string, sats int) (int, error),
-	getCurrentAccountBalance func() (int, error),
-	sendFromCurrentAccount func(target string, sats int) (int, error),
-	contract types.Contract,
-	call types.Call,
+	getContractFunds func() (int64, error),
+	sendFromContract func(target string, sats int64) (int64, error),
+	getCurrentAccountBalance func() (int64, error),
+	contract data.Contract,
+	call data.Call,
 ) (stateAfter interface{}, err error) {
 	// init lua
 	L := lua.NewState()
@@ -93,13 +90,15 @@ func runCall(
 	}
 
 	var currentstate map[string]interface{}
-	err = contract.State.Unmarshal(&currentstate)
+	log.Print(string(contract.State))
+	err = json.Unmarshal(contract.State, &currentstate)
 	if err != nil {
 		return
 	}
 
 	var payload map[string]interface{}
-	err = call.Payload.Unmarshal(&payload)
+	log.Print(string(call.Payload))
+	err = json.Unmarshal(call.Payload, &payload)
 	if err != nil {
 		return
 	}
@@ -123,7 +122,6 @@ func runCall(
 		"call":                        call.Id,
 		"current_contract":            call.ContractId,
 		"current_account":             lua_current_account,
-		"send_from_current_account":   sendFromCurrentAccount,
 		"get_current_account_balance": getCurrentAccountBalance,
 		"get_external_contract_data":  getExternalContractData,
 		"call_external_method":        callExternalMethod,
@@ -243,13 +241,6 @@ sandbox_env = {
   },
   account = {
     id = account_id,
-    send = function (target, amount)
-      amt, err = send_from_current_account(target, amount)
-      if err ~= nil then
-        error(err)
-      end
-      return amt
-    end,
     get_balance = function ()
       balance, err = get_current_account_balance()
       if err ~= nil then

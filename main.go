@@ -14,13 +14,12 @@ import (
 	"time"
 
 	assetfs "github.com/elazarl/go-bindata-assetfs"
+	"github.com/fiatjaf/etleneum/data"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
-	_ "github.com/lib/pq"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
@@ -28,16 +27,16 @@ import (
 )
 
 type Settings struct {
-	ServiceId   string `envconfig:"SERVICE_ID" default:"etleneum.com"`
-	ServiceURL  string `envconfig:"SERVICE_URL" required:"true"`
-	Port        string `envconfig:"PORT" required:"true"`
-	SecretKey   string `envconfig:"SECRET_KEY" default:"etleneum"`
-	PostgresURL string `envconfig:"DATABASE_URL" required:"true"`
-	RedisURL    string `envconfig:"REDIS_URL" required:"true"`
+	ServiceId       string `envconfig:"SERVICE_ID" default:"etleneum.com"`
+	ServiceURL      string `envconfig:"SERVICE_URL" required:"true"`
+	Port            string `envconfig:"PORT" required:"true"`
+	SecretKey       string `envconfig:"SECRET_KEY" default:"etleneum"`
+	RedisURL        string `envconfig:"REDIS_URL" required:"true"`
+	GitDatabasePath string `envconfig:"GIT_DATABASE_PATH" default:"gitdatabase"`
 
-	GitHubRepoOwner string `envconfig:"GITHUB_REPO_OWNER"`
-	GitHubRepoName  string `envconfig:"GITHUB_REPO_NAME"`
-	GitHubToken     string `envconfig:"GITHUB_TOKEN"`
+	GitHubRepoOwner string `envconfig:"GITHUB_REPO_OWNER" required:"true"`
+	GitHubRepoName  string `envconfig:"GITHUB_REPO_NAME" required:"true"`
+	GitHubToken     string `envconfig:"GITHUB_TOKEN" required:"true"`
 
 	InitialContractCostSatoshis int64 `envconfig:"INITIAL_CONTRACT_COST_SATOSHIS" default:"970"`
 	FixedCallCostSatoshis       int64 `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`
@@ -48,7 +47,6 @@ type Settings struct {
 
 var err error
 var s Settings
-var pg *sqlx.DB
 var ln *lightning.Client
 var rds *redis.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
@@ -124,11 +122,14 @@ func server() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log = log.With().Timestamp().Logger()
 
-	// postgres connection
-	pg, err = sqlx.Connect("postgres", s.PostgresURL)
-	if err != nil {
-		log.Fatal().Err(err).Msg("couldn't connect to postgres")
-	}
+	// git database
+	data.DatabasePath, _ = filepath.Abs(s.GitDatabasePath)
+
+	// delegate logger
+	data.SetLogger(&log)
+
+	// initialize
+	data.Initialize()
 
 	// redis connection
 	rurl, _ := url.Parse(s.RedisURL)
@@ -161,11 +162,10 @@ func server() {
 	router.Path("/~/contract/{ctid}/state/{jq}").Methods("GET").HandlerFunc(getContractState)
 	router.Path("/~/contract/{ctid}/funds").Methods("GET").HandlerFunc(getContractFunds)
 	router.Path("/~/contract/{ctid}").Methods("DELETE").HandlerFunc(deleteContract)
-	router.Path("/~/contract/{ctid}/calls").Methods("GET").HandlerFunc(listCalls)
 	router.Path("/~/contract/{ctid}/call").Methods("POST").HandlerFunc(prepareCall)
+	router.Path("/~/contract/{ctid}/call/{callid}").Methods("GET").HandlerFunc(getCall)
+	router.Path("/~/contract/{ctid}/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
 	router.Path("/~~~/contract/{ctid}").Methods("GET").HandlerFunc(contractStream)
-	router.Path("/~/call/{callid}").Methods("GET").HandlerFunc(getCall)
-	router.Path("/~/call/{callid}").Methods("PATCH").HandlerFunc(patchCall)
 	router.Path("/lnurl/contract/{ctid}/call/{method}/{msatoshi}").
 		Methods("GET").HandlerFunc(lnurlPayParams)
 	router.Path("/lnurl/contract/{ctid}/call/{method}").
@@ -177,9 +177,6 @@ func server() {
 	router.Path("/lnurl/withdraw").Methods("GET").HandlerFunc(lnurlWithdraw)
 	router.Path("/lnurl/withdraw/callback").Methods("GET").HandlerFunc(lnurlWithdrawCallback)
 	router.Path("/~/session/logout").Methods("POST").HandlerFunc(logout)
-	router.Path("/^/webhook/github").Methods("POST").HandlerFunc(handleGitHubWebhook)
-	router.Path("/_/decode-scid/{scid}").Methods("GET").HandlerFunc(handleDecodeScid)
-	router.Path("/_/call-details/{callid}").Methods("GET").HandlerFunc(handleCallDetails)
 	router.PathPrefix("/").Methods("GET").HandlerFunc(serveClient)
 
 	srv := &http.Server{

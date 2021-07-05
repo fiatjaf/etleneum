@@ -10,14 +10,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/fiatjaf/etleneum/types"
+	"github.com/fiatjaf/etleneum/data"
 	"github.com/fiatjaf/go-lnurl"
 	"github.com/gorilla/mux"
 	"github.com/lucsky/cuid"
 	"github.com/tidwall/gjson"
 )
 
-func lnurlCallMetadata(call *types.Call, fixedAmount bool) string {
+func lnurlCallMetadata(call *data.Call, fixedAmount bool) string {
 	desc := fmt.Sprintf(`Call method "%s" on contract "%s" with payload %v`,
 		call.Method, call.ContractId, call.Payload)
 	if call.Caller != "" {
@@ -92,7 +92,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 	}
 	jpayload, _ := json.Marshal(payload)
 
-	call := &types.Call{
+	call := &data.Call{
 		Id:         "r" + cuid.Slug(),
 		ContractId: ctid,
 		Method:     method,

@@ -1,53 +1,20 @@
 package main
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
-	"github.com/fiatjaf/etleneum/types"
+	"github.com/fiatjaf/etleneum/data"
 	"github.com/gorilla/mux"
 	"github.com/lucsky/cuid"
 )
-
-func listCalls(w http.ResponseWriter, r *http.Request) {
-	ctid := mux.Vars(r)["ctid"]
-	logger := log.With().Str("ctid", ctid).Logger()
-
-	limit := r.URL.Query().Get("limit")
-	if limit == "" {
-		limit = "50"
-	}
-
-	calls := make([]types.Call, 0)
-	err = pg.Select(&calls, `
-SELECT `+types.CALLFIELDS+`
-FROM calls
-WHERE contract_id = $1
-   OR $1 IN (SELECT to_contract FROM internal_transfers it WHERE calls.id = it.call_id)
-ORDER BY time DESC
-LIMIT $2
-        `, ctid, limit)
-	if err == sql.ErrNoRows {
-		calls = make([]types.Call, 0)
-	} else if err != nil {
-		logger.Error().Err(err).Msg("failed to fetch calls")
-		jsonError(w, "failed to fetch calls", 404)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Result{Ok: true, Value: calls})
-}
 
 func prepareCall(w http.ResponseWriter, r *http.Request) {
 	ctid := mux.Vars(r)["ctid"]
 	logger := log.With().Str("ctid", ctid).Logger()
 
-	call := &types.Call{}
+	call := &data.Call{}
 	err := json.NewDecoder(r.Body).Decode(call)
 	if err != nil {
 		log.Warn().Err(err).Msg("failed to parse call json")
@@ -63,8 +30,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	// if the user has authorized and want to make an authenticated call
 	if session := r.URL.Query().Get("session"); session != "" {
 		accountId := rds.Get("auth-session:" + session).Val()
-		account, err := loadAccount(accountId)
-		if err != nil {
+		if accountId == "" {
 			log.Warn().Err(err).Str("session", session).
 				Msg("failed to get account for authenticated session")
 			jsonError(w, "failed to get account for authenticated session", 400)
@@ -72,12 +38,14 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// here we have an account successfully fetched
-		call.Caller = account.Id
+		call.Caller = accountId
 
 		// if the user wants to pay for the call using funds from his balance
 		if _, ok := r.URL.Query()["use-balance"]; ok {
-			if call.Msatoshi+call.Cost > int64(float64(account.Balance)*1.004) {
-				log.Warn().Err(err).Interface("account", account).
+			balance := data.GetAccountBalance(accountId)
+
+			if call.Msatoshi+call.Cost > int64(float64(balance)*1.004) {
+				log.Warn().Err(err).Interface("account", accountId).
 					Interface("call", call).
 					Msg("not enough funds")
 				jsonError(w, "not enough funds to use balance", 402)
@@ -98,24 +66,14 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 	// if useBalance then we try to run the call already
 	// and pay with funds from account balance
 	if useBalance {
-		// first create the transaction
-		txn, err := pg.BeginTxx(context.TODO(),
-			&sql.TxOptions{Isolation: sql.LevelSerializable})
-		if err != nil {
-			logger.Warn().Err(err).Msg("transaction start failed")
-			jsonError(w, "failed to start transaction", 500)
-			dispatchContractEvent(call.ContractId,
-				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
-					err.Error(), "internal"}, "call-error")
-			return
-		}
-		defer txn.Rollback()
-
+		data.Start()
 		logger.Info().Interface("call", call).Msg("call being made with balance funds")
 
-		err = runCall(call, txn, true)
+		err = runCallGlobal(call, true)
 		if err != nil {
-			logger.Warn().Err(err).Str("payload", string(call.Payload)).Msg("failed to run call")
+			logger.Warn().Err(err).Str("payload", string(call.Payload)).
+				Msg("failed to run call")
+			data.Abort()
 			jsonError(w, "failed to run call", 400)
 			dispatchContractEvent(call.ContractId,
 				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
@@ -124,15 +82,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// commit
-		err = txn.Commit()
-		if err != nil {
-			log.Warn().Err(err).Str("call.id", call.Id).Msg("failed to commit call")
-			jsonError(w, "failed to commit call", 400)
-			dispatchContractEvent(call.ContractId,
-				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
-					"failed to commit call", "internal"}, "call-error")
-			return
-		}
+		data.Finish("call " + call.Id + " executed on contract " + call.ContractId + ".")
 
 		// call was successful
 		dispatchContractEvent(call.ContractId,
@@ -172,41 +122,34 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Result{Ok: true, Value: types.StuffBeingCreated{
-			Id:      call.Id,
-			Invoice: invoice,
+		json.NewEncoder(w).Encode(Result{Ok: true, Value: map[string]interface{}{
+			"id":      call.Id,
+			"invoice": invoice,
 		}})
 	}
 }
 
 func getCall(w http.ResponseWriter, r *http.Request) {
+	ctid := mux.Vars(r)["ctid"]
 	callid := mux.Vars(r)["callid"]
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit == 0 {
-		limit = 50
-	}
-	logger := log.With().Str("callid", callid).Logger()
 
-	call := &types.Call{}
-	err = pg.Get(call, `
-SELECT `+types.CALLFIELDS+`, coalesce(diff, '') AS diff
-FROM calls
-WHERE id = $1
-ORDER BY time DESC
-LIMIT $2
-    `, callid, limit)
-	if err == sql.ErrNoRows {
+	call, err := data.GetCall(ctid, callid)
+	if err != nil {
+		// it's a database error
+		log.Warn().Err(err).Str("callid", callid).Msg("database error fetching call")
+		jsonError(w, "database error", 500)
+		return
+	}
+
+	if call == nil {
+		// couldn't find on database, maybe it's a temporary contract?
 		call, err = callFromRedis(callid)
 		if err != nil {
-			logger.Warn().Err(err).Msg("failed to fetch call from redis")
-			jsonError(w, "couldn't find call "+callid+", it may have expired", 404)
+			log.Warn().Err(err).Str("callid", callid).
+				Msg("failed to fetch fetch prepared call from redis")
+			jsonError(w, "failed to fetch prepared call", 404)
 			return
 		}
-	} else if err != nil {
-		// it's a database error
-		logger.Error().Err(err).Msg("database error fetching call")
-		jsonError(w, "failed to fetch call "+callid, 500)
-		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

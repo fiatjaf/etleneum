@@ -1,19 +1,19 @@
 <!-- @format -->
 
 <script>
-  import {onMount} from 'svelte'
-  import {push} from 'svelte-spa-router'
+  import { onMount } from "svelte";
+  import { push } from "svelte-spa-router";
 
-  var contracts
+  var contracts;
 
   onMount(async () => {
-    let r = await fetch('/~/contracts')
-    contracts = (await r.json()).value
-  })
+    let r = await fetch("/~/contracts");
+    contracts = (await r.json()).value;
+  });
 
   function goToContract(e) {
-    let ctid = e.currentTarget.dataset.ctid
-    push(`/contract/${ctid}`)
+    let ctid = e.currentTarget.dataset.ctid;
+    push(`/contract/${ctid}`);
   }
 </script>
 
@@ -54,10 +54,6 @@
       <tr>
         <td>satoshi</td>
         <td><b>{parseInt(ct.funds / 1000)}</b></td>
-      </tr>
-      <tr>
-        <td>calls</td>
-        <td><b>{ct.ncalls}</b></td>
       </tr>
     </table>
   </div>

@@ -12,3 +12,4 @@ browserify-cache.json
 runcall
 static/*bundle*
 .pyre
+gitdatabase
