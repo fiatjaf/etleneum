@@ -126,75 +126,74 @@ func CreateContract(
 	code string,
 ) error {
 	path := filepath.Join(DatabasePath, "contracts", id)
-	err := os.MkdirAll(path, 0700)
-	if err != nil {
+	if err := os.MkdirAll(path, 0700); err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(filepath.Join(path, "name.txt"), []byte(name), 0644)
-	if err != nil {
+	if err := writeFile(filepath.Join(path, "name.txt"), []byte(name)); err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(path, "README.md"), []byte(readme), 0644)
-	if err != nil {
+	if err := writeFile(filepath.Join(path, "README.md"), []byte(readme)); err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(path, "contract.lua"), []byte(code), 0644)
-	if err != nil {
+	if err := writeFile(filepath.Join(path, "contract.lua"), []byte(code)); err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(path, "state.json"), []byte("{}"), 0644)
-	if err != nil {
+	if err := writeFile(filepath.Join(path, "state.json"), []byte("{}")); err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(path, "funds.json"), []byte("0"), 0644)
-	if err != nil {
+	if err := writeFile(filepath.Join(path, "funds.json"), []byte("0")); err != nil {
 		return err
 	}
-	err = os.Mkdir(filepath.Join(path, "calls"), 0644)
-	if err != nil {
+	if err := os.Mkdir(filepath.Join(path, "calls"), 0700); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func SaveContractState(id string, state json.RawMessage) {
-	prettyState, _ := json.MarshalIndent(state, "", "  ")
+func SaveContractState(id string, state json.RawMessage) error {
+	prettyState, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
 
-	ioutil.WriteFile(
-		filepath.Join(DatabasePath, "contracts", id, "funds.json"),
+	return writeFile(
+		filepath.Join(DatabasePath, "contracts", id, "state.json"),
 		prettyState,
-		0644,
 	)
 }
 
-func SaveContractFunds(id string, msatoshi int64) {
-	fundsJSON, _ := json.Marshal(msatoshi)
-	ioutil.WriteFile(
+func SaveContractFunds(id string, msatoshi int64) error {
+	fundsJSON, err := json.Marshal(msatoshi)
+	if err != nil {
+		return err
+	}
+
+	return writeFile(
 		filepath.Join(DatabasePath, "contracts", id, "funds.json"),
 		fundsJSON,
-		0644,
 	)
 }
 
 func DeleteContract(id string) error {
 	path := filepath.Join(DatabasePath, "contracts", id)
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil
 	}
 
 	Start()
-	err = os.RemoveAll(path)
-	if err != nil {
-		mutex.Unlock()
+	if err := os.RemoveAll(path); err != nil {
+		Abort()
+		return err
+	}
+
+	if err := gitAdd(path); err != nil {
+		Abort()
 		return err
 	}
 
 	Finish("contract " + id + " deleted.")
-
-	mutex.Unlock()
 	return nil
 }
 

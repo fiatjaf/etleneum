@@ -78,12 +78,13 @@ func runCallGlobal(call *data.Call, useBalance bool) (err error) {
 		if balance < 0 {
 			log.Warn().Err(err).Str("callid", call.Id).Str("account", key).
 				Msg("account balance out of funds")
-			err = errors.New("account balance out of funds")
-			return
+			return errors.New("account balance out of funds")
 		}
 
 		// also write this
-		data.SaveAccountBalance(key, balance)
+		if err := data.SaveAccountBalance(key, balance); err != nil {
+			return fmt.Errorf("error saving account balance: %w", err)
+		}
 	}
 	for id, funds := range callContext.Funds {
 		if funds < 0 {
@@ -93,10 +94,14 @@ func runCallGlobal(call *data.Call, useBalance bool) (err error) {
 		}
 
 		// also write this
-		data.SaveContractFunds(id, funds)
+		if err := data.SaveContractFunds(id, funds); err != nil {
+			return fmt.Errorf("error saving contract funds: %w", err)
+		}
 	}
 
-	data.SaveTransfers(call, callContext.Transfers)
+	if err := data.SaveTransfers(call, callContext.Transfers); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -110,7 +115,6 @@ func runCall(call *data.Call, callContext *CallContext, useBalance bool) (err er
 
 	// get contract data
 	ct, err := data.GetContract(call.ContractId)
-	log.Print(ct)
 	if err != nil {
 		return fmt.Errorf("failed to load contract %s: %w", call.ContractId, err)
 	}
@@ -266,8 +270,13 @@ func runCall(call *data.Call, callContext *CallContext, useBalance bool) (err er
 	}
 
 	// write call files
-	data.SaveCall(call)
-	data.SaveContractState(call.ContractId, newState)
+	if err = data.SaveCall(call); err != nil {
+		return fmt.Errorf("error saving call data: %w", err)
+	}
+
+	if err := data.SaveContractState(call.ContractId, newState); err != nil {
+		return fmt.Errorf("error saving contract state: %w", err)
+	}
 
 	// ok, all is good
 	log.Info().Str("callid", call.Id).Msg("call done")

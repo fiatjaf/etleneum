@@ -3,7 +3,6 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,13 +28,11 @@ type Transfer struct {
 
 func GetCall(contract string, id string) (call *Call, err error) {
 	path := filepath.Join(DatabasePath, "contracts", contract, "calls", id[0:1], id)
-	_, err = os.Stat(path)
-	if os.IsNotExist(err) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, nil
 	}
 
-	err = readJSON(filepath.Join(path, "call.json"), &call)
-	if err != nil {
+	if err := readJSON(filepath.Join(path, "call.json"), &call); err != nil {
 		return nil, err
 	}
 	call.Id = filepath.Base(path)
@@ -54,32 +51,30 @@ func SaveCall(call *Call) error {
 		return err
 	}
 
-	callJSON, err := json.Marshal(call)
+	callJSON, err := json.MarshalIndent(call, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	err = ioutil.WriteFile(filepath.Join(path, "call.json"), callJSON, 0644)
-	if err != nil {
+	if err := writeFile(filepath.Join(path, "call.json"), callJSON); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func SaveTransfers(call *Call, transfers []Transfer) {
+func SaveTransfers(call *Call, transfers []Transfer) error {
 	csv := make([]string, len(transfers))
 	for i, transfer := range transfers {
 		csv[i] = fmt.Sprintf("%s,%d,%s", transfer.From, transfer.Msatoshi, transfer.To)
 	}
 
-	ioutil.WriteFile(
+	return writeFile(
 		filepath.Join(DatabasePath,
 			"contracts", call.ContractId,
 			"calls", call.Id[0:1], call.Id,
 			"transfers.csv",
 		),
 		[]byte(strings.Join(csv, "\n")),
-		0644,
 	)
 }

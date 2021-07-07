@@ -38,16 +38,14 @@ func Start() {
 }
 
 func Abort() {
-	err := gitReset()
-	if err != nil {
+	if err := gitReset(); err != nil {
 		panic(err)
 	}
 	mutex.Unlock()
 }
 
 func Finish(message string) {
-	err := gitCommit(message)
-	if err != nil {
+	if err := gitCommit(message); err != nil {
 		panic(err)
 	}
 	mutex.Unlock()

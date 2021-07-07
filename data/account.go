@@ -2,7 +2,6 @@ package data
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"path/filepath"
 )
 
@@ -11,11 +10,10 @@ func GetAccountBalance(key string) (msatoshi int64) {
 	return msatoshi
 }
 
-func SaveAccountBalance(key string, msatoshi int64) {
+func SaveAccountBalance(key string, msatoshi int64) error {
 	balanceJSON, _ := json.Marshal(msatoshi)
-	ioutil.WriteFile(
+	return writeFile(
 		filepath.Join(DatabasePath, "accounts", key, "balance.json"),
 		balanceJSON,
-		0644,
 	)
 }

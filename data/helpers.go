@@ -18,3 +18,15 @@ func readJSON(path string, out interface{}) error {
 
 	return nil
 }
+
+func writeFile(path string, contents []byte) error {
+	if err := ioutil.WriteFile(path, contents, 0644); err != nil {
+		return err
+	}
+
+	if err := gitAdd(path); err != nil {
+		return err
+	}
+
+	return nil
+}
