@@ -28,7 +28,7 @@ type Transfer struct {
 }
 
 func GetCall(contract string, id string) (call *Call, err error) {
-	path := filepath.Join(DatabasePath, "contracts", contract, "calls", id[0:1], id)
+	path := filepath.Join(DatabasePath, "contracts", contract, "calls", id[1:2], id)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, nil
 	}
@@ -56,7 +56,7 @@ func GetCall(contract string, id string) (call *Call, err error) {
 func SaveCall(call *Call) error {
 	path := filepath.Join(DatabasePath,
 		"contracts", call.ContractId,
-		"calls", call.Id[0:1], call.Id,
+		"calls", call.Id[1:2], call.Id,
 	)
 
 	err := os.MkdirAll(path, 0700)
@@ -94,7 +94,7 @@ func SaveTransfers(call *Call, transfers []Transfer) error {
 	return writeFile(
 		filepath.Join(DatabasePath,
 			"contracts", call.ContractId,
-			"calls", call.Id[0:1], call.Id,
+			"calls", call.Id[1:2], call.Id,
 			"transfers.csv",
 		),
 		[]byte(strings.Join(csv, "\n")),
