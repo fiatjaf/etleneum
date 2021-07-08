@@ -56,3 +56,11 @@ func gitPull() error {
 
 	return nil
 }
+
+func gitPush() error {
+	if err := execute("git", "push", "origin", "master"); err != nil {
+		return err
+	}
+
+	return nil
+}

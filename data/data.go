@@ -53,4 +53,6 @@ func Finish(message string) {
 		panic(err)
 	}
 	mutex.Unlock()
+
+	go gitPush()
 }
