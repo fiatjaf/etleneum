@@ -5,7 +5,6 @@
   import DomJsonTree from 'dom-json-tree/src/index.js'
 
   export var value
-  export var closed = false
 
   let id = parseInt(Math.random() * 100000)
 

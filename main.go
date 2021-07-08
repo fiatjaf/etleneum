@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"embed"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	assetfs "github.com/elazarl/go-bindata-assetfs"
 	"github.com/fiatjaf/etleneum/data"
 	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
 	"github.com/fiatjaf/lightningd-gjson-rpc/plugin"
@@ -46,9 +47,11 @@ var s Settings
 var ln *lightning.Client
 var rds *redis.Client
 var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
-var httpPublic = &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, Prefix: ""}
 var userstreams = cmap.New()
 var contractstreams = cmap.New()
+
+//go:embed static
+var static embed.FS
 
 func main() {
 	http.DefaultClient = &http.Client{Transport: &http.Transport{
@@ -141,13 +144,14 @@ func server() {
 
 	// http server
 	router := mux.NewRouter()
-	router.PathPrefix("/static/").Methods("GET").Handler(http.FileServer(httpPublic))
+	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(static)))
 	router.Path("/favicon.ico").Methods("GET").HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
-			iconf, _ := httpPublic.Open("static/icon.png")
-			fstat, _ := iconf.Stat()
-			http.ServeContent(w, r, "static/icon.png", fstat.ModTime(), iconf)
+			file, _ := static.Open("static/icon.png")
+			stat, _ := file.Stat()
+			fileseeker, _ := file.(io.ReadSeeker)
+			http.ServeContent(w, r, "static/icon.png", stat.ModTime(), fileseeker)
 			return
 		})
 	router.Path("/~/contracts").Methods("GET").HandlerFunc(listContracts)
@@ -211,14 +215,10 @@ func server() {
 
 func serveClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
-	indexf, err := httpPublic.Open("static/index.html")
-	if err != nil {
-		log.Error().Err(err).Str("file", "static/index.html").
-			Msg("make sure you generated bindata.go without -debug")
-		return
-	}
-	fstat, _ := indexf.Stat()
-	http.ServeContent(w, r, "static/index.html", fstat.ModTime(), indexf)
+	file, _ := static.Open("static/index.html")
+	stat, _ := file.Stat()
+	fileseeker, _ := file.(io.ReadSeeker)
+	http.ServeContent(w, r, "static/icon.png", stat.ModTime(), fileseeker)
 	return
 }
 

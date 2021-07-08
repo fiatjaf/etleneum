@@ -1,39 +1,44 @@
 /** @format */
 
-import shim from 'rollup-plugin-shim'
-import json from '@rollup/plugin-json'
-import svelte from 'rollup-plugin-svelte'
-import resolve from '@rollup/plugin-node-resolve'
-import commonjs from '@rollup/plugin-commonjs'
-import inject from '@rollup/plugin-inject'
-import {terser} from 'rollup-plugin-terser'
+import shim from "rollup-plugin-shim";
+import json from "@rollup/plugin-json";
+import svelte from "rollup-plugin-svelte";
+import resolve from "@rollup/plugin-node-resolve";
+import css from "rollup-plugin-css-only";
+import commonjs from "@rollup/plugin-commonjs";
+import inject from "@rollup/plugin-inject";
+import replace from "@rollup/plugin-replace";
+import { terser } from "rollup-plugin-terser";
 
-const production = !!process.env.PRODUCTION
+const production = !!process.env.PRODUCTION;
 
 export default {
-  input: 'client/main.js',
+  input: "client/main.js",
   output: {
     sourcemap: true,
-    format: 'iife',
-    name: 'app',
-    file: 'static/bundle.js'
+    format: "iife",
+    name: "app",
+    file: "static/bundle.js",
   },
   plugins: [
     json(),
 
     shim({
-      fengari: 'export default window.fengari'
+      fengari: "export default window.fengari",
     }),
 
     svelte({
       // enable run-time checks when not in production
-      dev: !production,
-      // we'll extract any component CSS out into
-      // a separate file — better for performance
-      css: css => {
-        css.write('static/bundle.css')
-      }
+      compilerOptions: {
+        dev: !production,
+
+        css: (css) => {
+          css.write("static/bundle.css");
+        },
+      },
     }),
+
+    css({ output: "bundle.css" }),
 
     // If you have external dependencies installed from
     // npm, you'll most likely need these plugins. In
@@ -42,22 +47,27 @@ export default {
     // https://github.com/rollup/rollup-plugin-commonjs
     resolve({
       browser: true,
-      dedupe: importee =>
-        importee === 'svelte' || importee.startsWith('svelte/'),
-      preferBuiltins: false
+      dedupe: (importee) =>
+        importee === "svelte" || importee.startsWith("svelte/"),
+      preferBuiltins: false,
     }),
 
     commonjs(),
 
     inject({
-      Buffer: ['buffer', 'Buffer']
+      Buffer: ["buffer", "Buffer"],
+    }),
+
+    replace({
+      preventAssignment: true,
+      values: { "process.env.GITHUB_REPO": `'${process.env.GITHUB_REPO}'` },
     }),
 
     // If we're building for production (npm run build
     // instead of npm run dev), minify
-    production && terser()
+    production && terser(),
   ],
   watch: {
-    clearScreen: false
-  }
-}
+    clearScreen: false,
+  },
+};

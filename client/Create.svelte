@@ -3,7 +3,7 @@
 <script>
   import {push} from 'svelte-spa-router'
 
-  import QR from './QR.html'
+  import QR from './QR.svelte'
 
   import * as toast from './toast'
 

@@ -1,7 +1,7 @@
 <!-- @format -->
 
 <script>
-  import LuaCode from "./LuaCode.html";
+  import LuaCode from "./LuaCode.svelte";
 
   let faucetcode = `function __init__ ()
   return {}
@@ -35,9 +35,6 @@ end`;
 </script>
 
 <style>
-  pre {
-    padding: 5px;
-  }
   code {
     padding: 1px 2px;
     background-color: var(--lightgrey);

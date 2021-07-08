@@ -4,14 +4,14 @@
   import {onMount, setContext} from 'svelte'
   import Router, {link} from 'svelte-spa-router'
 
-  import Home from './Home.html'
-  import List from './List.html'
-  import View from './View.html'
-  import Call from './Call.html'
-  import Create from './Create.html'
-  import Account from './Account.html'
-  import Docs from './Docs.html'
-  import NotFound from './NotFound.html'
+  import Home from './Home.svelte'
+  import List from './List.svelte'
+  import View from './View.svelte'
+  import Call from './Call.svelte'
+  import Create from './Create.svelte'
+  import Account from './Account.svelte'
+  import Docs from './Docs.svelte'
+  import NotFound from './NotFound.svelte'
 
   import account from './accountStore'
 

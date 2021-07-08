@@ -5,7 +5,7 @@
   import PromiseWindow from 'promise-window'
 
   import * as toast from './toast'
-  import QR from './QR.html'
+  import QR from './QR.svelte'
   import account from './accountStore'
   import fire from './fire'
 

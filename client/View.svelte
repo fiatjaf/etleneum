@@ -1,23 +1,19 @@
-<!-- @format -->
-
 <script>
   import bech32 from 'bech32'
   import {onMount} from 'svelte'
   import {replace, push} from 'svelte-spa-router'
 
-  import QR from './QR.html'
-  import Json from './Json.html'
-  import LuaCode from './LuaCode.html'
-  import Markdown from './Markdown.html'
-  import MultiField from './MultiField.html'
-  import EventRow from './EventRow.html'
+  import QR from './QR.svelte'
+  import Json from './Json.svelte'
+  import LuaCode from './LuaCode.svelte'
+  import Markdown from './Markdown.svelte'
+  import MultiField from './MultiField.svelte'
 
   import account, {hmacCall} from './accountStore'
   import * as toast from './toast'
 
   export let params
   var contract
-  var calls = []
 
   var payloadfields = {}
   var nextcall
@@ -43,9 +39,6 @@
     contract = ctdata
 
     resetNextCall()
-
-    r = await fetch('/~/contract/' + params.ctid + '/calls')
-    calls = (await r.json()).value
   }
 
   function resetNextCall(id) {
@@ -262,7 +255,7 @@
 {#if !contract}
 <div class="center">loading</div>
 {:else}
-<main>
+<div id="main">
   <div id="status">
     <h1>
       {contract.name} {#if window.location.host !== 'etleneum.com'}
@@ -278,6 +271,7 @@
     >
     <h4>code</h4>
     <LuaCode>{contract.code}</LuaCode>
+    <h4><a href={`https://github.com/${process.env.GITHUB_REPO}/commits/master/contracts/ctc0o086ks`} target="_blank">contract history</a></h4>
   </div>
   <div id="action">
     <h2>make a call</h2>
@@ -314,7 +308,7 @@
         on:input="{setMsatoshi}" />
       </label>
       {#each nextmethod.params as pf (pf)}
-      <label>
+      <label for="_">
         {pf}:
         <MultiField
           value="{renderPayloadField(pf)}"
@@ -322,7 +316,7 @@
         />
       </label>
       {/each} {#if Object.keys(nextcall.payload).length > 0}
-      <label>payload: <Json value="{nextcall.payload}" /> </label>
+      <label for="_">payload: <Json value="{nextcall.payload}" /> </label>
       {/if}
       <label class:disabled="{!$account.session}">
         make this call authenticated with your account:
@@ -360,17 +354,11 @@
     </div>
     {/if} {/if}
   </div>
-  <div id="events">
-    <h2>contract (recent) history</h2>
-    {#each calls as call}
-    <EventRow contract="{params.ctid}" call="{call}" />
-    {/each}
-  </div>
-</main>
+</div>
 {/if}
 
 <style>
-  main {
+  #main {
     display: flex;
     flex-wrap: wrap;
   }
@@ -416,9 +404,5 @@
     padding: 12px;
     font-size: 1.2rem;
     background-color: var(--yellow);
-  }
-  #events {
-    margin-top: 2%;
-    width: 100%;
   }
 </style>

@@ -58,7 +58,7 @@
   pre {
     white-space: pre-wrap;
   }
-  a.toggle {
+  .toggle {
     cursor: pointer;
     position: absolute;
     right: 10px;
@@ -69,16 +69,16 @@
     transition: 200ms linear opacity;
     opacity: 0.6;
   }
-  a.toggle:hover {
+  .toggle:hover {
     opacity: 1;
   }
 </style>
 
 <div id="c-{id}-source">
-  <a class="toggle" on:click="{toggle}">↬</a>
+  <span class="toggle" on:click="{toggle}">↬</span>
   <pre><slot></slot></pre>
 </div>
 <article id="c-{id}-target">
-  <a class="toggle" on:click="{toggle}">↫</a>
+  <span class="toggle" on:click="{toggle}">↫</span>
   <div></div>
 </article>

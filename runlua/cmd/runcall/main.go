@@ -10,9 +10,8 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/fiatjaf/etleneum/data"
 	"github.com/fiatjaf/etleneum/runlua"
-	"github.com/fiatjaf/etleneum/types"
-	sqlxtypes "github.com/jmoiron/sqlx/types"
 	"github.com/rs/zerolog"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -139,27 +138,23 @@ func main() {
 			func(_, _ string, _ interface{}, _ int64) error {
 				return errors.New("no external contracts in test environment")
 			},
-			func() (contractFunds int, err error) { return contractFunds, nil },
-			func(target string, msat int) (msatoshiSent int, err error) {
+			func() (contractFunds int64, err error) { return contractFunds, nil },
+			func(target string, msat int64) (msatoshiSent int64, err error) {
 				contractFunds -= int64(msat)
 				fmt.Fprintf(os.Stderr, "%dmsat sent to %s\n", msat, target)
 				return msat, nil
 			},
-			func() (userBalance int, err error) { return 99999, nil },
-			func(target string, msat int) (msatoshiSent int, err error) {
-				fmt.Fprintf(os.Stderr, "%dmsat sent to %s\n", msat, target)
-				return msat, nil
-			},
-			types.Contract{
+			func() (userBalance int64, err error) { return 99999, nil },
+			data.Contract{
 				Code:  string(bcontractCode),
-				State: sqlxtypes.JSONText(statejson),
+				State: json.RawMessage(statejson),
 				Funds: contractFunds,
 			},
-			types.Call{
+			data.Call{
 				Id:       "callid",
 				Msatoshi: msatoshi,
 				Method:   c.String("method"),
-				Payload:  sqlxtypes.JSONText([]byte(c.String("payload"))),
+				Payload:  json.RawMessage(c.String("payload")),
 				Caller:   c.String("caller"),
 			},
 		)

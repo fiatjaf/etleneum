@@ -4,7 +4,7 @@
   import {onMount} from 'svelte'
   import {replace, push} from 'svelte-spa-router'
 
-  import Json from './Json.html'
+  import Json from './Json.svelte'
 
   import account, {hmacCall} from './accountStore'
   import * as toast from './toast'

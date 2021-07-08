@@ -1,13 +1,12 @@
 module github.com/fiatjaf/etleneum
 
-go 1.14
+go 1.16
 
 require (
 	github.com/aarzilli/golua v0.0.0-20190714183732-fc27908ace94
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da
 	github.com/btcsuite/btcd v0.20.1-beta.0.20200515232429-9f0179fd2c46
 	github.com/btcsuite/btcutil v1.0.2
-	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/fiatjaf/go-lnurl v1.0.0
 	github.com/fiatjaf/hashbow v1.0.0
 	github.com/fiatjaf/lightningd-gjson-rpc v1.0.0
