@@ -142,7 +142,19 @@ func runCall(call *data.Call, callContext *CallContext, useBalance bool) (err er
 		callContext.Transfers = append(callContext.Transfers, data.Transfer{
 			From:     call.Caller,
 			To:       "",
-			Msatoshi: call.Msatoshi + call.Cost,
+			Msatoshi: call.Cost,
+		})
+		callContext.Transfers = append(callContext.Transfers, data.Transfer{
+			From:     call.Caller,
+			To:       call.ContractId,
+			Msatoshi: call.Msatoshi,
+		})
+	} else {
+		// take note of the amount sent in this call as a transfer
+		callContext.Transfers = append(callContext.Transfers, data.Transfer{
+			From:     "",
+			To:       call.ContractId,
+			Msatoshi: call.Msatoshi,
 		})
 	}
 

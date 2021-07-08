@@ -30,3 +30,13 @@ func writeFile(path string, contents []byte) error {
 
 	return nil
 }
+
+func writeJSON(path string, contents interface{}) error {
+	if payloadJSON, err := json.MarshalIndent(contents, "", "  "); err != nil {
+		return err
+	} else if err := writeFile(path, payloadJSON); err != nil {
+		return err
+	}
+
+	return nil
+}

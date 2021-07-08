@@ -3,6 +3,7 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,12 +13,12 @@ import (
 type Call struct {
 	Id         string          `json:"id"` // used in the invoice label
 	Time       time.Time       `json:"time"`
-	ContractId string          `json:"contract_id,omitempty"`
+	ContractId string          `json:"contract_id"`
 	Method     string          `json:"method"`
 	Payload    json.RawMessage `json:"payload"`
-	Msatoshi   int64           `json:"msatoshi"` // msats to be added to the contract
-	Cost       int64           `json:"cost"`     // msats to be paid to the platform
-	Caller     string          `json:"caller,omitempty"`
+	Msatoshi   int64           `json:"msatoshi"`       // msats to be added to the contract
+	Cost       int64           `json:"cost,omitempty"` // msats to be paid to the platform
+	Caller     string          `json:"caller"`
 }
 
 type Transfer struct {
@@ -32,10 +33,22 @@ func GetCall(contract string, id string) (call *Call, err error) {
 		return nil, nil
 	}
 
-	if err := readJSON(filepath.Join(path, "call.json"), &call); err != nil {
+	if err := readJSON(filepath.Join(path, "payload.json"), &call.Payload); err != nil {
 		return nil, err
 	}
+	if callerb, err := ioutil.ReadFile(filepath.Join(path, "caller.txt")); err == nil {
+		call.Caller = string(callerb)
+	}
+	if methodb, err := ioutil.ReadFile(filepath.Join(path, "method.txt")); err != nil {
+		return nil, err
+	} else {
+		call.Method = string(methodb)
+	}
+
+	stat, _ := os.Stat(filepath.Join(path, "method.txt"))
+	call.Time = stat.ModTime()
 	call.Id = filepath.Base(path)
+	call.ContractId = contract
 
 	return call, nil
 }
@@ -51,13 +64,22 @@ func SaveCall(call *Call) error {
 		return err
 	}
 
-	callJSON, err := json.MarshalIndent(call, "", "  ")
-	if err != nil {
+	if err := writeJSON(filepath.Join(path, "payload.json"), call.Payload); err != nil {
 		return err
 	}
-
-	if err := writeFile(filepath.Join(path, "call.json"), callJSON); err != nil {
+	if err := writeFile(
+		filepath.Join(path, "method.txt"),
+		[]byte(call.Method),
+	); err != nil {
 		return err
+	}
+	if call.Caller != "" {
+		if err := writeFile(
+			filepath.Join(path, "caller.txt"),
+			[]byte(call.Caller),
+		); err != nil {
+			return err
+		}
 	}
 
 	return nil

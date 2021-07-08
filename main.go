@@ -36,7 +36,6 @@ type Settings struct {
 
 	GitHubRepoOwner string `envconfig:"GITHUB_REPO_OWNER" required:"true"`
 	GitHubRepoName  string `envconfig:"GITHUB_REPO_NAME" required:"true"`
-	GitHubToken     string `envconfig:"GITHUB_TOKEN" required:"true"`
 
 	InitialContractCostSatoshis int64 `envconfig:"INITIAL_CONTRACT_COST_SATOSHIS" default:"970"`
 	FixedCallCostSatoshis       int64 `envconfig:"FIXED_CALL_COST_SATOSHIS" default:"1"`

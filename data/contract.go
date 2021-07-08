@@ -153,26 +153,16 @@ func CreateContract(
 }
 
 func SaveContractState(id string, state json.RawMessage) error {
-	prettyState, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return writeFile(
+	return writeJSON(
 		filepath.Join(DatabasePath, "contracts", id, "state.json"),
-		prettyState,
+		state,
 	)
 }
 
 func SaveContractFunds(id string, msatoshi int64) error {
-	fundsJSON, err := json.Marshal(msatoshi)
-	if err != nil {
-		return err
-	}
-
-	return writeFile(
+	return writeJSON(
 		filepath.Join(DatabasePath, "contracts", id, "funds.json"),
-		fundsJSON,
+		msatoshi,
 	)
 }
 
