@@ -10,6 +10,8 @@ import (
 
 	"github.com/fiatjaf/etleneum/data"
 	"github.com/fiatjaf/go-lnurl"
+	lightning "github.com/fiatjaf/lightningd-gjson-rpc"
+	"github.com/tidwall/gjson"
 	"gopkg.in/antage/eventsource.v1"
 )
 
@@ -178,151 +180,110 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 }
 
 func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
-	// 	accountId, err := getAccountIdFromLNURLWithdraw(r)
-	// 	if err != nil {
-	// 		json.NewEncoder(w).Encode(lnurl.ErrorResponse(err.Error()))
-	// 		return
-	// 	}
-	//
-	// 	bolt11 := r.URL.Query().Get("pr")
-	//
-	// 	// start withdrawal transaction
-	// 	txn, err := pg.BeginTxx(context.TODO(), &sql.TxOptions{Isolation: sql.LevelSerializable})
-	// 	if err != nil {
-	// 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("internal database error."))
-	// 		return
-	// 	}
-	// 	defer txn.Rollback()
-	//
-	// 	if s.FreeMode {
-	// 		json.NewEncoder(w).Encode(lnurl.OkResponse())
-	// 		return
-	// 	}
-	//
-	// 	// decode invoice
-	// 	inv, err := ln.Call("decodepay", bolt11)
-	// 	if err != nil {
-	// 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to decode invoice."))
-	// 		return
-	// 	}
-	// 	amount := inv.Get("msatoshi").Int()
-	//
-	// 	log.Debug().Str("bolt11", bolt11).Str("account", accountId).Int64("amount", amount).
-	// 		Msg("got a withdraw payment request")
-	//
-	// 	reservefee := int64(float64(amount) * 0.007)
-	//
-	// 	// add a pending withdrawal
-	// 	_, err = txn.Exec(`
-	// INSERT INTO withdrawals (account_id, msatoshi, fee_msat, fulfilled, bolt11)
-	// VALUES ($1, $2, $3, false, $4)
-	//     `, accountId, amount, reservefee, bolt11)
-	// 	if err != nil {
-	// 		log.Warn().Err(err).Msg("error inserting withdrawal")
-	// 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
-	// 		return
-	// 	}
-	//
-	// 	// check balance afterwards
-	// 	var balance int
-	// 	err = txn.Get(&balance, "SELECT balance($1)", accountId)
-	// 	if err != nil {
-	// 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
-	// 		return
-	// 	}
-	// 	if balance < 0 {
-	// 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("insufficient balance."))
-	// 		return
-	// 	}
-	//
-	// 	log.Debug().Int("balance after", balance).Msg("will fulfill")
-	//
-	// 	err = txn.Commit()
-	// 	if err != nil {
-	// 		log.Warn().Err(err).Msg("error commiting withdrawal")
-	// 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("database error."))
-	// 		return
-	// 	}
-	//
-	// 	// actually send the payment
-	// 	go func() {
-	// 		var (
-	// 			listpays gjson.Result
-	// 		)
-	//
-	// 		payresp, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay",
-	// 			map[string]interface{}{
-	// 				"bolt11":        bolt11,
-	// 				"label":         "etleneum withdraw " + accountId,
-	// 				"maxfeepercent": 0.7,
-	// 				"exemptfee":     0,
-	// 				"retry_for":     20,
-	// 			})
-	// 		log.Debug().Err(err).Str("resp", payresp.String()).
-	// 			Str("account", accountId).Str("bolt11", bolt11).
-	// 			Msg("withdraw pay result")
-	//
-	// 		if _, ok := err.(lightning.ErrorCommand); ok {
-	// 			goto failure
-	// 		}
-	//
-	// 		if payresp.Get("status").String() == "complete" {
-	// 			// calculate actual fee
-	// 			lnfee := payresp.Get("msatoshi_sent").Int() - payresp.Get("msatoshi").Int()
-	// 			platformfee := int64(payresp.Get("msatoshi").Float() * 0.001)
-	// 			fee := lnfee + platformfee
-	//
-	// 			// mark as fulfilled
-	// 			_, err := pg.Exec(`
-	//                 UPDATE withdrawals
-	//                 SET fulfilled = true
-	//                   , fee_msat = $2
-	//                 WHERE bolt11 = $1
-	//             `, bolt11, fee)
-	// 			if err != nil {
-	// 				log.Error().Err(err).Str("accountId", accountId).
-	// 					Msg("error marking payment as fulfilled")
-	// 			}
-	//
-	// 			return
-	// 		}
-	//
-	// 		// call listpays to check failure
-	// 		listpays, _ = ln.Call("listpays", bolt11)
-	// 		if listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() != "failed" {
-	// 			// not a failure -- but also not a success
-	// 			// we don't know what happened, maybe it's pending, so don't do anything
-	// 			log.Debug().Str("bolt11", bolt11).
-	// 				Msg("we don't know what happened with this payment")
-	//
-	// 			// notify browser
-	// 			if ies, ok := userstreams.Get(r.URL.Query().Get("session")); ok {
-	// 				ies.(eventsource.EventSource).SendEventMessage("We don't know what happened with the payment.", "error", "")
-	// 			}
-	//
-	// 			return
-	// 		} else if listpays.Get("pays.#").Int() > 1 {
-	// 			// this should not happen
-	// 			log.Debug().Str("bolt11", bolt11).Msg("this should not happen")
-	// 			return
-	// 		}
-	//
-	// 		// if we reached this point then it's because the payment has failed
-	// 	failure:
-	// 		// delete attempt since it has undoubtely failed
-	// 		_, err = pg.Exec(`DELETE FROM withdrawals WHERE bolt11 = $1`, bolt11)
-	// 		if err != nil {
-	// 			log.Error().Err(err).Str("accountId", accountId).
-	// 				Msg("error deleting withdrawal attempt")
-	// 		}
-	//
-	// 		// notify browser
-	// 		if ies, ok := userstreams.Get(r.URL.Query().Get("session")); ok {
-	// 			ies.(eventsource.EventSource).SendEventMessage("Payment failed.", "error", "")
-	// 		}
-	// 	}()
-	//
-	// 	json.NewEncoder(w).Encode(lnurl.OkResponse())
+	accountId, err := getAccountIdFromLNURLWithdraw(r)
+	if err != nil {
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse(err.Error()))
+		return
+	}
+
+	bolt11 := r.URL.Query().Get("pr")
+
+	if s.FreeMode {
+		json.NewEncoder(w).Encode(lnurl.OkResponse())
+		return
+	}
+
+	// decode invoice
+	inv, err := ln.Call("decodepay", bolt11)
+	if err != nil {
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to decode invoice."))
+		return
+	}
+	amount := inv.Get("msatoshi").Int()
+
+	log.Debug().Str("bolt11", bolt11).Str("account", accountId).
+		Int64("amount", amount).
+		Msg("got a withdraw payment request")
+
+	// add a pending withdrawal
+	hash := inv.Get("payment_hash").String()
+	if err := data.AddWithdrawal(accountId, amount, bolt11, hash); err != nil {
+		log.Warn().Err(err).Str("account", accountId).Msg("can't withdraw")
+		return
+	}
+
+	// actually send the payment
+	go func() {
+		var (
+			listpays gjson.Result
+		)
+
+		payresp, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay",
+			map[string]interface{}{
+				"bolt11":        bolt11,
+				"label":         "etleneum withdraw " + accountId,
+				"maxfeepercent": 0.7,
+				"exemptfee":     0,
+				"retry_for":     20,
+			})
+		log.Debug().Err(err).Str("resp", payresp.String()).
+			Str("account", accountId).Str("bolt11", bolt11).
+			Msg("withdraw pay result")
+
+		if _, ok := err.(lightning.ErrorCommand); ok {
+			goto failure
+		}
+
+		if payresp.Get("status").String() == "complete" {
+			// calculate actual fee
+			lnfee := payresp.Get("msatoshi_sent").Int() - payresp.Get("msatoshi").Int()
+			platformfee := int64(payresp.Get("msatoshi").Float() * 0.001)
+			fee := lnfee + platformfee
+
+			// mark as fulfilled
+			if data.FulfillWithdraw(accountId, amount, fee, hash); err != nil {
+				log.Error().Err(err).Str("accountId", accountId).
+					Msg("error marking payment as fulfilled")
+			}
+
+			return
+		}
+
+		// call listpays to check failure
+		listpays, _ = ln.Call("listpays", bolt11)
+		if listpays.Get("pays.#").Int() == 1 && listpays.Get("pays.0.status").String() != "failed" {
+			// not a failure -- but also not a success
+			// we don't know what happened, maybe it's pending, so don't do anything
+			log.Debug().Str("bolt11", bolt11).
+				Msg("we don't know what happened with this payment")
+
+			// notify browser
+			if ies, ok := userstreams.Get(r.URL.Query().Get("session")); ok {
+				ies.(eventsource.EventSource).SendEventMessage("We don't know what happened with the payment.", "error", "")
+			}
+
+			return
+		} else if listpays.Get("pays.#").Int() > 1 {
+			// this should not happen
+			log.Debug().Str("bolt11", bolt11).Msg("this should not happen")
+			return
+		}
+
+		// if we reached this point then it's because the payment has failed
+	failure:
+		// delete attempt since it has undoubtely failed
+		if err := data.CancelWithdraw(accountId, amount, hash); err != nil {
+			log.Error().Err(err).Str("accountId", accountId).
+				Msg("error deleting withdrawal attempt")
+		}
+
+		// notify browser
+		if ies, ok := userstreams.Get(r.URL.Query().Get("session")); ok {
+			ies.(eventsource.EventSource).SendEventMessage("Payment failed.", "error", "")
+		}
+	}()
+
+	json.NewEncoder(w).Encode(lnurl.OkResponse())
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
