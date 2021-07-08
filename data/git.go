@@ -48,3 +48,11 @@ func gitReset() error {
 
 	return nil
 }
+
+func gitPull() error {
+	if err := execute("git", "pull", "origin", "master", "--rebase"); err != nil {
+		return err
+	}
+
+	return nil
+}

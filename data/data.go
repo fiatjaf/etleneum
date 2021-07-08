@@ -23,7 +23,9 @@ func Initialize() {
 		panic(fmt.Errorf("git not initialized on git database at %s", DatabasePath))
 	}
 
-	// TODO: fetch from git remote?
+	if err := gitPull(); err != nil {
+		log.Warn().Err(err).Msg("failed to git pull")
+	}
 
 	os.MkdirAll(filepath.Join(DatabasePath, "accounts"), 0700)
 	os.MkdirAll(filepath.Join(DatabasePath, "contracts"), 0700)
@@ -38,14 +40,16 @@ func Start() {
 }
 
 func Abort() {
-	if err := gitReset(); err != nil {
+	err := gitReset()
+	if err != nil {
 		panic(err)
 	}
 	mutex.Unlock()
 }
 
 func Finish(message string) {
-	if err := gitCommit(message); err != nil {
+	err := gitCommit(message)
+	if err != nil {
 		panic(err)
 	}
 	mutex.Unlock()
