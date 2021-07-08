@@ -21,14 +21,12 @@ func lua_keybase_lookup(provider, name string) (username string, err error) {
 	url := "https://keybase.io/_/api/1.0/user/lookup.json"
 	resp, err := http.Get(url + "?" + params.Encode())
 	if err != nil {
-		log.Print(err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Print(err)
 		return "", err
 	}
 
@@ -37,7 +35,6 @@ func lua_keybase_lookup(provider, name string) (username string, err error) {
 		return false
 	})
 
-	log.Print(username)
 	return username, nil
 }
 

@@ -90,14 +90,12 @@ func runCall(
 	}
 
 	var currentstate map[string]interface{}
-	log.Print(string(contract.State))
 	err = json.Unmarshal(contract.State, &currentstate)
 	if err != nil {
 		return
 	}
 
 	var payload map[string]interface{}
-	log.Print(string(call.Payload))
 	err = json.Unmarshal(call.Payload, &payload)
 	if err != nil {
 		return
@@ -292,7 +290,6 @@ state = sandbox_env.contract.state
 	err = L.DoString(code)
 	if err != nil {
 		st := stackTraceWithCode(err.Error(), actualCode)
-		log.Print(st)
 		err = errors.New(st)
 		return
 	}
