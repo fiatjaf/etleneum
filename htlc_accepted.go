@@ -30,7 +30,7 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	hash := params.Get("htlc.payment_hash").String()
 
 	p.Logf("got HTLC. amount=%s short_channel_id=%s hash=%s", amount, scid, hash)
-	for rds == nil || data.Initialized {
+	for rds == nil || !data.Initialized {
 		p.Log("htlc_accepted: waiting until redis and filesystem are available.")
 		time.Sleep(1 * time.Second)
 	}
