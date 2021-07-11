@@ -73,7 +73,7 @@ func FulfillWithdraw(key string, amount int64, actualFee int64, hash string) err
 		return err
 	}
 
-	Finish(fmt.Sprintf("withdraw %s has failed.", hash))
+	Finish(fmt.Sprintf("withdraw %s has succeeded.", hash))
 	return nil
 }
 

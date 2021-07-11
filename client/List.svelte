@@ -8,6 +8,7 @@
   onMount(async () => {
     let r = await fetch('/~/contracts')
     contracts = (await r.json()).value
+    contracts.sort((a, b) => b.funds - a.funds)
   })
 
   function goToContract(e) {

@@ -76,7 +76,7 @@
       </div>
       <div style="margin-left: 20px">
         <a
-          href={`https://github.com/etleneum/database/commits/master/accounts/${account.id}`}
+          href={`https://github.com/etleneum/database/commits/master/accounts/${$account.id}`}
           target="_blank">account history</a
         >
       </div>
