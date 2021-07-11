@@ -2,8 +2,12 @@ package data
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func execute(name string, args ...string) error {
@@ -63,4 +67,20 @@ func gitPush() error {
 	}
 
 	return nil
+}
+
+func gitGetLastCommitFileTimestamp(path string) time.Time {
+	stdout := &bytes.Buffer{}
+	cmd := exec.Command("git", "log", "-n", "1", "--pretty=format:%at", "--", path)
+	cmd.Dir = DatabasePath
+	cmd.Stdout = stdout
+
+	cmd.Run()
+
+	timestamp, _ := strconv.ParseInt(strings.TrimSpace(stdout.String()), 10, 64)
+	if timestamp > 0 {
+		return time.Unix(timestamp, 0)
+	} else {
+		panic(fmt.Errorf("failed to get call timestamp at %s", path))
+	}
 }

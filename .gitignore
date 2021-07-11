@@ -13,3 +13,5 @@ runcall
 static/*bundle*
 .pyre
 gitdatabase
+prodgitdatabase
+yarn.lock

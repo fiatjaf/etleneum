@@ -45,8 +45,7 @@ func GetCall(contract string, id string) (call *Call, err error) {
 		call.Method = string(methodb)
 	}
 
-	stat, _ := os.Stat(filepath.Join(path, "method.txt"))
-	call.Time = stat.ModTime()
+	call.Time = gitGetLastCommitFileTimestamp(filepath.Join(path, "method.txt"))
 	call.Id = filepath.Base(path)
 	call.ContractId = contract
 

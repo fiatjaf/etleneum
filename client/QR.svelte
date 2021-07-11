@@ -1,5 +1,4 @@
 <!-- @format -->
-
 <script>
   import {onMount, afterUpdate} from 'svelte'
   import kjua from 'kjua'
@@ -38,6 +37,11 @@
   }
 </script>
 
+<div>
+  <a href="lightning:{value.toLowerCase()}" id="c-{id}" />
+  <textarea readonly>{value.toLowerCase()}</textarea>
+</div>
+
 <style>
   a {
     display: block;
@@ -51,8 +55,3 @@
     height: 4.5em;
   }
 </style>
-
-<div>
-  <a href="lightning:{value.toLowerCase()}" id="c-{id}"></a>
-  <textarea readonly>{value.toLowerCase()}</textarea>
-</div>

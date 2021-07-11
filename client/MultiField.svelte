@@ -1,5 +1,4 @@
 <!-- @format -->
-
 <script>
   import {createEventDispatcher} from 'svelte'
 
@@ -42,6 +41,19 @@
   }
 </script>
 
+<div>
+  <span title="click to toggle input type" on:click={toggle}>⇋</span>
+  {#if type == 'text-line'}
+    <input type="text" {value} on:input={change} />
+  {:else if type == 'text-area'}
+    <textarea {value} on:input={change} />
+  {:else if type == 'number'}
+    <input type="number" {value} on:input={change} />
+  {:else if type == 'bool'}
+    <input type="checkbox" checked={!!value} on:input={change} />
+  {/if}
+</div>
+
 <style>
   div {
     display: inline;
@@ -51,16 +63,3 @@
     cursor: alias;
   }
 </style>
-
-<div>
-  <span title="click to toggle input type" on:click="{toggle}">⇋</span>
-  {#if type == 'text-line'}
-  <input type="text" value="{value}" on:input="{change}" />
-  {:else if type == 'text-area'}
-  <textarea value="{value}" on:input="{change}" />
-  {:else if type == 'number'}
-  <input type="number" value="{value}" on:input="{change}" />
-  {:else if type == 'bool'}
-  <input type="checkbox" checked="{!!value}" on:input="{change}" />
-  {/if}
-</div>

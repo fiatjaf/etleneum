@@ -1,5 +1,4 @@
 <!-- @format -->
-
 <script>
   import {tick, afterUpdate} from 'svelte'
   import DomJsonTree from 'dom-json-tree/src/index.js'
@@ -38,4 +37,4 @@
   })
 </script>
 
-<div id="j-{id}"></div>
+<div id="j-{id}" />

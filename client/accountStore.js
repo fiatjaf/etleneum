@@ -14,7 +14,6 @@ function getInitial() {
     balance: 0,
     can_withdraw: 0,
     secret: '',
-    history: []
   }
 }
 
@@ -72,11 +71,6 @@ function startEventSource() {
     if (data.session) {
       window.localStorage.setItem('auth-session', data.session)
     }
-  })
-  es.addEventListener('history', e => {
-    let data = JSON.parse(e.data)
-    current.history = data
-    storeSet(current)
   })
   es.addEventListener('withdraw', e => {
     let data = JSON.parse(e.data)

@@ -212,12 +212,10 @@
           toast.info(`call ${data.id} started...`)
           break
         case 'print':
-          toast.info(`call ${data.id} printed: <code>${data.message}</code>`)
+          toast.info(`call ${data.id} printed: ${data.message}`)
           break
         case 'function':
-          toast.info(
-            `call ${data.id} used a function: <code>${data.message}</code>`
-          )
+          toast.info(`call ${data.id} used a function: ${data.message}`)
           account.refresh()
           break
       }
@@ -248,113 +246,133 @@
 
 <svelte:head>
   {#if contract && contract.name}
-  <title>[{contract.id}] {contract.name} | etleneum contract</title>
+    <title>[{contract.id}] {contract.name} | etleneum contract</title>
   {/if}
 </svelte:head>
 
 {#if !contract}
-<div class="center">loading</div>
+  <div class="center">loading</div>
 {:else}
-<div id="main">
-  <div id="status">
-    <h1>
-      {contract.name} {#if window.location.host !== 'etleneum.com'}
-      <button on:click="{deleteContract}">delete</button>{/if}
-    </h1>
-    <div>{(contract.funds/1000).toFixed(3)} sat</div>
-    <h4>state</h4>
-    <Json value="{contract.state}" />
-    <h4>readme</h4>
-    <Markdown
-      ctdata="{{funds: contract.funds, state: contract.state, id: contract.id}}"
-      >{contract.readme}</Markdown
-    >
-    <h4>code</h4>
-    <LuaCode>{contract.code}</LuaCode>
-    <h4><a href={`https://github.com/${process.env.GITHUB_REPO}/commits/master/contracts/ctc0o086ks`} target="_blank">contract history</a></h4>
-  </div>
-  <div id="action">
-    <h2>make a call</h2>
-    {#if contract.methods.length == 0 }
-    <p>apparently this contract has no callable methods</p>
-    {:else} {#if nextcall.invoice}
-    <div class="center">
-      <QR value="{nextcall.invoice}" />
-      <p>{nextcall.id}<br />pay to make the call</p>
-      <button on:click="{abandonCall}">prepare a different call</button>
-    </div>
-    {:else}
-    <form on:submit="{prepareCall}">
-      <div class="label">
-        method: {#if nextmethod}<b>{nextmethod.name}</b>{:else}none
-        selected{/if}
-        <div class="select">
-          {#each contract.methods as method (method.name)}
-          <button
-            on:click="{setMethod}"
-            class:enabled="{method.name === nextcall.method}"
-          >
-            {method.name}
-          </button>
-          {/each}
-        </div>
-        {#if nextmethod && nextmethod.auth}
-        <div>apparently this method requires you to be authenticated</div>
-        {/if}
-      </div>
-      {#if nextmethod}
-      <label>
-        satoshi: <input type="number" min="0" value={nextcall.msatoshi/1000}
-        on:input="{setMsatoshi}" />
-      </label>
-      {#each nextmethod.params as pf (pf)}
-      <label for="_">
-        {pf}:
-        <MultiField
-          value="{renderPayloadField(pf)}"
-          on:change="{e => setPayloadField(pf, e)}"
-        />
-      </label>
-      {/each} {#if Object.keys(nextcall.payload).length > 0}
-      <label for="_">payload: <Json value="{nextcall.payload}" /> </label>
-      {/if}
-      <label class:disabled="{!$account.session}">
-        make this call authenticated with your account:
-        <input
-          type="checkbox"
-          disabled="{!$account.session}"
-          bind:checked="{nextcall.includeCallerSession}"
-        />
-      </label>
-      <div>
-        <button>prepare call</button>
-        {#if nextcall.includeCallerSession}
-        <button on:click="{executeWithBalance}">
-          execute using funds from balance
-        </button>
-        {/if }
-      </div>
-      {/if}
-    </form>
-    {/if} {#if nextmethod && !nextcall.invoice}
-    <div id="lnurl-pay">
-      <h3>reusable lnurl-pay for this call</h3>
-      {#if nextcall.includeCallerSession}
-      <p>(includes <b>secret</b> auth token)</p>
-      {/if}
-      <div class="center">
-        <QR value="{lnurlpay(nextcall, withamount)}" size="{200}" />
-      </div>
-      <div>
-        <label
-          ><input type="checkbox" bind:checked="{withamount}" /> with
-          amount</label
+  <div id="main">
+    <div id="status">
+      <h1>
+        {contract.name}
+        {#if window.location.host !== 'etleneum.com'}
+          <button on:click={deleteContract}>delete</button>{/if}
+      </h1>
+      <div>{(contract.funds / 1000).toFixed(3)} sat</div>
+      <h4>state</h4>
+      <Json value={contract.state} />
+      <h4>readme</h4>
+      <Markdown
+        ctdata={{
+          funds: contract.funds,
+          state: contract.state,
+          id: contract.id
+        }}>{contract.readme}</Markdown
+      >
+      <h4>code</h4>
+      <LuaCode>{contract.code}</LuaCode>
+      <h4>
+        <a
+          href={`https://github.com/${process.env.GITHUB_REPO}/commits/master/contracts/ctc0o086ks`}
+          target="_blank">contract history</a
         >
-      </div>
+      </h4>
     </div>
-    {/if} {/if}
+    <div id="action">
+      <h2>make a call</h2>
+      {#if contract.methods.length == 0}
+        <p>apparently this contract has no callable methods</p>
+      {:else}
+        {#if nextcall.invoice}
+          <div class="center">
+            <QR value={nextcall.invoice} />
+            <p>{nextcall.id}<br />pay to make the call</p>
+            <button on:click={abandonCall}>prepare a different call</button>
+          </div>
+        {:else}
+          <form on:submit={prepareCall}>
+            <div class="label">
+              method: {#if nextmethod}<b>{nextmethod.name}</b>{:else}none
+                selected{/if}
+              <div class="select">
+                {#each contract.methods as method (method.name)}
+                  <button
+                    on:click={setMethod}
+                    class:enabled={method.name === nextcall.method}
+                  >
+                    {method.name}
+                  </button>
+                {/each}
+              </div>
+              {#if nextmethod && nextmethod.auth}
+                <div>
+                  apparently this method requires you to be authenticated
+                </div>
+              {/if}
+            </div>
+            {#if nextmethod}
+              <label>
+                satoshi: <input
+                  type="number"
+                  min="0"
+                  value={nextcall.msatoshi / 1000}
+                  on:input={setMsatoshi}
+                />
+              </label>
+              {#each nextmethod.params as pf (pf)}
+                <label for="_">
+                  {pf}:
+                  <MultiField
+                    value={renderPayloadField(pf)}
+                    on:change={e => setPayloadField(pf, e)}
+                  />
+                </label>
+              {/each}
+              {#if Object.keys(nextcall.payload).length > 0}
+                <label for="_"
+                  >payload: <Json value={nextcall.payload} />
+                </label>
+              {/if}
+              <label class:disabled={!$account.session}>
+                make this call authenticated with your account:
+                <input
+                  type="checkbox"
+                  disabled={!$account.session}
+                  bind:checked={nextcall.includeCallerSession}
+                />
+              </label>
+              <div>
+                <button>prepare call</button>
+                {#if nextcall.includeCallerSession}
+                  <button on:click={executeWithBalance}>
+                    execute using funds from balance
+                  </button>
+                {/if}
+              </div>
+            {/if}
+          </form>
+        {/if}
+        {#if nextmethod && !nextcall.invoice}
+          <div id="lnurl-pay">
+            <h3>reusable lnurl-pay for this call</h3>
+            {#if nextcall.includeCallerSession}
+              <p>(includes <b>secret</b> auth token)</p>
+            {/if}
+            <div class="center">
+              <QR value={lnurlpay(nextcall, withamount)} size={200} />
+            </div>
+            <div>
+              <label
+                ><input type="checkbox" bind:checked={withamount} /> with amount</label
+              >
+            </div>
+          </div>
+        {/if}
+      {/if}
+    </div>
   </div>
-</div>
 {/if}
 
 <style>

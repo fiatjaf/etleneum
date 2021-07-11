@@ -1,21 +1,42 @@
 <!-- @format -->
-
 <script>
-  import { onMount } from "svelte";
-  import { push } from "svelte-spa-router";
+  import {onMount} from 'svelte'
+  import {push} from 'svelte-spa-router'
 
-  var contracts;
+  var contracts
 
   onMount(async () => {
-    let r = await fetch("/~/contracts");
-    contracts = (await r.json()).value;
-  });
+    let r = await fetch('/~/contracts')
+    contracts = (await r.json()).value
+  })
 
   function goToContract(e) {
-    let ctid = e.currentTarget.dataset.ctid;
-    push(`/contract/${ctid}`);
+    let ctid = e.currentTarget.dataset.ctid
+    push(`/contract/${ctid}`)
   }
 </script>
+
+<div id="contract-list">
+  {#if !contracts}
+    <div class="center">loading</div>
+  {:else}
+    {#each contracts as ct}
+      <div class="ct-list-item" on:click={goToContract} data-ctid={ct.id}>
+        <h1><a href="#/contract/{ct.id}">{ct.name}</a></h1>
+        <table>
+          <tr>
+            <td>id</td>
+            <td><b>{ct.id}</b></td>
+          </tr>
+          <tr>
+            <td>satoshi</td>
+            <td><b>{parseInt(ct.funds / 1000)}</b></td>
+          </tr>
+        </table>
+      </div>
+    {/each}
+  {/if}
+</div>
 
 <style>
   #contract-list {
@@ -39,23 +60,3 @@
     font-size: 1.4rem;
   }
 </style>
-
-<div id="contract-list">
-  {#if !contracts}
-  <div class="center">loading</div>
-  {:else} {#each contracts as ct}
-  <div class="ct-list-item" on:click="{goToContract}" data-ctid="{ct.id}">
-    <h1><a href="#/contract/{ct.id}">{ct.name}</a></h1>
-    <table>
-      <tr>
-        <td>id</td>
-        <td><b>{ct.id}</b></td>
-      </tr>
-      <tr>
-        <td>satoshi</td>
-        <td><b>{parseInt(ct.funds / 1000)}</b></td>
-      </tr>
-    </table>
-  </div>
-  {/each} {/if}
-</div>

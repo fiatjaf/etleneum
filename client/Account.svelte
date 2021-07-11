@@ -1,5 +1,4 @@
 <!-- @format -->
-
 <script>
   import {onMount} from 'svelte'
   import PromiseWindow from 'promise-window'
@@ -7,7 +6,6 @@
   import * as toast from './toast'
   import QR from './QR.svelte'
   import account from './accountStore'
-  import fire from './fire'
 
   var es
 
@@ -70,6 +68,67 @@
   }
 </script>
 
+<div class="center">
+  {#if $account.id}
+    <div style="display: flex; justify-content: space-between;">
+      <div>
+        Logged as <b class="account">{$account.id}</b>
+      </div>
+      <div style="margin-left: 20px">
+        <a
+          href={`https://github.com/etleneum/database/commits/master/accounts/${account.id}`}
+          target="_blank">account history</a
+        >
+      </div>
+    </div>
+    <div
+      style="display: flex; margin-top: 20px; justify-content: space-between;"
+    >
+      <p>
+        Actual balance <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.
+      </p>
+      <p>
+        Can withdraw
+        <b>{($account.can_withdraw / 1000).toFixed(3)}</b> satoshi.
+      </p>
+      <p id="balance-notice" style="flex-shrink: 2">
+        The withdraw amount is your balance subtracted of an amount of
+        <em>0.7%</em> reserved to pay for the Lightning withdraw costs. The
+        actual fee (probably less than that) will be applied once the withdraw
+        is completed so you'll have more money. Besides that a <em>0.1%</em> platform
+        fee will also be applied.
+      </p>
+    </div>
+    {#if $account.balance > 0 && $account.lnurl.withdraw}
+      <QR value={$account.lnurl.withdraw} />
+      <p>Scan to withdraw.</p>
+    {/if}
+    <div><button on:click={logout}>logout</button></div>
+  {:else if awaitingSeedAuth}
+    <div class="awaiting-seed-auth">
+      <img alt="awaiting/loading animation" src="/static/rings.svg" />
+    </div>
+    Waiting for login on popup
+  {:else if $account.lnurl.auth}
+    <h2>lnurl login</h2>
+    <QR value={$account.lnurl.auth} />
+    <p>
+      Scan/click with
+      <a target="_blank" href="https://lightning-wallet.com/">BLW</a> or
+      scan/copy-paste to
+      <a target="_blank" href="https://t.me/lntxbot">@lntxbot</a> to login.
+    </p>
+    <p>
+      Or
+      <a
+        on:click={loginSeedAuth}
+        href="{SEEDAUTH}/#/lnurl/{$account.lnurl.auth}"
+        target="_blank">login with username and password</a
+      >.
+    </p>
+  {/if}
+</div>
+
 <style>
   button {
     cursor: pointer;
@@ -88,88 +147,10 @@
   .awaiting-seed-auth img {
     width: 40%;
   }
-
   #balance-notice {
-    font-size: 12px;
-    margin: 0 auto 30px;
-    max-width: 400px;
+    font-size: 10px;
+    margin: 0 auto 25px;
+    max-width: 420px;
     text-align: justify;
   }
-
-  #history {
-    margin-top: 33px;
-  }
-  #history caption {
-    font-size: 1.2em;
-    margin-bottom: 14px;
-  }
-  #history td {
-    padding: 0 5px;
-  }
-  #history td:nth-child(2) {
-    text-align: right;
-  }
 </style>
-
-<div class="center">
-  {#if $account.id}
-  <p>Logged as <b>{$account.id}</b>.</p>
-  <p>Actual balance <b>{($account.balance / 1000).toFixed(3)}</b> satoshi.</p>
-  <p>
-    Can withdraw
-    <b>{($account.can_withdraw / 1000).toFixed(3)}</b> satoshi.
-  </p>
-  <p id="balance-notice">
-    The withdraw amount is your balance subtracted of an amount of
-    <em>0.7%</em> reserved to pay for the Lightning withdraw costs. The actual
-    fee (probably less than that) will be applied once the withdraw is completed
-    so you'll have more money. Besides that a <em>0.1%</em> platform fee will
-    also be applied.
-  </p>
-  {#if $account.balance > 0 && $account.lnurl.withdraw}
-  <QR value="{$account.lnurl.withdraw}" />
-  <p>Scan to withdraw.</p>
-  {/if}
-  <div><button on:click="{logout}">logout</button></div>
-  {#if $account.history.length}
-  <table id="history">
-    <caption>
-      Transaction history
-    </caption>
-    {#each $account.history as entry}
-    <tr>
-      <td>{entry.time.split('T').join(' ').replace(/\..*/, '')}</td>
-      <td><b>{entry.msatoshi / 1000}sat</b></td>
-      <td>
-        {#if entry.counterparty[0] == 'c'}
-        <a href="#/contract/{entry.counterparty}"> {entry.counterparty} </a>
-        {:else if entry.counterparty == 'burned'}
-        <img title="burned or used to pay for a call" src="{fire}" />
-        {:else} {entry.counterparty} {/if}
-      </td>
-    </tr>
-    {/each}
-  </table>
-
-  {/if} {:else if awaitingSeedAuth}
-  <div class="awaiting-seed-auth"><img src="/static/rings.svg" /></div>
-  Waiting for login on popup {:else if $account.lnurl.auth}
-  <h2>lnurl login</h2>
-  <QR value="{$account.lnurl.auth}" />
-  <p>
-    Scan/click with
-    <a target="_blank" href="https://lightning-wallet.com/">BLW</a> or
-    scan/copy-paste to
-    <a target="_blank" href="https://t.me/lntxbot">@lntxbot</a> to login.
-  </p>
-  <p>
-    Or
-    <a
-      on:click="{loginSeedAuth}"
-      href="{SEEDAUTH}/#/lnurl/{$account.lnurl.auth}"
-      target="_blank"
-      >login with username and password</a
-    >.
-  </p>
-  {/if}
-</div>

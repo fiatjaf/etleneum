@@ -8,14 +8,26 @@ import (
 )
 
 func GetAccountBalance(key string) (msatoshi int64) {
-	readJSON(filepath.Join(DatabasePath, "accounts", key, "balance.json"), msatoshi)
+	if err := readJSON(
+		filepath.Join(DatabasePath, "accounts", key, "balance.json"),
+		&msatoshi,
+	); err != nil {
+		log.Warn().Err(err).Str("account", key).Msg("error reading balance.json")
+		return 0
+	}
 	return msatoshi
 }
 
 func SaveAccountBalance(key string, msatoshi int64) error {
+	path := filepath.Join(DatabasePath, "accounts", key)
+
+	if err := os.MkdirAll(path, 0700); err != nil {
+		return err
+	}
+
 	balanceJSON, _ := json.Marshal(msatoshi)
 	return writeFile(
-		filepath.Join(DatabasePath, "accounts", key, "balance.json"),
+		filepath.Join(path, "balance.json"),
 		balanceJSON,
 	)
 }

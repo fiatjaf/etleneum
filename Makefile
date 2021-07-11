@@ -10,6 +10,8 @@ static/bundle.js: $(shell find client)
 	GITHUB_REPO=etleneum/database-dev ./node_modules/.bin/rollup -c
 
 deploy_test: etleneum
+	GITHUB_REPO=etleneum/database-dev ./node_modules/.bin/rollup -c
+	CC=$$(which musl-gcc) go build -ldflags='-s -w -linkmode external -extldflags "-static"' -o ./etleneum
 	ssh root@hulsmann 'systemctl stop etleneum-test'
 	scp etleneum hulsmann:etleneum-test/etleneum
 	ssh root@hulsmann 'systemctl start etleneum-test'

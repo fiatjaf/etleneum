@@ -1,7 +1,6 @@
 <!-- @format -->
-
 <script>
-  import LuaCode from "./LuaCode.svelte";
+  import LuaCode from './LuaCode.svelte'
 
   let faucetcode = `function __init__ ()
   return {}
@@ -31,15 +30,8 @@ function getmoney ()
 
   -- this sends the money to the account balance of the caller
   contract.send(account.id, money_to_get)
-end`;
+end`
 </script>
-
-<style>
-  code {
-    padding: 1px 2px;
-    background-color: var(--lightgrey);
-  }
-</style>
 
 <main>
   <h1 id="writing-a-contract">Writing a contract</h1>
@@ -51,7 +43,7 @@ end`;
     <em>methods</em> are just Lua functions.
   </p>
   <p>See the following example of a simple "community faucet" contract code:</p>
-  <LuaCode> {faucetcode} </LuaCode>
+  <LuaCode>{faucetcode}</LuaCode>
   <p>
     The contract above allows generous rich people to put money in (by calling
     <code>fundfaucet</code> and including some satoshis in the call) and poor
@@ -76,8 +68,8 @@ end`;
   <ul>
     <li>
       Each contract must have an <code>__init__</code> method. That is a special
-      method that is called only when the contract is created, it must return a
-      Lua table that will serve as the initial contract state.
+      method that is called only when the contract is created, it must return a Lua
+      table that will serve as the initial contract state.
     </li>
     <li>
       All other top level functions are methods callable from the external
@@ -108,17 +100,17 @@ end`;
         <li>
           When referring to payload fields, use the full object path, like
           <code>call.payload.fieldname</code> at least once, in other words,
-          don't assign <code>call.payload</code> to another variable or you'll
-          break our naïve regex-based parser.
+          don't assign <code>call.payload</code> to another variable or you'll break
+          our naïve regex-based parser.
         </li>
         <li>
           If you intend to use helper functions from inside the main methods,
-          don't rely on <code>call</code> and <code>contract</code> globals,
-          instead pass them as arguments.
+          don't rely on <code>call</code> and <code>contract</code> globals, instead
+          pass them as arguments.
         </li>
       </ul>
-      These are just soft requirements and they may be dropped once we get a
-      better Lua parser on our UI (but that will probably never happen).
+      These are just soft requirements and they may be dropped once we get a better
+      Lua parser on our UI (but that will probably never happen).
     </li>
     <li>
       No one is able to change a contract's code after it has been activated,
@@ -132,8 +124,8 @@ end`;
   <p>When you make a call, you send 4 things to the contract:</p>
   <ul>
     <li>
-      A string <strong>method</strong> with the name of the contract method
-      you're calling.
+      A string <strong>method</strong> with the name of the contract method you're
+      calling.
     </li>
     <li>A JSON <strong>payload</strong>.</li>
     <li>
@@ -143,12 +135,12 @@ end`;
       to pay to make any call includes this number of msatoshis plus a small
       antispam cost.
       <br />
-      Regardless of what the contract code does with them, the msatoshis are
-      always added to the contract funds.
+      Regardless of what the contract code does with them, the msatoshis are always
+      added to the contract funds.
     </li>
     <li>
-      Optionally, a <code>?session=&lt;String&gt;</code> query string
-      identifying the current authenticated user,
+      Optionally, a <code>?session=&lt;String&gt;</code> query string identifying
+      the current authenticated user,
     </li>
   </ul>
   <h1 id="contract-api">Contract API</h1>
@@ -329,8 +321,8 @@ end`;
       <code>POST</code> <code>/~/contract</code> prepares a new contract, takes
       <code>&#123;name: String, code: String, readme: String&#125;</code>,
       returns <code>&#123;id: String, invoice: String&#125;</code>, when the
-      invoice is paid the <code>__init__</code> call is executed and the
-      contract is created;
+      invoice is paid the <code>__init__</code> call is executed and the contract
+      is created;
     </li>
     <li>
       <code>GET</code> <code>/~/contract/&lt;id&gt;</code> returns the full
@@ -421,8 +413,7 @@ end`;
         </li>
         <li>
           <code
-            >auth: &#123;account: String, balance: Int, [secret:
-            String]&#125;</code
+            >auth: &#123;account: String, balance: Int, [secret: String]&#125;</code
           >;
         </li>
         <li>
@@ -432,3 +423,10 @@ end`;
     </li>
   </ul>
 </main>
+
+<style>
+  code {
+    padding: 1px 2px;
+    background-color: var(--lightgrey);
+  }
+</style>

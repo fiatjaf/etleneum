@@ -1,5 +1,4 @@
 <!-- @format -->
-
 <script>
   import {onMount} from 'svelte'
 
@@ -26,6 +25,22 @@
   })
 </script>
 
+<svelte:head>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.10/styles/github.min.css"
+  />
+</svelte:head>
+<pre>
+  <code id="c-{id}-source">
+    <slot></slot>
+  </code>
+</pre>
+<pre class="lua">
+ <code id="c-{id}-target">
+  </code>
+</pre>
+
 <style>
   code {
     font-size: 0.8rem;
@@ -41,18 +56,3 @@
     background-color: white;
   }
 </style>
-
-<svelte:head>
-  <link rel=stylesheet
-  href=https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.10/styles/github.min.css
-  />
-</svelte:head>
-<pre>
-  <code id="c-{id}-source">
-    <slot></slot>
-  </code>
-</pre>
-<pre class="lua">
- <code id="c-{id}-target">
-  </code>
-</pre>

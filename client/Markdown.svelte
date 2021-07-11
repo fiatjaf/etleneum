@@ -1,5 +1,4 @@
 <!-- @format -->
-
 <script>
   import {onMount} from 'svelte'
   import Markdown from 'markdown-it'
@@ -50,6 +49,15 @@
   }
 </script>
 
+<div id="c-{id}-source">
+  <span class="toggle" on:click={toggle}>↬</span>
+  <pre><slot></slot></pre>
+</div>
+<article id="c-{id}-target">
+  <span class="toggle" on:click={toggle}>↫</span>
+  <div />
+</article>
+
 <style>
   div,
   article {
@@ -73,12 +81,3 @@
     opacity: 1;
   }
 </style>
-
-<div id="c-{id}-source">
-  <span class="toggle" on:click="{toggle}">↬</span>
-  <pre><slot></slot></pre>
-</div>
-<article id="c-{id}-target">
-  <span class="toggle" on:click="{toggle}">↫</span>
-  <div></div>
-</article>

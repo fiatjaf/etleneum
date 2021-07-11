@@ -65,6 +65,7 @@ func runCallGlobal(call *data.Call, useBalance bool) (err error) {
 	callContext := &CallContext{
 		VisitedContracts: make(map[string]bool),
 		Funds:            make(map[string]int64),
+		AccountBalances:  make(map[string]int64),
 	}
 
 	// actually run the call
@@ -245,7 +246,7 @@ func runCall(call *data.Call, callContext *CallContext, useBalance bool) (err er
 					}
 					callContext.Funds[target] = targetContract.Funds + msat
 				}
-			} else if target[0] == 'a' {
+			} else if target[0] == '0' {
 				// it's an account
 				if current, ok := callContext.AccountBalances[target]; ok {
 					callContext.AccountBalances[target] = current + msat
@@ -273,7 +274,7 @@ func runCall(call *data.Call, callContext *CallContext, useBalance bool) (err er
 		*call,
 	)
 	if err != nil {
-		return fmt.Errorf("error executing lua method: %w", err)
+		return fmt.Errorf("error executing method: %w", err)
 	}
 
 	newState, err := json.Marshal(newStateO)
