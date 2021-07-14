@@ -275,7 +275,7 @@
       <LuaCode>{contract.code}</LuaCode>
       <h4>
         <a
-          href={`https://github.com/${process.env.GITHUB_REPO}/commits/master/contracts/ctc0o086ks`}
+          href={`https://github.com/${process.env.GITHUB_REPO}/commits/master/contracts/${contract.id}`}
           target="_blank">contract history</a
         >
       </h4>
