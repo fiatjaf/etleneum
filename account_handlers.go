@@ -67,9 +67,10 @@ func lnurlSession(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	accountId := rds.Get("auth-session:" + session).Val()
-	balance := data.GetAccountBalance(accountId)
 	if accountId != "" {
 		// we're logged already, so send account information
+		balance := data.GetAccountBalance(accountId)
+
 		go func() {
 			time.Sleep(100 * time.Millisecond)
 			es.SendEventMessage(`{"account": "`+accountId+`", "balance": `+strconv.FormatInt(balance, 10)+`, "can_withdraw": `+strconv.FormatInt(balanceWithReserve(balance), 10)+`, "secret": "`+getAccountSecret(accountId)+`"}`, "auth", "")
