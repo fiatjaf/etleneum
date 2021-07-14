@@ -32,6 +32,7 @@ func GetCall(contract string, id string) (call *Call, err error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, nil
 	}
+	call = &Call{}
 
 	if err := readJSON(filepath.Join(path, "payload.json"), &call.Payload); err != nil {
 		return nil, err
