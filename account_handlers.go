@@ -215,6 +215,7 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 		hash,
 	); err != nil {
 		log.Warn().Err(err).Str("account", accountId).Msg("can't withdraw")
+		json.NewEncoder(w).Encode(lnurl.ErrorResponse("can't withdraw: " + err.Error()))
 		return
 	}
 
