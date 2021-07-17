@@ -208,7 +208,12 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 
 	// add a pending withdrawal
 	hash := inv.Get("payment_hash").String()
-	if err := data.AddWithdrawal(accountId, amount, bolt11, hash); err != nil {
+	if err := data.CheckBalanceAddWithdrawal(
+		accountId,
+		amount,
+		bolt11,
+		hash,
+	); err != nil {
 		log.Warn().Err(err).Str("account", accountId).Msg("can't withdraw")
 		return
 	}

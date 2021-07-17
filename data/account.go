@@ -32,7 +32,7 @@ func SaveAccountBalance(key string, msatoshi int64) error {
 	)
 }
 
-func AddWithdrawal(key string, amount int64, bolt11, hash string) error {
+func CheckBalanceAddWithdrawal(key string, amount int64, bolt11, hash string) error {
 	Start()
 
 	balance := GetAccountBalance(key)
@@ -46,7 +46,12 @@ func AddWithdrawal(key string, amount int64, bolt11, hash string) error {
 		return err
 	}
 
-	if err := SaveAccountBalance(key, balance-amount-reserveFee); err != nil {
+	newBalance := balance - amount - reserveFee
+	if newBalance < 0 {
+		return fmt.Errorf("balance would go below zero: %d", newBalance)
+	}
+
+	if err := SaveAccountBalance(key, newBalance); err != nil {
 		Abort()
 		return err
 	}
