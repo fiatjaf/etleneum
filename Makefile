@@ -19,5 +19,5 @@ deploy_test: etleneum
 deploy: etleneum
 	PRODUCTION=true GITHUB_REPO=etleneum/database ./node_modules/.bin/rollup -c
 	CC=$$(which musl-gcc) go build -ldflags='-s -w -linkmode external -extldflags "-static"' -o ./etleneum
-	rsync etleneum hulsmann:.lightning2/plugins/etleneum-new
-	ssh hulsmann 'ln2 plugin stop etleneum; mv .lightning2/plugins/etleneum-new .lightning2/plugins/etleneum; ln2 plugin start $$HOME/.lightning2/plugins/etleneum'
+	rsync etleneum hulsmann:.lightning1/plugins/etleneum-new
+	ssh hulsmann 'ln1 plugin stop etleneum; mv .lightning1/plugins/etleneum-new .lightning1/plugins/etleneum; ln1 plugin start $$HOME/.lightning1/plugins/etleneum'
