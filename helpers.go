@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,12 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/yudai/gojsondiff"
 )
+
+//go:embed static/lnurlpayicon.png
+var lnurlpayicon []byte
+
+//go:embed static/Inconsolata-Bold.ttf
+var inconsolatabold []byte
 
 var wordMatcher *regexp.Regexp = regexp.MustCompile(`\b\w+\b`)
 
@@ -128,21 +135,13 @@ func runJQ(
 
 func generateLnurlImage(contractId string, method string) (b64 string, err error) {
 	// load existing image
-	base, err := Asset("static/lnurlpayicon.png")
-	if err != nil {
-		return
-	}
-	img, err := png.Decode(bytes.NewBuffer(base))
+	img, err := png.Decode(bytes.NewBuffer(lnurlpayicon))
 	if err != nil {
 		return
 	}
 
 	// load font to write
-	fontbytes, err := Asset("static/Inconsolata-Bold.ttf")
-	if err != nil {
-		return
-	}
-	f, err := truetype.Parse(fontbytes)
+	f, err := truetype.Parse(inconsolatabold)
 	if err != nil {
 		return
 	}
