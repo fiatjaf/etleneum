@@ -122,10 +122,13 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Result{Ok: true, Value: map[string]interface{}{
-			"id":      call.Id,
-			"invoice": invoice,
-		}})
+		json.NewEncoder(w).Encode(Result{
+			Ok: true,
+			Value: struct {
+				*data.Call
+				Invoice string `json:"invoice"`
+			}{Call: call, Invoice: invoice},
+		})
 	}
 }
 

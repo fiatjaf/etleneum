@@ -12,12 +12,12 @@ static/bundle.js: $(shell find client)
 deploy_test: etleneum
 	GITHUB_REPO=etleneum/database-dev ./node_modules/.bin/rollup -c
 	CC=$$(which musl-gcc) go build -ldflags='-s -w -linkmode external -extldflags "-static"' -o ./etleneum
-	ssh root@hulsmann 'systemctl stop etleneum-test'
-	scp etleneum hulsmann:etleneum-test/etleneum
-	ssh root@hulsmann 'systemctl start etleneum-test'
+	ssh root@turgot 'systemctl stop etleneum-test'
+	scp etleneum turgot:etleneum-test/etleneum
+	ssh root@turgot 'systemctl start etleneum-test'
 
 deploy: etleneum
 	PRODUCTION=true GITHUB_REPO=etleneum/database ./node_modules/.bin/rollup -c
 	CC=$$(which musl-gcc) go build -ldflags='-s -w -linkmode external -extldflags "-static"' -o ./etleneum
-	rsync etleneum hulsmann:.lightning1/plugins/etleneum-new
-	ssh hulsmann 'ln1 plugin stop etleneum; mv .lightning1/plugins/etleneum-new .lightning1/plugins/etleneum; ln1 plugin start $$HOME/.lightning1/plugins/etleneum'
+	rsync etleneum turgot:.lightning1/plugins/etleneum-new
+	ssh turgot 'ln1 plugin stop etleneum; mv .lightning1/plugins/etleneum-new .lightning1/plugins/etleneum; ln1 plugin start $$HOME/.lightning1/plugins/etleneum'

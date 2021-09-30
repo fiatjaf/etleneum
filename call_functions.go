@@ -234,6 +234,7 @@ func runCall(call *data.Call, callContext *CallContext, useBalance bool) (err er
 				To:       target,
 				Msatoshi: msat,
 			})
+			callContext.Funds[call.ContractId] -= msat
 
 			if target[0] == 'c' {
 				// it's a contract
