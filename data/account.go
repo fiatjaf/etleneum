@@ -48,6 +48,7 @@ func CheckBalanceAddWithdrawal(key string, amount int64, bolt11, hash string) er
 
 	newBalance := balance - amount - reserveFee
 	if newBalance < 0 {
+		Abort()
 		return fmt.Errorf("balance would go below zero: %d", newBalance)
 	}
 
