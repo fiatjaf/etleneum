@@ -106,6 +106,10 @@ func getContract(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if ct.Methods == nil {
+		ct.Methods = make([]data.Method, 0)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(Result{Ok: true, Value: ct})
 }

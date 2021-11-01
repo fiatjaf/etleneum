@@ -80,7 +80,7 @@ func GetContract(id string) (contract *Contract, err error) {
 	path := filepath.Join(DatabasePath, "contracts", id)
 	_, err = os.Stat(path)
 	if os.IsNotExist(err) {
-		return nil, nil
+		return nil, err
 	}
 
 	nameb, err := ioutil.ReadFile(filepath.Join(path, "name.txt"))
