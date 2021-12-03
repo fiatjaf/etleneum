@@ -398,8 +398,7 @@ end`
     </li>
     <li>
       <code>GET</code> <code>/lnurl/auth</code> performs
-      <a
-        href="https://github.com/btcontract/lnurl-rfc/blob/master/spec.md#2-lnurl-auth"
+      <a href="https://github.com/fiatjaf/lnurl-rfc/blob/luds/04.md"
         >lnurl-auth</a
       >
       and creates a session;

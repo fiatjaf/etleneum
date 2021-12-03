@@ -38,19 +38,11 @@
 <footer>
   <span>Etleneum.com</span>
   <a
-    href="https://ln.bigsun.xyz/node/02bed1812d3824f7cc4ccd38da5d66a29fcfec146fe95e26cd2e0d3f930d653a8d"
+    href="https://ln.fiatjaf.com/node/02c16cca44562b590dd279c942200bdccfd4f990c3a69fad620c10ef2f8228eaff"
   >
     <img
       alt="_"
-      src="https://img.shields.io/badge/dynamic/json?color=orange&label=node%2002bed%E2%80%A6&query=%24%5B0%5D.openchannels&suffix=%20channels&url=https%3A%2F%2Fln.bigsun.xyz%2Fapi%2Fnodes%3Fpubkey%3Deq.02bed1812d3824f7cc4ccd38da5d66a29fcfec146fe95e26cd2e0d3f930d653a8d%26select%3Dopenchannels"
-    />
-  </a>
-  <a
-    href="https://ln.bigsun.xyz/node/02bed1812d3824f7cc4ccd38da5d66a29fcfec146fe95e26cd2e0d3f930d653a8d"
-  >
-    <img
-      alt="_"
-      src="https://img.shields.io/badge/dynamic/json?color=blue&label=software&query=%24[0].software&url=https%3A%2F%2Fln.bigsun.xyz%2Fapi%2Fnodes%3Fpubkey%3Deq.02bed1812d3824f7cc4ccd38da5d66a29fcfec146fe95e26cd2e0d3f930d653a8d%26select%3Dsoftware"
+      src="https://img.shields.io/badge/dynamic/json?color=orange&label=node%2002bed%E2%80%A6&query=%24%5B0%5D.openchannels&suffix=%20channels&url=https%3A%2F%2Fln.bigsun.xyz%2Fapi%2Fnodes%3Fpubkey%3Deq.02c16cca44562b590dd279c942200bdccfd4f990c3a69fad620c10ef2f8228eaff26select%3Dopenchannels"
     />
   </a>
   <a href="/static/terms.txt">Terms</a>
