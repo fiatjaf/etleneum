@@ -209,9 +209,11 @@ func lnurlPayValues(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(lnurl.LNURLPayResponse2{
-		Routes:        make([][]lnurl.RouteInfo, 0),
-		PR:            pr,
-		SuccessAction: lnurl.Action("", s.ServiceURL+"/#/call/"+call.Id),
-		Disposable:    lnurl.FALSE,
+		Routes: make([][]lnurl.RouteInfo, 0),
+		PR:     pr,
+		SuccessAction: lnurl.Action("Call Details",
+			"https://github.com/etleneum/database/tree/master/contracts/"+call.ContractId+"/calls/"+call.Id[1:2]+"/"+call.Id,
+		),
+		Disposable: lnurl.FALSE,
 	})
 }
