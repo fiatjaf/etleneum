@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -37,13 +38,25 @@ func GetCall(contract string, id string) (call *Call, err error) {
 	if err := readJSON(filepath.Join(path, "payload.json"), &call.Payload); err != nil {
 		return nil, err
 	}
+
 	if callerb, err := ioutil.ReadFile(filepath.Join(path, "caller.txt")); err == nil {
 		call.Caller = string(callerb)
 	}
+
 	if methodb, err := ioutil.ReadFile(filepath.Join(path, "method.txt")); err != nil {
 		return nil, err
 	} else {
 		call.Method = string(methodb)
+	}
+
+	if csv, err := ioutil.ReadFile(filepath.Join(path, "transfers.csv")); err == nil {
+		for _, line := range strings.Split(string(csv), "\n") {
+			spl := strings.Split(line, ",")
+			if spl[2] == contract {
+				cost, _ := strconv.ParseInt(spl[1], 10, 64)
+				call.Msatoshi += cost
+			}
+		}
 	}
 
 	call.Time = gitGetLastCommitFileTimestamp(filepath.Join(path, "method.txt"))
