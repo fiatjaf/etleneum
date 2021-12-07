@@ -18,8 +18,8 @@ import (
 )
 
 func lnurlCallMetadata(call *data.Call, fixedAmount bool) string {
-	desc := fmt.Sprintf(`Call method "%s" on contract "%s" with payload %v`,
-		call.Method, call.ContractId, call.Payload)
+	desc := fmt.Sprintf(`Call method "%s" on contract "%s" with payload %s`,
+		call.Method, call.ContractId, string(call.Payload))
 	if call.Caller != "" {
 		desc += fmt.Sprintf(" on behalf of account %s", call.Caller)
 	}
