@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -32,9 +33,14 @@ func writeFile(path string, contents []byte) error {
 }
 
 func writeJSON(path string, contents interface{}) error {
-	if payloadJSON, err := json.MarshalIndent(contents, "", "  "); err != nil {
+	res := &bytes.Buffer{}
+	enc := json.NewEncoder(res)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+
+	if err := enc.Encode(contents); err != nil {
 		return err
-	} else if err := writeFile(path, payloadJSON); err != nil {
+	} else if err := writeFile(path, res.Bytes()); err != nil {
 		return err
 	}
 

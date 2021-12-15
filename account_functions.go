@@ -89,3 +89,7 @@ func getAccountIdFromLNURLWithdraw(r *http.Request) (string, error) {
 	log.Error().Err(err).Msg("lnurl-withdraw with no reference to any account")
 	return "", errors.New("Unexpected incomplete lnurl-withdraw.")
 }
+
+func balanceWithReserve(balance int64) int64 {
+	return int64(float64(balance) * 0.992)
+}

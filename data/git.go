@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func execute(name string, args ...string) error {
+func execute(name string, args ...string) (string, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
@@ -20,17 +20,18 @@ func execute(name string, args ...string) error {
 	cmd.Stderr = stderr
 
 	err := cmd.Run()
+	out := stdout.String() + stderr.String()
 	if err != nil {
 		stdout.WriteTo(os.Stderr)
 		stderr.WriteTo(os.Stderr)
-		return err
+		return out, err
 	}
 
-	return nil
+	return out, nil
 }
 
 func gitAdd(path string) error {
-	if err := execute("git", "add", "."); err != nil {
+	if _, err := execute("git", "add", "."); err != nil {
 		return err
 	}
 
@@ -38,7 +39,11 @@ func gitAdd(path string) error {
 }
 
 func gitCommit(message string) error {
-	if err := execute("git", "commit", "-m", message, "--no-edit"); err != nil {
+	if out, err := execute("git", "commit", "-m", message, "--no-edit"); err != nil {
+		if strings.Contains(out, "nothing to commit, working tree clean") {
+			return nil
+		}
+
 		return err
 	}
 
@@ -46,7 +51,7 @@ func gitCommit(message string) error {
 }
 
 func gitReset() error {
-	if err := execute("git", "reset", "--hard", "HEAD"); err != nil {
+	if _, err := execute("git", "reset", "--hard", "HEAD"); err != nil {
 		return err
 	}
 
@@ -54,7 +59,7 @@ func gitReset() error {
 }
 
 func gitPull() error {
-	if err := execute("git", "pull", "origin", "master", "--rebase"); err != nil {
+	if _, err := execute("git", "pull", "origin", "master", "--rebase"); err != nil {
 		return err
 	}
 
@@ -62,7 +67,7 @@ func gitPull() error {
 }
 
 func gitPush() error {
-	if err := execute("git", "push", "origin", "master"); err != nil {
+	if _, err := execute("git", "push", "origin", "master"); err != nil {
 		return err
 	}
 

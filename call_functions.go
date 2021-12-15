@@ -11,6 +11,13 @@ import (
 	"github.com/fiatjaf/etleneum/runlua"
 )
 
+var balanceNotifyClient = http.Client{
+	Timeout: time.Second * 2,
+	CheckRedirect: func(r *http.Request, via []*http.Request) error {
+		return fmt.Errorf("target '%s' has returned a redirect", r.URL)
+	},
+}
+
 type CallContext struct {
 	VisitedContracts map[string]bool
 	Transfers        []data.Transfer
@@ -103,6 +110,28 @@ func runCallGlobal(call *data.Call, useBalance bool) (err error) {
 	if err := data.SaveTransfers(call, callContext.Transfers); err != nil {
 		return err
 	}
+
+	// at this point the call has succeeded, we can then notify all accounts
+	// that have a balanceNotify URL set on their metadata
+	go func() {
+		time.Sleep(2 * time.Second) // give some time for the call to be finished
+		for key, balance := range callContext.AccountBalances {
+			if balanceWithReserve(balance) >= MIN_WITHDRAWABLE {
+				metadata := data.GetAccountMetadata(key)
+				if metadata.BalanceNotify != "" {
+					log := log.With().Str("account", key).Str("url", metadata.BalanceNotify).Int64("balance", balance).Logger()
+					resp, err := balanceNotifyClient.Post(metadata.BalanceNotify, "", nil)
+					if err != nil {
+						log.Warn().Err(err).Msg("balanceNotify call failed")
+					} else if resp.StatusCode >= 300 {
+						log.Warn().Int("status", resp.StatusCode).Msg("balanceNotify call returned bad status code")
+					} else {
+						log.Info().Msg("balanceNotify call succeeded")
+					}
+				}
+			}
+		}
+	}()
 
 	return nil
 }

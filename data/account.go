@@ -7,6 +7,10 @@ import (
 	"path/filepath"
 )
 
+type AccountMetadata struct {
+	BalanceNotify string `json:"balanceNotify"`
+}
+
 func GetAccountBalance(key string) (msatoshi int64) {
 	if err := readJSON(
 		filepath.Join(DatabasePath, "accounts", key, "balance.json"),
@@ -102,5 +106,33 @@ func CancelWithdraw(key string, amount int64, hash string) error {
 	}
 
 	Finish(fmt.Sprintf("withdraw %s has failed.", hash))
+	return nil
+}
+
+func GetAccountMetadata(key string) (am AccountMetadata) {
+	readJSON(
+		filepath.Join(DatabasePath, "accounts", key, "metadata.json"),
+		&am,
+	)
+	return am
+}
+
+func UpdateAccountMetadata(key string, mod func(am *AccountMetadata)) error {
+	Start()
+
+	am := GetAccountMetadata(key)
+
+	mod(&am)
+
+	err := writeJSON(
+		filepath.Join(DatabasePath, "accounts", key, "metadata.json"),
+		am,
+	)
+	if err != nil {
+		Abort()
+		return err
+	}
+
+	Finish(fmt.Sprintf("account %s metadata was updated.", key))
 	return nil
 }

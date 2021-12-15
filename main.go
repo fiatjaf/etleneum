@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -54,13 +55,19 @@ var contractstreams = cmap.New()
 var static embed.FS
 
 func main() {
-	http.DefaultClient = &http.Client{Transport: &http.Transport{
-		MaxIdleConns:        10,
-		MaxConnsPerHost:     10,
-		MaxIdleConnsPerHost: 2,
-		IdleConnTimeout:     10 * time.Second,
-		DisableCompression:  true,
-	}}
+	http.DefaultClient = &http.Client{
+		Timeout: time.Second * 5,
+		Transport: &http.Transport{
+			MaxIdleConns:        10,
+			MaxConnsPerHost:     10,
+			MaxIdleConnsPerHost: 2,
+			IdleConnTimeout:     10 * time.Second,
+			DisableCompression:  true,
+		},
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			return fmt.Errorf("target '%s' has returned a redirect", r.URL)
+		},
+	}
 
 	if isRunningAsPlugin() {
 		p := plugin.Plugin{

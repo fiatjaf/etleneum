@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -162,7 +163,7 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 	// get balance
 	balance := balanceWithReserve(data.GetAccountBalance(accountId))
 
-	if balance < 10000 {
+	if balance < MIN_WITHDRAWABLE {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("the minimum withdrawal is 10 sat, your balance is " + strconv.FormatInt(balance, 10) + " msat."))
 		return
 	}
@@ -174,7 +175,7 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 			s.ServiceURL, r.URL.RawQuery),
 		K1:                 hex.EncodeToString(make([]byte, 32)), // we don't care
 		MaxWithdrawable:    balance,
-		MinWithdrawable:    100000,
+		MinWithdrawable:    MIN_WITHDRAWABLE,
 		DefaultDescription: fmt.Sprintf("etleneum.com %s balance withdraw", accountId),
 		BalanceCheck:       getStaticLNURLWithdraw(accountId),
 	})
@@ -187,8 +188,15 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bolt11 := r.URL.Query().Get("pr")
+	// LUD-15, save URL to notify the user later
+	balanceNotify, _ := url.Parse(r.URL.Query().Get("balanceNotify"))
+	if balanceNotify != nil && balanceNotify.Host != "" {
+		data.UpdateAccountMetadata(accountId, func(am *data.AccountMetadata) {
+			am.BalanceNotify = balanceNotify.String()
+		})
+	}
 
+	bolt11 := r.URL.Query().Get("pr")
 	if s.FreeMode {
 		json.NewEncoder(w).Encode(lnurl.OkResponse())
 		return

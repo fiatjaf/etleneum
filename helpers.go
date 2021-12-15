@@ -42,10 +42,6 @@ func jsonError(w http.ResponseWriter, message string, code int) {
 	})
 }
 
-func balanceWithReserve(balance int64) int64 {
-	return int64(float64(balance) * 0.992)
-}
-
 func diffDeltaOneliner(prefix string, idelta gojsondiff.Delta) (lines []string) {
 	key := prefix
 	if key != "" {
