@@ -56,7 +56,7 @@ func hmacAccount(accountId string) string {
 }
 
 func getStaticLNURLWithdraw(accountId string) string {
-	return fmt.Sprintf("%s/lnurl/withdraw/static?acct=%s&hmac=%s",
+	return fmt.Sprintf("%s/lnurl/withdraw?acct=%s&hmac=%s",
 		s.ServiceURL, accountId, hmacAccount(accountId))
 }
 
