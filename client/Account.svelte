@@ -89,7 +89,7 @@
       </p>
       <p>
         Can withdraw
-        <b>{($account.can_withdraw / 1000).toFixed(3)}</b> satoshi.
+        <b>{(($account.can_withdraw || 0) / 1000).toFixed(3)}</b> satoshi.
       </p>
       <p id="balance-notice" style="flex-shrink: 2">
         The withdraw amount is your balance subtracted of an amount of

@@ -162,12 +162,6 @@ func lnurlWithdraw(w http.ResponseWriter, r *http.Request) {
 
 	// get balance
 	balance := balanceWithReserve(data.GetAccountBalance(accountId))
-
-	if balance < MIN_WITHDRAWABLE {
-		json.NewEncoder(w).Encode(lnurl.ErrorResponse("the minimum withdrawal is 10 sat, your balance is " + strconv.FormatInt(balance, 10) + " msat."))
-		return
-	}
-
 	json.NewEncoder(w).Encode(lnurl.LNURLWithdrawResponse{
 		LNURLResponse: lnurl.LNURLResponse{Status: "OK"},
 		Tag:           "withdrawRequest",
