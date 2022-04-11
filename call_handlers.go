@@ -82,7 +82,7 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// commit
-		data.Finish("call " + call.Id + " executed on contract " + call.ContractId + ".")
+		data.Finish(call.Method + " " + call.Id + " executed on contract " + call.ContractId + ".")
 
 		// call was successful
 		dispatchContractEvent(call.ContractId,

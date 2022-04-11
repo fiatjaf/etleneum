@@ -253,7 +253,7 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 	}
 
 	// commit
-	data.Finish("call " + call.Id + " executed on contract " + call.ContractId + ".")
+	data.Finish(call.Method + " " + call.Id + " executed on contract " + call.ContractId + ".")
 
 	dispatchContractEvent(call.ContractId,
 		ctevent{callId, call.ContractId, call.Method, call.Msatoshi, "", ""}, "call-made")
