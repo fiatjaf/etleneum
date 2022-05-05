@@ -223,9 +223,7 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 
 	// actually send the payment
 	go func() {
-		var (
-			listpays gjson.Result
-		)
+		var listpays gjson.Result
 
 		payresp, err := ln.CallWithCustomTimeout(time.Hour*24*30, "pay",
 			map[string]interface{}{

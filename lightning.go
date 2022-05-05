@@ -58,7 +58,7 @@ func makeInvoice(
 		sha256.Sum256(preimage),
 		time.Now(),
 		zpay32.RouteHint([]zpay32.HopHint{
-			zpay32.HopHint{
+			{
 				NodeID:                    ournodeid,
 				ChannelID:                 channelid,
 				FeeBaseMSat:               uint32(cost),

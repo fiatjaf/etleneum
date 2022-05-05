@@ -126,7 +126,7 @@ func CreateContract(
 	code string,
 ) error {
 	path := filepath.Join(DatabasePath, "contracts", id)
-	if err := os.MkdirAll(path, 0700); err != nil {
+	if err := os.MkdirAll(path, 0o700); err != nil {
 		return err
 	}
 
@@ -145,7 +145,7 @@ func CreateContract(
 	if err := writeFile(filepath.Join(path, "funds.json"), []byte("0")); err != nil {
 		return err
 	}
-	if err := os.Mkdir(filepath.Join(path, "calls"), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(path, "calls"), 0o700); err != nil {
 		return err
 	}
 
@@ -215,7 +215,7 @@ func parseContractCode(ct *Contract) {
 		}
 
 		if endRe.MatchString(line) {
-			for param, _ := range params {
+			for param := range params {
 				currentMethod.Params = append(currentMethod.Params, param)
 			}
 

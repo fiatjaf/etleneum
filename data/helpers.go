@@ -21,7 +21,7 @@ func readJSON(path string, out interface{}) error {
 }
 
 func writeFile(path string, contents []byte) error {
-	if err := ioutil.WriteFile(path, contents, 0644); err != nil {
+	if err := ioutil.WriteFile(path, contents, 0o644); err != nil {
 		return err
 	}
 

@@ -162,8 +162,10 @@ func runCall(call *data.Call, callContext *CallContext, useBalance bool) (err er
 		if balance < call.Msatoshi+call.Cost {
 			log.Warn().Err(err).Msg("account has insufficient funds to execute call")
 			dispatchContractEvent(call.ContractId,
-				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
-					"", "balance"},
+				ctevent{
+					call.Id, call.ContractId, call.Method, call.Msatoshi,
+					"", "balance",
+				},
 				"call-error")
 			return errors.New("insufficient account balance")
 		}

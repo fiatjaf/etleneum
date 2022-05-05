@@ -76,8 +76,10 @@ func prepareCall(w http.ResponseWriter, r *http.Request) {
 			data.Abort()
 			jsonError(w, "failed to run call", 400)
 			dispatchContractEvent(call.ContractId,
-				ctevent{call.Id, call.ContractId, call.Method, call.Msatoshi,
-					err.Error(), "runtime"}, "call-error")
+				ctevent{
+					call.Id, call.ContractId, call.Method, call.Msatoshi,
+					err.Error(), "runtime",
+				}, "call-error")
 			return
 		}
 

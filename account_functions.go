@@ -33,7 +33,7 @@ func callHmacString(call *data.Call) (res string) {
 	// sort keys
 	keys := make([]string, len(payload))
 	i := 0
-	for k, _ := range payload {
+	for k := range payload {
 		keys[i] = k
 		i++
 	}

@@ -9,9 +9,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var DatabasePath string = "."
-var log *zerolog.Logger
-var Initialized = false
+var (
+	DatabasePath string = "."
+	log          *zerolog.Logger
+	Initialized  = false
+)
 
 func SetLogger(logger *zerolog.Logger) {
 	log = logger
@@ -27,8 +29,8 @@ func Initialize() {
 		log.Warn().Err(err).Msg("failed to git pull")
 	}
 
-	os.MkdirAll(filepath.Join(DatabasePath, "accounts"), 0700)
-	os.MkdirAll(filepath.Join(DatabasePath, "contracts"), 0700)
+	os.MkdirAll(filepath.Join(DatabasePath, "accounts"), 0o700)
+	os.MkdirAll(filepath.Join(DatabasePath, "contracts"), 0o700)
 
 	Initialized = true
 }

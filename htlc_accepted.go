@@ -16,8 +16,10 @@ import (
 	"github.com/lightningnetwork/lnd/lnwire"
 )
 
-var continueHTLC = map[string]interface{}{"result": "continue"}
-var failHTLC = map[string]interface{}{"result": "fail", "failure_code": 16392}
+var (
+	continueHTLC = map[string]interface{}{"result": "continue"}
+	failHTLC     = map[string]interface{}{"result": "fail", "failure_code": 16392}
+)
 
 func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	amount := params.Get("htlc.amount").String()
@@ -265,9 +267,7 @@ func callPaymentReceived(callId string, msatoshi int64) (ok bool) {
 }
 
 func generateCipherStream(key [32]byte, numBytes uint) []byte {
-	var (
-		nonce [8]byte
-	)
+	var nonce [8]byte
 	cipher, err := chacha20.NewCipher(nonce[:], key[:])
 	if err != nil {
 		panic(err)

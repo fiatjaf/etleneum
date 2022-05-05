@@ -72,7 +72,7 @@ func SaveCall(call *Call) error {
 		"calls", call.Id[1:2], call.Id,
 	)
 
-	err := os.MkdirAll(path, 0700)
+	err := os.MkdirAll(path, 0o700)
 	if err != nil {
 		return err
 	}

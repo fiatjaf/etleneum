@@ -43,13 +43,15 @@ type Settings struct {
 	FreeMode bool
 }
 
-var err error
-var s Settings
-var ln *lightning.Client
-var rds *redis.Client
-var log = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
-var userstreams = cmap.New()
-var contractstreams = cmap.New()
+var (
+	err             error
+	s               Settings
+	ln              *lightning.Client
+	rds             *redis.Client
+	log             = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: PluginLogger{}})
+	userstreams     = cmap.New()
+	contractstreams = cmap.New()
+)
 
 //go:embed static
 var static embed.FS

@@ -29,7 +29,7 @@ func lnurlCallMetadata(call *data.Call, fixedAmount bool) string {
 		desc += " with variadic amount."
 	}
 
-	metadata := [][]string{[]string{"text/plain", desc}}
+	metadata := [][]string{{"text/plain", desc}}
 	if imageb64, err := generateLnurlImage(call.ContractId, call.Method); err == nil {
 		metadata = append(metadata, []string{"image/png;base64", imageb64})
 	} else {
@@ -77,7 +77,7 @@ func lnurlPayParams(w http.ResponseWriter, r *http.Request) {
 
 	// payload comes as query parameters
 	payload := make(map[string]interface{})
-	for k, _ := range qs {
+	for k := range qs {
 		if k[0] == '_' {
 			continue
 		}

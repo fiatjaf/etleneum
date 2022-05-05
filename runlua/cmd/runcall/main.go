@@ -16,8 +16,10 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
-var devNull = os.NewFile(uintptr(syscall.Stderr), "/dev/null")
-var log = zerolog.New(devNull).Output(zerolog.ConsoleWriter{Out: devNull})
+var (
+	devNull = os.NewFile(uintptr(syscall.Stderr), "/dev/null")
+	log     = zerolog.New(devNull).Output(zerolog.ConsoleWriter{Out: devNull})
+)
 
 func main() {
 	app := cli.NewApp()

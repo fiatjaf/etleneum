@@ -25,7 +25,7 @@ func GetAccountBalance(key string) (msatoshi int64) {
 func SaveAccountBalance(key string, msatoshi int64) error {
 	path := filepath.Join(DatabasePath, "accounts", key)
 
-	if err := os.MkdirAll(path, 0700); err != nil {
+	if err := os.MkdirAll(path, 0o700); err != nil {
 		return err
 	}
 
