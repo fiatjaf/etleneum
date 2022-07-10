@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"strconv"
 	"time"
 
 	"github.com/aead/chacha20"
@@ -22,7 +21,7 @@ var (
 )
 
 func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
-	amount := params.Get("htlc.amount").String()
+	msatoshi := params.Get("htlc.amount_msat").Int()
 	scid := params.Get("onion.short_channel_id").String()
 	if scid == "0x0x0" {
 		// payment coming to this node, accept it
@@ -31,17 +30,9 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 
 	hash := params.Get("htlc.payment_hash").String()
 
-	p.Logf("got HTLC. amount=%s short_channel_id=%s hash=%s", amount, scid, hash)
 	for rds == nil || !data.Initialized {
 		p.Log("htlc_accepted: waiting until redis and filesystem are available.")
 		time.Sleep(1 * time.Second)
-	}
-
-	msatoshi, err := strconv.ParseInt(amount[:len(amount)-4], 10, 64)
-	if err != nil {
-		// I don't know what is happening
-		p.Logf("error parsing onion.forward_amount: %s - continue", err.Error())
-		return continueHTLC
 	}
 
 	bscid, err := decodeShortChannelId(scid)
@@ -53,7 +44,6 @@ func htlc_accepted(p *plugin.Plugin, params plugin.Params) (resp interface{}) {
 	id, ok := parseShortChannelId(bscid)
 	if !ok {
 		// it's not an invoice for an etleneum call or contract
-		p.Logf("failed to parse onion.short_channel_id - continue")
 		return continueHTLC
 	}
 
