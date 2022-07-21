@@ -202,7 +202,7 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(lnurl.ErrorResponse("failed to decode invoice."))
 		return
 	}
-	amount := inv.Get("msatoshi").Int()
+	amount := inv.Get("amount_msat").Int()
 
 	log.Debug().Str("bolt11", bolt11).Str("account", accountId).
 		Int64("amount", amount).
@@ -243,8 +243,8 @@ func lnurlWithdrawCallback(w http.ResponseWriter, r *http.Request) {
 
 		if payresp.Get("status").String() == "complete" {
 			// calculate actual fee
-			lnfee := payresp.Get("msatoshi_sent").Int() - payresp.Get("msatoshi").Int()
-			platformfee := int64(payresp.Get("msatoshi").Float() * 0.001)
+			lnfee := payresp.Get("amount_msat_sent").Int() - payresp.Get("amount_msat").Int()
+			platformfee := int64(payresp.Get("amount_msat").Float() * 0.001)
 			fee := lnfee + platformfee
 
 			// mark as fulfilled
